@@ -4,7 +4,7 @@ Mobile-first restaurant discovery and ordering platform for Afghanistan. Phase 2
 
 ## Requirements
 
-- Node.js 22.12 or newer
+- Node.js 20.19 or newer
 - npm
 - A development Neon PostgreSQL database
 - SMTP credentials for real email delivery
