@@ -8,6 +8,13 @@
       "when": 1789792523466,
       "tag": "0000_pale_butterfly",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789816306696,
+      "tag": "0001_nosy_deathbird",
+      "breakpoints": true
     }
   ]
 }

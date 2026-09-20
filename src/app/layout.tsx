@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   Store,
-  Compass,
+  Search,
+  Home,
   LayoutDashboard,
   UserRound,
   ShieldCheck,
@@ -39,6 +40,7 @@ export default async function Layout({
             </span>
             <span>
               Restaurant<span className="brand-light"> Social</span>
+              <small>Afghanistan’s food feed</small>
             </span>
           </Link>
           <div className="top-actions">
@@ -56,8 +58,12 @@ export default async function Layout({
             <p className="nav-caption">YOUR NEIGHBOURHOOD</p>
             <nav aria-label="Main navigation">
               <Link href="/">
-                <Compass size={21} />
+                <Home size={21} />
                 {t.discover}
+              </Link>
+              <Link href="/explore">
+                <Search size={21} />
+                Explore
               </Link>
               <Link href="/owner">
                 <LayoutDashboard size={21} />
@@ -95,8 +101,12 @@ export default async function Layout({
         </div>
         <nav className="mobile-nav" aria-label="Mobile navigation">
           <Link href="/">
-            <Compass size={21} />
+            <Home size={21} />
             {t.discover}
+          </Link>
+          <Link href="/explore">
+            <Search size={21} />
+            Explore
           </Link>
           <Link href="/owner">
             <LayoutDashboard size={21} />

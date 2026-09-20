@@ -70,6 +70,11 @@ export default async function Workspace({
                   : "Update your details using the review message, then submit again."}
         </p>
         <div className="row wrap">
+          {r.status !== "suspended" && (
+            <Link className="button" href={`/owner/${id}/posts`}>
+              Manage posts
+            </Link>
+          )}
           {owner && r.status !== "suspended" && (
             <Link className="button secondary" href={`/owner/${id}/edit`}>
               Edit restaurant details

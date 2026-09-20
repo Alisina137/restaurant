@@ -1,6 +1,6 @@
 # Restaurant Social
 
-Mobile-first restaurant discovery and ordering platform for Afghanistan. Phase 2 includes secure accounts, restaurant onboarding, admin review, public approved profiles and staff access controls.
+Mobile-first restaurant discovery and ordering platform for Afghanistan. Phase 3 adds a real restaurant publishing network: daily photo/text posts, Discover and Following feeds, restaurant search and filters, follows, likes, saves, reporting and administrator moderation.
 
 ## Requirements
 
@@ -8,14 +8,14 @@ Mobile-first restaurant discovery and ordering platform for Afghanistan. Phase 2
 - npm
 - A development Neon PostgreSQL database
 - SMTP credentials for real email delivery
-- Optional private S3-compatible bucket for restaurant images
+- Optional private S3-compatible bucket for restaurant and post images
 
 ## Local setup
 
 Use PowerShell from the project folder:
 
 ```powershell
-npm install
+npm ci
 Copy-Item .env.example .env.local
 ```
 
@@ -60,7 +60,19 @@ The script refuses to grant administrator access to an unverified account. Admin
 
 ## Image uploads
 
-Restaurant details work without image storage. To enable private photo uploads, configure all `S3_*` variables in `.env.local`. Uploads are decoded, size-limited, metadata-stripped, resized and re-encoded as WebP. The bucket must not be public; images are served through an authorization-aware application route.
+Restaurant details and text posts work without image storage. To enable private restaurant and post photo uploads, configure all `S3_*` variables in `.env.local`. Uploads are decoded, size-limited, metadata-stripped, resized and re-encoded as WebP. The bucket must not be public; images are served through authorization-aware application routes.
+
+## Phase 3 workflow
+
+After applying the migration, an approved restaurant can open its workspace and select **Manage posts**. Owners and staff can create drafts, add up to four photos and publish or archive updates. Customers can:
+
+- browse the paginated Discover feed or their Following feed;
+- search approved restaurants by name, area, city and cuisine;
+- filter by open status, delivery and pickup;
+- follow restaurants and like, save or report posts;
+- revisit saved posts from the account page.
+
+Administrators review open content reports from the admin dashboard. Menus and meal-linked post actions intentionally remain inactive until Phase 4.
 
 ## Verification commands
 
@@ -71,8 +83,8 @@ npm test
 npm run build
 ```
 
-See [Phase 2 verification](docs/PHASE-2-VERIFICATION.md) and [project state](docs/PROJECT-STATE.md) for exact results and remaining external checks.
+See [Phase 3 verification](docs/PHASE-3-VERIFICATION.md) and [project state](docs/PROJECT-STATE.md) for exact results and remaining external checks.
 
 ## Current limits
 
-Menus, posts, orders, HesabPay, subscriptions and delivery status are later phases. The current interface labels online ordering unavailable and does not simulate payments, ratings or orders.
+Menus, orders, HesabPay, subscriptions, delivery workflow and ratings are later phases. The current interface labels online ordering and meal search as upcoming and does not simulate payments, ratings, meals or orders.

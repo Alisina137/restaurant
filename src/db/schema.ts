@@ -114,6 +114,8 @@ export const restaurant = pgTable(
     address: text("address").notNull().default(""),
     phone: text("phone").notNull().default(""),
     cuisine: text("cuisine").notNull().default("Afghan"),
+    deliveryAvailable: boolean("delivery_available").notNull().default(false),
+    pickupAvailable: boolean("pickup_available").notNull().default(false),
     status: approval("status").notNull().default("draft"),
     reviewNote: text("review_note").notNull().default(""),
     hours: jsonb("hours").$type<OpeningDay[]>().notNull().default([]),
@@ -168,4 +170,126 @@ export const audit = pgTable(
     createdAt: created(),
   },
   (t) => [index("audit_restaurant_time_idx").on(t.restaurantId, t.createdAt)],
+);
+
+export const postStatus = pgEnum("post_status", [
+  "draft",
+  "published",
+  "archived",
+  "removed",
+]);
+export const reportReason = pgEnum("report_reason", [
+  "spam",
+  "misleading",
+  "inappropriate",
+  "other",
+]);
+export const reportStatus = pgEnum("report_status", [
+  "open",
+  "resolved",
+  "dismissed",
+]);
+export const post = pgTable(
+  "post",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    restaurantId: uuid("restaurant_id")
+      .notNull()
+      .references(() => restaurant.id, { onDelete: "cascade" }),
+    caption: text("caption").notNull(),
+    status: postStatus("status").notNull().default("draft"),
+    linkedMealId: uuid("linked_meal_id"),
+    version: integer("version").notNull().default(1),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [
+    index("post_restaurant_status_idx").on(
+      t.restaurantId,
+      t.status,
+      t.publishedAt,
+    ),
+    index("post_feed_idx").on(t.status, t.publishedAt, t.id),
+  ],
+);
+export const postMedia = pgTable(
+  "post_media",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => post.id, { onDelete: "cascade" }),
+    storageKey: text("storage_key").notNull().unique(),
+    position: integer("position").notNull().default(0),
+    createdAt: created(),
+  },
+  (t) => [uniqueIndex("post_media_position_idx").on(t.postId, t.position)],
+);
+export const follow = pgTable(
+  "follow",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    restaurantId: uuid("restaurant_id")
+      .notNull()
+      .references(() => restaurant.id, { onDelete: "cascade" }),
+    createdAt: created(),
+  },
+  (t) => [
+    uniqueIndex("follow_user_restaurant_idx").on(t.userId, t.restaurantId),
+  ],
+);
+export const postLike = pgTable(
+  "post_like",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => post.id, { onDelete: "cascade" }),
+    createdAt: created(),
+  },
+  (t) => [uniqueIndex("post_like_user_post_idx").on(t.userId, t.postId)],
+);
+export const savedPost = pgTable(
+  "saved_post",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => post.id, { onDelete: "cascade" }),
+    createdAt: created(),
+  },
+  (t) => [uniqueIndex("saved_post_user_post_idx").on(t.userId, t.postId)],
+);
+export const report = pgTable(
+  "report",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorId: text("actor_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => post.id, { onDelete: "cascade" }),
+    reason: reportReason("reason").notNull(),
+    detail: text("detail").notNull().default(""),
+    status: reportStatus("status").notNull().default("open"),
+    resolutionNote: text("resolution_note").notNull().default(""),
+    resolvedBy: text("resolved_by").references(() => user.id),
+    createdAt: created(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("report_actor_post_idx").on(t.actorId, t.postId),
+    index("report_status_created_idx").on(t.status, t.createdAt),
+  ],
 );
