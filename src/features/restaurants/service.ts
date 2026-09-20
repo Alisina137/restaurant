@@ -16,6 +16,8 @@ export const publicFields = {
   address: restaurant.address,
   phone: restaurant.phone,
   cuisine: restaurant.cuisine,
+  deliveryAvailable: restaurant.deliveryAvailable,
+  pickupAvailable: restaurant.pickupAvailable,
   hours: restaurant.hours,
 };
 export async function member(
@@ -93,13 +95,11 @@ export async function createRestaurant(
       await tx
         .insert(membership)
         .values({ userId: actor.id, restaurantId: r.id, role: "owner" });
-      await tx
-        .insert(audit)
-        .values({
-          actorId: actor.id,
-          restaurantId: r.id,
-          action: "restaurant_created",
-        });
+      await tx.insert(audit).values({
+        actorId: actor.id,
+        restaurantId: r.id,
+        action: "restaurant_created",
+      });
       return r;
     });
   } catch (e) {
@@ -148,13 +148,11 @@ export async function updateRestaurant(
           409,
           "This page changed or was suspended. Refresh before editing.",
         );
-      await tx
-        .insert(audit)
-        .values({
-          actorId: actor.id,
-          restaurantId: id,
-          action: "profile_updated_requires_review",
-        });
+      await tx.insert(audit).values({
+        actorId: actor.id,
+        restaurantId: id,
+        action: "profile_updated_requires_review",
+      });
       return r;
     });
   } catch (e) {
@@ -194,13 +192,11 @@ export async function submitRestaurant(
         409,
         "This page is not ready to submit or has changed. Refresh and try again.",
       );
-    await tx
-      .insert(audit)
-      .values({
-        actorId: actor.id,
-        restaurantId: id,
-        action: "submitted_for_review",
-      });
+    await tx.insert(audit).values({
+      actorId: actor.id,
+      restaurantId: id,
+      action: "submitted_for_review",
+    });
     return r;
   });
 }
@@ -250,14 +246,12 @@ export async function reviewRestaurant(
         409,
         "The review state has changed. Refresh and try again.",
       );
-    await tx
-      .insert(audit)
-      .values({
-        actorId: actor.id,
-        restaurantId: id,
-        action: `review_${input.decision}`,
-        detail: input.note,
-      });
+    await tx.insert(audit).values({
+      actorId: actor.id,
+      restaurantId: id,
+      action: `review_${input.decision}`,
+      detail: input.note,
+    });
     return r;
   });
 }
@@ -289,14 +283,12 @@ export async function addStaff(
     .returning();
   if (!result)
     throw new HttpError(409, "This person already belongs to the restaurant.");
-  await db
-    .insert(audit)
-    .values({
-      actorId: actor.id,
-      restaurantId: id,
-      action: "staff_added",
-      detail: target.id,
-    });
+  await db.insert(audit).values({
+    actorId: actor.id,
+    restaurantId: id,
+    action: "staff_added",
+    detail: target.id,
+  });
   return { id: result.id };
 }
 export async function removeStaff(
@@ -320,14 +312,12 @@ export async function removeStaff(
       )
       .returning();
     if (!removed) throw new HttpError(404, "Staff membership not found.");
-    await tx
-      .insert(audit)
-      .values({
-        actorId: actor.id,
-        restaurantId: id,
-        action: "staff_removed",
-        detail: removed.userId,
-      });
+    await tx.insert(audit).values({
+      actorId: actor.id,
+      restaurantId: id,
+      action: "staff_removed",
+      detail: removed.userId,
+    });
     return { removed: true };
   });
 }

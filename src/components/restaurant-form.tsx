@@ -18,6 +18,8 @@ type Profile = {
   address: string;
   phone: string;
   cuisine: string;
+  deliveryAvailable: boolean;
+  pickupAvailable: boolean;
   hours: OpeningDay[];
   version: number;
 };
@@ -50,7 +52,13 @@ export function RestaurantForm({ initial }: { initial?: Profile }) {
           ? `/api/v1/owner/restaurants/${initial.id}`
           : "/api/v1/owner/restaurants",
         initial ? "PATCH" : "POST",
-        { ...data, hours, version: initial?.version },
+        {
+          ...data,
+          deliveryAvailable: d.get("deliveryAvailable") === "on",
+          pickupAvailable: d.get("pickupAvailable") === "on",
+          hours,
+          version: initial?.version,
+        },
       );
       router.push(`/owner/${r.id}`);
       router.refresh();
@@ -170,6 +178,30 @@ export function RestaurantForm({ initial }: { initial?: Profile }) {
             Customers will see this number on your page.
           </span>
         </label>
+        <div className="availability-grid">
+          <label className="availability-option">
+            <input
+              type="checkbox"
+              name="deliveryAvailable"
+              defaultChecked={initial?.deliveryAvailable}
+            />
+            <span>
+              <strong>Restaurant delivery</strong>
+              <small>Customers can discover that you currently deliver.</small>
+            </span>
+          </label>
+          <label className="availability-option">
+            <input
+              type="checkbox"
+              name="pickupAvailable"
+              defaultChecked={initial?.pickupAvailable}
+            />
+            <span>
+              <strong>Customer pickup</strong>
+              <small>Customers can collect food from your location.</small>
+            </span>
+          </label>
+        </div>
       </section>
       <section className="card content-card stack">
         <p className="eyebrow">03 / OPENING HOURS</p>

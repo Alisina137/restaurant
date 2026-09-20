@@ -1,7 +1,7 @@
 {
   "name": "restaurant",
   "version": "1.0.0",
-  "description": "Restaurant Social — Phase 2 foundation",
+  "description": "Restaurant Social — mobile-first restaurant discovery and ordering",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -50,7 +50,7 @@
     "tailwindcss": "4.3.3",
     "tsx": "4.23.13",
     "typescript": "6.0.3",
-    "vitest": "4.0.17"
+    "vitest": "4.1.11"
   },
   "private": true,
   "engines": {

@@ -36,6 +36,8 @@ export const profileInput = z.object({
       "Use an Afghan phone number such as +93700123456.",
     ),
   cuisine: z.enum(["Afghan", "Pizza", "Burgers", "Cafe", "Asian", "Other"]),
+  deliveryAvailable: z.boolean().default(false),
+  pickupAvailable: z.boolean().default(false),
   hours: z
     .array(day)
     .length(7)
