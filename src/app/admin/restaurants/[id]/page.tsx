@@ -4,7 +4,7 @@ import { z } from "zod";
 import { pageUser } from "@/lib/session";
 import { runtime } from "@/lib/runtime";
 import { admin } from "@/features/restaurants/service";
-import { restaurant, media, audit } from "@/db/schema";
+import { restaurant, restaurantRevision, media, audit } from "@/db/schema";
 import { Title, Status } from "@/components/ui";
 import { ReviewForm } from "@/components/owner-actions";
 export default async function Review({
@@ -21,8 +21,16 @@ export default async function Review({
   }
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) notFound();
-  const [r] = await db.select().from(restaurant).where(eq(restaurant.id, id));
-  if (!r) notFound();
+  const [[published], [revision]] = await Promise.all([
+    db.select().from(restaurant).where(eq(restaurant.id, id)),
+    db
+      .select()
+      .from(restaurantRevision)
+      .where(eq(restaurantRevision.restaurantId, id)),
+  ]);
+  if (!published) notFound();
+  const r = revision || published;
+  const state = revision?.status || published.status;
   const photos = await db
     .select()
     .from(media)
@@ -35,10 +43,22 @@ export default async function Review({
     .limit(20);
   return (
     <>
-      <Title eyebrow="RESTAURANT REVIEW" title={r.name} />
+      <Title eyebrow="RESTAURANT REVIEW" title={r.name}>
+        {revision && (
+          <p>
+            This is a proposed update. The current approved page is still live.
+          </p>
+        )}
+      </Title>
       <div className="two-column">
         <section className="card content-card stack">
-          <Status value={r.status} />
+          <Status value={state} />
+          {revision && (
+            <p className="notice">
+              Approving replaces the published details. Requesting changes keeps
+              the current page unchanged.
+            </p>
+          )}
           <p>{r.description}</p>
           <dl className="details">
             <dt>Location</dt>
@@ -63,15 +83,15 @@ export default async function Review({
             <img
               key={p.id}
               className="preview-photo"
-              src={`/api/media/${p.id}`}
+              src={`/api/media/${p.id}?draft=1`}
               alt={`${r.name} ${p.kind}`}
             />
           ))}
         </section>
         <section className="card content-card stack">
           <h2>Review decision</h2>
-          {["pending_review", "approved", "suspended"].includes(r.status) ? (
-            <ReviewForm id={id} version={r.version} status={r.status} />
+          {["pending_review", "approved", "suspended"].includes(state) ? (
+            <ReviewForm id={id} version={r.version} status={state} />
           ) : (
             <p>This restaurant has not submitted its current draft.</p>
           )}

@@ -29,7 +29,7 @@ export default async function Owner() {
         </Empty>
       ) : (
         <div className="restaurant-grid">
-          {rows.map(({ restaurant: r, role }) => (
+          {rows.map(({ restaurant: r, role, revision }) => (
             <Link
               key={r.id}
               href={`/owner/${r.id}`}
@@ -37,14 +37,17 @@ export default async function Owner() {
             >
               <div className="row spread">
                 <h2>{r.name}</h2>
-                <Status value={r.status} />
+                <Status value={revision?.status || r.status} />
               </div>
               <p className="muted">
                 {r.area}, {r.city}
               </p>
               <span className="small">
-                {role === "owner" ? "Owner access" : "Staff access"} · Manage
-                page →
+                {revision
+                  ? "Public page live · update in review workflow"
+                  : role === "owner"
+                    ? "Owner access · Manage page →"
+                    : "Staff access · Manage page →"}
               </span>
             </Link>
           ))}

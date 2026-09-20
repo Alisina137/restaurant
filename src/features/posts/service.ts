@@ -6,6 +6,7 @@ import {
   eq,
   exists,
   inArray,
+  isNotNull,
   lt,
   or,
   sql,
@@ -16,6 +17,7 @@ import {
   audit,
   follow,
   media,
+  meal,
   membership,
   post,
   postLike,
@@ -150,65 +152,88 @@ export async function listFeed(
   if (!page.length) return { items: [], nextCursor: null };
   const ids = page.map((item) => item.id);
   const restaurantIds = [...new Set(page.map((item) => item.restaurantId))];
-  const [images, logos, likeCounts, viewerLikes, viewerSaves, viewerFollows] =
-    await Promise.all([
-      db
-        .select({
-          id: postMedia.id,
-          postId: postMedia.postId,
-          position: postMedia.position,
-        })
-        .from(postMedia)
-        .where(inArray(postMedia.postId, ids))
-        .orderBy(asc(postMedia.position)),
-      db
-        .select({ id: media.id, restaurantId: media.restaurantId })
-        .from(media)
-        .where(
-          and(
-            inArray(media.restaurantId, restaurantIds),
-            eq(media.kind, "logo"),
-          ),
+  const linkedMealIds = page
+    .map((item) => item.linkedMealId)
+    .filter((id): id is string => Boolean(id));
+  const [
+    images,
+    logos,
+    linkedMeals,
+    likeCounts,
+    viewerLikes,
+    viewerSaves,
+    viewerFollows,
+  ] = await Promise.all([
+    db
+      .select({
+        id: postMedia.id,
+        postId: postMedia.postId,
+        position: postMedia.position,
+      })
+      .from(postMedia)
+      .where(inArray(postMedia.postId, ids))
+      .orderBy(asc(postMedia.position)),
+    db
+      .select({ id: media.id, restaurantId: media.restaurantId })
+      .from(media)
+      .where(
+        and(
+          inArray(media.restaurantId, restaurantIds),
+          eq(media.kind, "logo"),
+          isNotNull(media.storageKey),
         ),
-      db
-        .select({ postId: postLike.postId, value: count() })
-        .from(postLike)
-        .where(inArray(postLike.postId, ids))
-        .groupBy(postLike.postId),
-      options.actorId
-        ? db
-            .select({ postId: postLike.postId })
-            .from(postLike)
-            .where(
-              and(
-                eq(postLike.userId, options.actorId),
-                inArray(postLike.postId, ids),
-              ),
-            )
-        : Promise.resolve([]),
-      options.actorId
-        ? db
-            .select({ postId: savedPost.postId })
-            .from(savedPost)
-            .where(
-              and(
-                eq(savedPost.userId, options.actorId),
-                inArray(savedPost.postId, ids),
-              ),
-            )
-        : Promise.resolve([]),
-      options.actorId
-        ? db
-            .select({ restaurantId: follow.restaurantId })
-            .from(follow)
-            .where(
-              and(
-                eq(follow.userId, options.actorId),
-                inArray(follow.restaurantId, restaurantIds),
-              ),
-            )
-        : Promise.resolve([]),
-    ]);
+      ),
+    linkedMealIds.length
+      ? db
+          .select({
+            id: meal.id,
+            restaurantId: meal.restaurantId,
+            name: meal.name,
+            priceMinor: meal.priceMinor,
+            imageKey: meal.imageKey,
+          })
+          .from(meal)
+          .where(and(inArray(meal.id, linkedMealIds), eq(meal.available, true)))
+      : Promise.resolve([]),
+    db
+      .select({ postId: postLike.postId, value: count() })
+      .from(postLike)
+      .where(inArray(postLike.postId, ids))
+      .groupBy(postLike.postId),
+    options.actorId
+      ? db
+          .select({ postId: postLike.postId })
+          .from(postLike)
+          .where(
+            and(
+              eq(postLike.userId, options.actorId),
+              inArray(postLike.postId, ids),
+            ),
+          )
+      : Promise.resolve([]),
+    options.actorId
+      ? db
+          .select({ postId: savedPost.postId })
+          .from(savedPost)
+          .where(
+            and(
+              eq(savedPost.userId, options.actorId),
+              inArray(savedPost.postId, ids),
+            ),
+          )
+      : Promise.resolve([]),
+    options.actorId
+      ? db
+          .select({ restaurantId: follow.restaurantId })
+          .from(follow)
+          .where(
+            and(
+              eq(follow.userId, options.actorId),
+              inArray(follow.restaurantId, restaurantIds),
+            ),
+          )
+      : Promise.resolve([]),
+  ]);
 
   const liked = new Set(viewerLikes.map((item) => item.postId));
   const saved = new Set(viewerSaves.map((item) => item.postId));
@@ -219,6 +244,7 @@ export async function listFeed(
   const logoByRestaurant = new Map(
     logos.map((item) => [item.restaurantId, item.id]),
   );
+  const mealById = new Map(linkedMeals.map((item) => [item.id, item]));
   const mediaByPost = new Map<string, { id: string; position: number }[]>();
   for (const image of images) {
     const current = mediaByPost.get(image.postId) || [];
@@ -235,8 +261,11 @@ export async function listFeed(
     liked: liked.has(item.id),
     saved: saved.has(item.id),
     following: followed.has(item.restaurantId),
-    // Meal catalog arrives in Phase 4. Unknown/stale references are never linked.
-    linkedMeal: null,
+    linkedMeal:
+      item.linkedMealId &&
+      mealById.get(item.linkedMealId)?.restaurantId === item.restaurantId
+        ? mealById.get(item.linkedMealId)!
+        : null,
   }));
   const last = items.at(-1);
   return {
@@ -298,10 +327,27 @@ export async function createPost(
     .where(eq(restaurant.id, restaurantId));
   if (!r || r.status === "suspended")
     throw new HttpError(409, "This restaurant cannot create posts right now.");
+  if (input.linkedMealId) {
+    const [linked] = await db
+      .select({ id: meal.id })
+      .from(meal)
+      .where(
+        and(
+          eq(meal.id, input.linkedMealId),
+          eq(meal.restaurantId, restaurantId),
+        ),
+      );
+    if (!linked)
+      throw new HttpError(400, "Choose a meal from this restaurant.");
+  }
   return db.transaction(async (tx) => {
     const [created] = await tx
       .insert(post)
-      .values({ restaurantId, caption: input.caption })
+      .values({
+        restaurantId,
+        caption: input.caption,
+        linkedMealId: input.linkedMealId || null,
+      })
       .returning();
     await tx.insert(audit).values({
       actorId: actor.id,
@@ -324,10 +370,24 @@ export async function updatePost(
   await member(db, actor, restaurantId);
   z.string().uuid().parse(postId);
   const input = updatePostInput.parse(raw);
+  if (input.linkedMealId) {
+    const [linked] = await db
+      .select({ id: meal.id })
+      .from(meal)
+      .where(
+        and(
+          eq(meal.id, input.linkedMealId),
+          eq(meal.restaurantId, restaurantId),
+        ),
+      );
+    if (!linked)
+      throw new HttpError(400, "Choose a meal from this restaurant.");
+  }
   const [updated] = await db
     .update(post)
     .set({
       caption: input.caption,
+      linkedMealId: input.linkedMealId || null,
       version: input.version + 1,
       updatedAt: new Date(),
     })

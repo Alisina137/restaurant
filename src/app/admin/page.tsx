@@ -5,7 +5,7 @@ import { pageUser } from "@/lib/session";
 import { runtime } from "@/lib/runtime";
 import { admin } from "@/features/restaurants/service";
 import { listReports } from "@/features/posts/service";
-import { restaurant } from "@/db/schema";
+import { restaurant, restaurantRevision } from "@/db/schema";
 import { Title, Status, Empty } from "@/components/ui";
 import { ReportReview } from "@/components/report-review";
 import { Flag, ShieldCheck, Store } from "lucide-react";
@@ -17,7 +17,7 @@ export default async function Admin() {
   } catch {
     notFound();
   }
-  const [rows, reports] = await Promise.all([
+  const [restaurants, revisions, reports] = await Promise.all([
     db
       .select()
       .from(restaurant)
@@ -25,8 +25,28 @@ export default async function Admin() {
         inArray(restaurant.status, ["pending_review", "approved", "suspended"]),
       )
       .orderBy(desc(restaurant.updatedAt)),
+    db
+      .select()
+      .from(restaurantRevision)
+      .where(inArray(restaurantRevision.status, ["pending_review"]))
+      .orderBy(desc(restaurantRevision.updatedAt)),
     listReports(db, actor),
   ]);
+  const revisionMap = new Map(
+    revisions.map((item) => [item.restaurantId, item]),
+  );
+  const rows = restaurants.map((item) => {
+    const revision = revisionMap.get(item.id);
+    return revision
+      ? {
+          ...item,
+          name: revision.name,
+          area: revision.area,
+          city: revision.city,
+          status: revision.status,
+        }
+      : item;
+  });
   const openReports = reports.filter((item) => item.status === "open");
   return (
     <>

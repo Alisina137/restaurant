@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { pageUser } from "@/lib/session";
 import { runtime } from "@/lib/runtime";
-import { member } from "@/features/restaurants/service";
-import { restaurant, media, membership, user } from "@/db/schema";
+import { managementProfile } from "@/features/restaurants/service";
+import { media, membership, user } from "@/db/schema";
 import { Title, Status } from "@/components/ui";
 import {
   SubmitReview,
@@ -22,10 +22,17 @@ export default async function Workspace({
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) notFound();
   const { db } = runtime();
-  const m = await member(db, actor, id).catch(() => null);
+  const result = await managementProfile(db, actor, id).catch(() => null);
+  if (!result) notFound();
+  const { restaurant: published, revision, profile: r } = result;
+  const m = await db
+    .select()
+    .from(membership)
+    .where(
+      and(eq(membership.restaurantId, id), eq(membership.userId, actor.id)),
+    )
+    .then((rows) => rows[0]);
   if (!m) notFound();
-  const [r] = await db.select().from(restaurant).where(eq(restaurant.id, id));
-  if (!r) notFound();
   const photos = await db
     .select()
     .from(media)
@@ -41,6 +48,7 @@ export default async function Workspace({
     .innerJoin(user, eq(user.id, membership.userId))
     .where(eq(membership.restaurantId, id));
   const owner = m.role === "owner";
+  const state = revision?.status || published.status;
   return (
     <>
       <Title eyebrow="RESTAURANT WORKSPACE" title={r.name}>
@@ -50,7 +58,7 @@ export default async function Workspace({
       </Title>
       <div className="card content-card stack">
         <div className="row spread wrap">
-          <Status value={r.status} />
+          <Status value={state} />
           <span className="small muted">
             {owner ? "Owner" : "Staff"} access
           </span>
@@ -58,33 +66,49 @@ export default async function Workspace({
         {r.reviewNote && (
           <p className="notice">Review message: {r.reviewNote}</p>
         )}
+        {revision && (
+          <p className="notice success-notice">
+            Your approved restaurant remains public with its current details
+            while this update is reviewed. Rejected changes will not alter the
+            public page.
+          </p>
+        )}
         <p className="muted">
-          {r.status === "draft"
-            ? "Your page is private. Add any photos, then submit it for review."
-            : r.status === "pending_review"
-              ? "Your page is being reviewed. You’ll see the decision here."
-              : r.status === "approved"
-                ? "Your page is public. Online ordering is not available yet."
-                : r.status === "suspended"
+          {state === "draft"
+            ? result.published
+              ? "Your update is saved as a draft. Submit it when it is ready."
+              : "Your page is private. Add any photos, then submit it for review."
+            : state === "pending_review"
+              ? result.published
+                ? "Your update is being reviewed; the approved page is still public."
+                : "Your page is being reviewed. You’ll see the decision here."
+              : state === "approved"
+                ? "Your page is public and ready for a menu."
+                : state === "suspended"
                   ? "This page is suspended. Contact your administrator."
                   : "Update your details using the review message, then submit again."}
         </p>
         <div className="row wrap">
-          {r.status !== "suspended" && (
+          {published.status === "approved" && (
+            <Link className="button" href={`/owner/${id}/menu`}>
+              Manage menu & orders
+            </Link>
+          )}
+          {state !== "suspended" && (
             <Link className="button" href={`/owner/${id}/posts`}>
               Manage posts
             </Link>
           )}
-          {owner && r.status !== "suspended" && (
+          {owner && state !== "suspended" && state !== "pending_review" && (
             <Link className="button secondary" href={`/owner/${id}/edit`}>
               Edit restaurant details
             </Link>
           )}
-          {owner && ["draft", "changes_requested"].includes(r.status) && (
+          {owner && ["draft", "changes_requested"].includes(state) && (
             <SubmitReview id={id} version={r.version} />
           )}{" "}
-          {r.status === "approved" && (
-            <Link className="button" href={`/restaurants/${r.slug}`}>
+          {published.status === "approved" && (
+            <Link className="button" href={`/restaurants/${published.slug}`}>
               View public page
             </Link>
           )}
@@ -96,12 +120,12 @@ export default async function Workspace({
           {photos.map((p) => (
             <img
               className="preview-photo"
-              src={`/api/media/${p.id}`}
+              src={`/api/media/${p.id}?draft=1`}
               alt={`${r.name} ${p.kind}`}
               key={p.id}
             />
           ))}
-          {owner && r.status !== "suspended" && (
+          {owner && state !== "suspended" && state !== "pending_review" && (
             <>
               {!storageConfigured() && (
                 <p className="notice">
@@ -110,8 +134,8 @@ export default async function Workspace({
                 </p>
               )}
               <p className="small muted">
-                JPEG, PNG or WebP, up to 5 MB. Uploading a new photo returns the
-                page to draft for review.
+                JPEG, PNG or WebP, up to 5 MB. New photos stay private until the
+                update is approved.
               </p>
               <PhotoUpload id={id} kind="cover" enabled={storageConfigured()} />
               <PhotoUpload id={id} kind="logo" enabled={storageConfigured()} />

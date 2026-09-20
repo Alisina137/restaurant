@@ -18,6 +18,8 @@ import { configured } from "@/lib/env";
 import { currentUser } from "@/lib/session";
 import { FollowButton } from "@/components/social-actions";
 import { PostCard } from "@/components/post-card";
+import { publicMenu } from "@/features/catalog/service";
+import { OrderMenu } from "@/components/order-menu";
 export default async function PublicRestaurant({
   params,
 }: {
@@ -28,9 +30,10 @@ export default async function PublicRestaurant({
   const r = await getPublic(db, (await params).slug);
   if (!r) notFound();
   const actor = await currentUser().catch(() => null);
-  const [social, feed] = await Promise.all([
+  const [social, feed, menu] = await Promise.all([
     restaurantSocial(db, r.id, actor?.id),
     listFeed(db, { restaurantId: r.id, actorId: actor?.id, limit: 8 }),
+    publicMenu(db, r.id),
   ]);
   const cover = r.images.find((i) => i.kind === "cover");
   const logo = r.images.find((i) => i.kind === "logo");
@@ -93,15 +96,29 @@ export default async function PublicRestaurant({
       </section>
 
       <nav className="profile-tabs" aria-label="Restaurant page sections">
+        <a href="#menu">
+          Menu{" "}
+          <span>
+            {menu.categories.reduce(
+              (total, category) => total + category.meals.length,
+              0,
+            )}
+          </span>
+        </a>
         <a href="#updates">
           Updates <span>{feed.items.length}</span>
         </a>
         <a href="#about">About</a>
         <a href="#hours">Hours</a>
-        <span>
-          Menu <small>Phase 4</small>
-        </span>
       </nav>
+
+      <OrderMenu
+        restaurant={menu.restaurant}
+        categories={menu.categories}
+        zones={menu.zones}
+        signedIn={Boolean(actor)}
+        customerName={actor?.name}
+      />
 
       <div className="restaurant-content-grid">
         <section id="updates" className="restaurant-updates">
@@ -170,15 +187,6 @@ export default async function PublicRestaurant({
                   </span>
                 </div>
               ))}
-          </section>
-          <section className="ordering-coming-card">
-            <ShoppingBag size={22} />
-            <div>
-              <h3>Online ordering is coming next.</h3>
-              <p>
-                Menus, meal options and restaurant delivery arrive in Phase 4.
-              </p>
-            </div>
           </section>
         </aside>
       </div>

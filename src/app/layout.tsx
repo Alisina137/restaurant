@@ -8,6 +8,7 @@ import {
   UserRound,
   ShieldCheck,
   UtensilsCrossed,
+  ReceiptText,
 } from "lucide-react";
 import { currentUser } from "@/lib/session";
 import { getLocale, messages } from "@/lib/i18n";
@@ -73,6 +74,12 @@ export default async function Layout({
                 <UserRound size={21} />
                 {t.account}
               </Link>
+              {actor && (
+                <Link href="/orders">
+                  <ReceiptText size={21} />
+                  Orders
+                </Link>
+              )}
               {actor?.isAdmin && (
                 <Link href="/admin">
                   <ShieldCheck size={21} />
@@ -116,6 +123,12 @@ export default async function Layout({
             <UserRound size={21} />
             {t.account}
           </Link>
+          {actor && (
+            <Link href="/orders">
+              <ReceiptText size={21} />
+              Orders
+            </Link>
+          )}
           {actor?.isAdmin && (
             <Link href="/admin">
               <ShieldCheck size={21} />
