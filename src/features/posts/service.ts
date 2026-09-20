@@ -5,9 +5,11 @@ import {
   desc,
   eq,
   exists,
+  gt,
   inArray,
   isNotNull,
   lt,
+  lte,
   or,
   sql,
 } from "drizzle-orm";
@@ -16,6 +18,7 @@ import type { Database } from "@/db";
 import {
   audit,
   follow,
+  freshOffer,
   media,
   meal,
   membership,
@@ -159,6 +162,7 @@ export async function listFeed(
     images,
     logos,
     linkedMeals,
+    liveOffers,
     likeCounts,
     viewerLikes,
     viewerSaves,
@@ -195,6 +199,18 @@ export async function listFeed(
           .from(meal)
           .where(and(inArray(meal.id, linkedMealIds), eq(meal.available, true)))
       : Promise.resolve([]),
+    db
+      .select()
+      .from(freshOffer)
+      .where(
+        and(
+          inArray(freshOffer.postId, ids),
+          eq(freshOffer.active, true),
+          lte(freshOffer.startsAt, new Date()),
+          gt(freshOffer.endsAt, new Date()),
+          gt(freshOffer.stockRemaining, 0),
+        ),
+      ),
     db
       .select({ postId: postLike.postId, value: count() })
       .from(postLike)
@@ -245,6 +261,7 @@ export async function listFeed(
     logos.map((item) => [item.restaurantId, item.id]),
   );
   const mealById = new Map(linkedMeals.map((item) => [item.id, item]));
+  const offerByPost = new Map(liveOffers.map((item) => [item.postId, item]));
   const mediaByPost = new Map<string, { id: string; position: number }[]>();
   for (const image of images) {
     const current = mediaByPost.get(image.postId) || [];
@@ -266,6 +283,7 @@ export async function listFeed(
       mealById.get(item.linkedMealId)?.restaurantId === item.restaurantId
         ? mealById.get(item.linkedMealId)!
         : null,
+    freshToday: offerByPost.get(item.id) || null,
   }));
   const last = items.at(-1);
   return {
@@ -285,7 +303,7 @@ export async function listOwnedPosts(
   actor: Actor,
   restaurantId: string,
 ) {
-  await member(db, actor, restaurantId);
+  await member(db, actor, restaurantId, "posts");
   const rows = await db
     .select()
     .from(post)
@@ -306,10 +324,80 @@ export async function listOwnedPosts(
       ),
     )
     .orderBy(asc(postMedia.position));
+  const offers = await db
+    .select()
+    .from(freshOffer)
+    .where(
+      inArray(
+        freshOffer.postId,
+        rows.map((item) => item.id),
+      ),
+    );
   return rows.map((item) => ({
     ...item,
     images: images.filter((image) => image.postId === item.id),
+    freshOffer: offers.find((offer) => offer.postId === item.id) || null,
   }));
+}
+
+async function syncFreshOffer(
+  tx: Database,
+  restaurantId: string,
+  postId: string,
+  mealId: string | null | undefined,
+  value:
+    | {
+        availableQuantity: number;
+        startsAt: string;
+        endsAt: string;
+        specialPriceMinor: number | null;
+      }
+    | null
+    | undefined,
+) {
+  // Older clients do not know about Fresh Today. Omitting the field must not
+  // silently remove an offer that was configured by a newer client.
+  if (value === undefined) return;
+  if (value === null) {
+    await tx.delete(freshOffer).where(eq(freshOffer.postId, postId));
+    return;
+  }
+  if (!mealId) throw new HttpError(400, "Fresh Today requires a linked meal.");
+  const [existing] = await tx
+    .select()
+    .from(freshOffer)
+    .where(eq(freshOffer.postId, postId));
+  const sold = existing
+    ? Math.max(0, existing.stockTotal - existing.stockRemaining)
+    : 0;
+  const stockRemaining = Math.max(0, value.availableQuantity - sold);
+  await tx
+    .insert(freshOffer)
+    .values({
+      restaurantId,
+      postId,
+      mealId,
+      specialPriceMinor: value.specialPriceMinor,
+      stockTotal: value.availableQuantity,
+      stockRemaining,
+      startsAt: new Date(value.startsAt),
+      endsAt: new Date(value.endsAt),
+      active: true,
+    })
+    .onConflictDoUpdate({
+      target: freshOffer.postId,
+      set: {
+        mealId,
+        specialPriceMinor: value.specialPriceMinor,
+        stockTotal: value.availableQuantity,
+        stockRemaining,
+        startsAt: new Date(value.startsAt),
+        endsAt: new Date(value.endsAt),
+        active: true,
+        version: existing ? existing.version + 1 : 1,
+        updatedAt: new Date(),
+      },
+    });
 }
 
 export async function createPost(
@@ -319,7 +407,7 @@ export async function createPost(
   raw: unknown,
 ) {
   verified(actor);
-  await member(db, actor, restaurantId);
+  await member(db, actor, restaurantId, "posts");
   const input = captionInput.parse(raw);
   const [r] = await db
     .select({ status: restaurant.status })
@@ -349,6 +437,13 @@ export async function createPost(
         linkedMealId: input.linkedMealId || null,
       })
       .returning();
+    await syncFreshOffer(
+      tx as unknown as Database,
+      restaurantId,
+      created.id,
+      input.linkedMealId,
+      input.freshOffer,
+    );
     await tx.insert(audit).values({
       actorId: actor.id,
       restaurantId,
@@ -367,7 +462,7 @@ export async function updatePost(
   raw: unknown,
 ) {
   verified(actor);
-  await member(db, actor, restaurantId);
+  await member(db, actor, restaurantId, "posts");
   z.string().uuid().parse(postId);
   const input = updatePostInput.parse(raw);
   if (input.linkedMealId) {
@@ -383,26 +478,41 @@ export async function updatePost(
     if (!linked)
       throw new HttpError(400, "Choose a meal from this restaurant.");
   }
-  const [updated] = await db
-    .update(post)
-    .set({
-      caption: input.caption,
-      linkedMealId: input.linkedMealId || null,
-      version: input.version + 1,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(post.id, postId),
-        eq(post.restaurantId, restaurantId),
-        eq(post.version, input.version),
-        sql`${post.status} <> 'removed'`,
-      ),
-    )
-    .returning();
-  if (!updated)
-    throw new HttpError(409, "This post changed. Refresh before editing it.");
-  return updated;
+  return db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(post)
+      .set({
+        caption: input.caption,
+        linkedMealId: input.linkedMealId || null,
+        version: input.version + 1,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(post.id, postId),
+          eq(post.restaurantId, restaurantId),
+          eq(post.version, input.version),
+          sql`${post.status} <> 'removed'`,
+        ),
+      )
+      .returning();
+    if (!updated)
+      throw new HttpError(409, "This post changed. Refresh before editing it.");
+    await syncFreshOffer(
+      tx as unknown as Database,
+      restaurantId,
+      postId,
+      input.linkedMealId,
+      input.freshOffer,
+    );
+    await tx.insert(audit).values({
+      actorId: actor.id,
+      restaurantId,
+      action: "post_content_updated",
+      detail: postId,
+    });
+    return updated;
+  });
 }
 
 export async function changePostStatus(
@@ -413,7 +523,7 @@ export async function changePostStatus(
   raw: unknown,
 ) {
   verified(actor);
-  await member(db, actor, restaurantId);
+  await member(db, actor, restaurantId, "posts");
   z.string().uuid().parse(postId);
   const input = postActionInput.parse(raw);
   const [r] = await db

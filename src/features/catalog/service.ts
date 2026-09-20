@@ -1,13 +1,17 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lte } from "drizzle-orm";
 import type { Database } from "@/db";
 import {
+  audit,
   deliveryZone,
   extraGroup,
   extraOption,
+  freshOffer,
   meal,
   mealVariant,
   menuCategory,
+  post,
   restaurant,
+  savedMeal,
 } from "@/db/schema";
 import type { Actor } from "@/lib/session";
 import { HttpError } from "@/lib/http";
@@ -109,9 +113,13 @@ async function menuRows(db: Database, restaurantId: string, owner = false) {
   }));
 }
 
-export async function publicMenu(db: Database, restaurantId: string) {
+export async function publicMenu(
+  db: Database,
+  restaurantId: string,
+  actorId?: string,
+) {
   const record = await approvedRestaurant(db, restaurantId);
-  const [categories, zones] = await Promise.all([
+  const [categories, zones, offers] = await Promise.all([
     menuRows(db, restaurantId),
     db
       .select()
@@ -123,17 +131,71 @@ export async function publicMenu(db: Database, restaurantId: string) {
         ),
       )
       .orderBy(asc(deliveryZone.name)),
+    db
+      .select({
+        id: freshOffer.id,
+        mealId: freshOffer.mealId,
+        specialPriceMinor: freshOffer.specialPriceMinor,
+        stockRemaining: freshOffer.stockRemaining,
+        endsAt: freshOffer.endsAt,
+      })
+      .from(freshOffer)
+      .innerJoin(post, eq(post.id, freshOffer.postId))
+      .where(
+        and(
+          eq(freshOffer.restaurantId, restaurantId),
+          eq(freshOffer.active, true),
+          lte(freshOffer.startsAt, new Date()),
+          gt(freshOffer.endsAt, new Date()),
+          gt(freshOffer.stockRemaining, 0),
+          eq(post.status, "published"),
+        ),
+      )
+      .orderBy(desc(freshOffer.endsAt)),
   ]);
+  const mealIds = categories.flatMap((category) =>
+    category.meals.map((item) => item.id),
+  );
+  const saved =
+    actorId && mealIds.length
+      ? await db
+          .select({ mealId: savedMeal.mealId })
+          .from(savedMeal)
+          .where(
+            and(
+              eq(savedMeal.userId, actorId),
+              inArray(savedMeal.mealId, mealIds),
+            ),
+          )
+      : [];
+  const savedIds = new Set(saved.map((item) => item.mealId));
+  const offerByMeal = new Map(
+    offers.map((item) => [item.mealId, item] as const),
+  );
   return {
     restaurant: {
       id: record.id,
       name: record.name,
       slug: record.slug,
       acceptingOrders: record.acceptingOrders,
+      kitchenState: record.kitchenState,
       deliveryAvailable: record.deliveryAvailable,
       pickupAvailable: record.pickupAvailable,
+      deliveryOrdersEnabled: record.deliveryOrdersEnabled,
+      pickupOrdersEnabled: record.pickupOrdersEnabled,
+      prepTimeMin: record.prepTimeMin,
+      prepTimeMax: record.prepTimeMax,
+      availabilityNote: record.availabilityNote,
+      availabilityUpdatedAt: record.availabilityUpdatedAt,
     },
-    categories,
+    categories: categories.map((category) => ({
+      ...category,
+      meals: category.meals.map((item) => ({
+        ...item,
+        saved: savedIds.has(item.id),
+        freshOffer: offerByMeal.get(item.id) || null,
+      })),
+    })),
     zones,
   };
 }
@@ -169,7 +231,7 @@ export async function saveCategory(
   id?: string,
 ) {
   verified(actor);
-  await member(db, actor, restaurantId);
+  await member(db, actor, restaurantId, "menu");
   const input = categoryInput.parse(raw);
   if (id) z.string().uuid().parse(id);
   try {
@@ -207,7 +269,7 @@ export async function saveMeal(
   id?: string,
 ) {
   verified(actor);
-  await member(db, actor, restaurantId);
+  await member(db, actor, restaurantId, "menu");
   const input = mealInput.parse(raw);
   if (id) z.string().uuid().parse(id);
   try {
@@ -293,7 +355,7 @@ export async function saveZone(
   id?: string,
 ) {
   verified(actor);
-  await member(db, actor, restaurantId);
+  await member(db, actor, restaurantId, "delivery");
   const input = zoneInput.parse(raw);
   if (id) z.string().uuid().parse(id);
   try {
@@ -333,16 +395,121 @@ export async function setAcceptingOrders(
   raw: unknown,
 ) {
   verified(actor);
-  await member(db, actor, restaurantId);
+  await member(db, actor, restaurantId, "availability");
   const input = orderingInput.parse(raw);
-  const [updated] = await db
-    .update(restaurant)
-    .set({ acceptingOrders: input.acceptingOrders, updatedAt: new Date() })
-    .where(
-      and(eq(restaurant.id, restaurantId), eq(restaurant.status, "approved")),
-    )
-    .returning();
+  const [current] = await db
+    .select()
+    .from(restaurant)
+    .where(eq(restaurant.id, restaurantId));
+  if (!current || current.status !== "approved")
+    throw new HttpError(409, "The restaurant must be approved first.");
+  const prepTimeMin = input.prepTimeMin ?? current.prepTimeMin;
+  const prepTimeMax = input.prepTimeMax ?? current.prepTimeMax;
+  if (prepTimeMin > prepTimeMax)
+    throw new HttpError(
+      400,
+      "The minimum prep time cannot exceed the maximum.",
+    );
+  const acceptingOrders = input.acceptingOrders ?? current.acceptingOrders;
+  const kitchenState =
+    input.kitchenState ??
+    (input.acceptingOrders === true
+      ? "open"
+      : input.acceptingOrders === false
+        ? "paused"
+        : current.kitchenState);
+  const [updated] = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(restaurant)
+      .set({
+        acceptingOrders: kitchenState === "paused" ? false : acceptingOrders,
+        kitchenState,
+        deliveryOrdersEnabled:
+          input.deliveryOrdersEnabled ?? current.deliveryOrdersEnabled,
+        pickupOrdersEnabled:
+          input.pickupOrdersEnabled ?? current.pickupOrdersEnabled,
+        prepTimeMin,
+        prepTimeMax,
+        availabilityNote: input.availabilityNote ?? current.availabilityNote,
+        availabilityUpdatedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(restaurant.id, restaurantId), eq(restaurant.status, "approved")),
+      )
+      .returning();
+    if (rows[0])
+      await tx.insert(audit).values({
+        actorId: actor.id,
+        restaurantId,
+        action: "kitchen_availability_updated",
+        detail: `${kitchenState}:${prepTimeMin}-${prepTimeMax}`,
+      });
+    return rows;
+  });
   if (!updated)
     throw new HttpError(409, "The restaurant must be approved first.");
-  return { acceptingOrders: updated.acceptingOrders };
+  return {
+    acceptingOrders: updated.acceptingOrders,
+    kitchenState: updated.kitchenState,
+    deliveryOrdersEnabled: updated.deliveryOrdersEnabled,
+    pickupOrdersEnabled: updated.pickupOrdersEnabled,
+    prepTimeMin: updated.prepTimeMin,
+    prepTimeMax: updated.prepTimeMax,
+    availabilityNote: updated.availabilityNote,
+    availabilityUpdatedAt: updated.availabilityUpdatedAt,
+  };
+}
+
+export async function setMealAvailability(
+  db: Database,
+  actor: Actor,
+  restaurantId: string,
+  mealId: string,
+  raw: unknown,
+) {
+  verified(actor);
+  await member(db, actor, restaurantId, "availability");
+  z.string().uuid().parse(mealId);
+  const input = z.object({ available: z.boolean() }).parse(raw);
+  return db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(meal)
+      .set({ available: input.available, updatedAt: new Date() })
+      .where(and(eq(meal.id, mealId), eq(meal.restaurantId, restaurantId)))
+      .returning();
+    if (!updated) throw new HttpError(404, "Meal not found.");
+    await tx.insert(audit).values({
+      actorId: actor.id,
+      restaurantId,
+      action: input.available ? "meal_available" : "meal_sold_out",
+      detail: mealId,
+    });
+    return updated;
+  });
+}
+
+export async function updateMealContent(
+  db: Database,
+  actor: Actor,
+  restaurantId: string,
+  mealId: string,
+  raw: unknown,
+) {
+  verified(actor);
+  await member(db, actor, restaurantId, "menu_content");
+  z.string().uuid().parse(mealId);
+  const input = z
+    .object({
+      name: z.string().trim().min(2).max(100),
+      description: z.string().trim().max(800),
+    })
+    .parse(raw);
+  const [updated] = await db
+    .update(meal)
+    .set({ ...input, updatedAt: new Date() })
+    .where(and(eq(meal.id, mealId), eq(meal.restaurantId, restaurantId)))
+    .returning();
+  if (!updated) throw new HttpError(404, "Meal not found.");
+  return updated;
 }

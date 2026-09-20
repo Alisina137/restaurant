@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, CirclePlus, Pencil, Power, Utensils } from "lucide-react";
+import { Camera, CirclePlus, Pencil, Utensils } from "lucide-react";
 import { requestJson } from "./restaurant-form";
 import { formatMoney } from "@/features/orders/money";
 
@@ -42,13 +42,9 @@ const minor = (value: FormDataEntryValue | null) =>
 
 export function CatalogManager({
   restaurantId,
-  acceptingOrders,
-  approved,
   categories,
 }: {
   restaurantId: string;
-  acceptingOrders: boolean;
-  approved: boolean;
   categories: Category[];
 }) {
   const router = useRouter();
@@ -110,39 +106,6 @@ export function CatalogManager({
 
   return (
     <div className="stack catalog-manager">
-      <section className="ordering-switch-card">
-        <div>
-          <p className="eyebrow">LIVE ORDERING</p>
-          <h2>
-            {acceptingOrders
-              ? "Your kitchen is taking orders"
-              : "Ordering is paused"}
-          </h2>
-          <p className="muted small">
-            Menu changes publish immediately. Use this switch when the kitchen
-            is ready.
-          </p>
-        </div>
-        <button
-          className={acceptingOrders ? "secondary" : ""}
-          disabled={!approved || busy}
-          onClick={() =>
-            run(() =>
-              requestJson(
-                `/api/v1/owner/restaurants/${restaurantId}/ordering`,
-                "PATCH",
-                {
-                  acceptingOrders: !acceptingOrders,
-                },
-              ),
-            )
-          }
-        >
-          <Power size={17} />{" "}
-          {acceptingOrders ? "Pause orders" : "Start taking orders"}
-        </button>
-      </section>
-
       {error && (
         <p className="error" role="alert">
           {error}

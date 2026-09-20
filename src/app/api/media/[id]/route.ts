@@ -32,7 +32,7 @@ export async function GET(
             eq(membership.userId, actor.id),
           ),
         );
-      if (!m && !actor.isAdmin)
+      if ((!m || m.role !== "owner") && !actor.isAdmin)
         return new Response("Not found", { status: 404 });
     }
     const key = draft

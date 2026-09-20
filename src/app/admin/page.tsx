@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { desc, inArray } from "drizzle-orm";
+import { count, desc, eq, inArray } from "drizzle-orm";
 import { pageUser } from "@/lib/session";
 import { runtime } from "@/lib/runtime";
 import { admin } from "@/features/restaurants/service";
 import { listReports } from "@/features/posts/service";
-import { restaurant, restaurantRevision } from "@/db/schema";
+import { order, restaurant, restaurantRevision } from "@/db/schema";
 import { Title, Status, Empty } from "@/components/ui";
 import { ReportReview } from "@/components/report-review";
-import { Flag, ShieldCheck, Store } from "lucide-react";
+import { Flag, ReceiptText, ShieldCheck, Store } from "lucide-react";
 export default async function Admin() {
   const actor = await pageUser();
   const { db } = runtime();
@@ -17,7 +17,7 @@ export default async function Admin() {
   } catch {
     notFound();
   }
-  const [restaurants, revisions, reports] = await Promise.all([
+  const [restaurants, revisions, reports, supportOrders] = await Promise.all([
     db
       .select()
       .from(restaurant)
@@ -31,6 +31,10 @@ export default async function Admin() {
       .where(inArray(restaurantRevision.status, ["pending_review"]))
       .orderBy(desc(restaurantRevision.updatedAt)),
     listReports(db, actor),
+    db
+      .select({ value: count() })
+      .from(order)
+      .where(eq(order.status, "rejected")),
   ]);
   const revisionMap = new Map(
     revisions.map((item) => [item.restaurantId, item]),
@@ -77,14 +81,21 @@ export default async function Admin() {
           <ShieldCheck size={21} />
           <span>
             <strong>
-              {rows.filter((item) => item.status === "approved").length}
+              {rows.filter((item) => item.status === "suspended").length}
             </strong>
-            <small>Approved pages</small>
+            <small>Suspended pages</small>
+          </span>
+        </div>
+        <div>
+          <ReceiptText size={21} />
+          <span>
+            <strong>{Number(supportOrders[0]?.value || 0)}</strong>
+            <small>Rejected orders</small>
           </span>
         </div>
       </div>
 
-      <section className="admin-section">
+      <section id="restaurants" className="admin-section">
         <div className="section-title-line">
           <div>
             <p className="eyebrow">RESTAURANTS</p>
@@ -116,7 +127,7 @@ export default async function Admin() {
         )}
       </section>
 
-      <section className="admin-section">
+      <section id="reports" className="admin-section">
         <div className="section-title-line">
           <div>
             <p className="eyebrow">COMMUNITY REPORTS</p>

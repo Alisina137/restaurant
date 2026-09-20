@@ -1,7 +1,11 @@
 import { api, sameOrigin, jsonBody } from "@/lib/http";
 import { runtime } from "@/lib/runtime";
 import { requireUser } from "@/lib/session";
-import { addStaff, removeStaff } from "@/features/restaurants/service";
+import {
+  addStaff,
+  removeStaff,
+  updateContributor,
+} from "@/features/restaurants/service";
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -9,11 +13,20 @@ export async function POST(
   return api(async () => {
     sameOrigin(request);
     const b = await jsonBody(request);
-    return addStaff(
+    return addStaff(runtime().db, await requireUser(), (await params).id, b);
+  });
+}
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  return api(async () => {
+    sameOrigin(request);
+    return updateContributor(
       runtime().db,
       await requireUser(),
       (await params).id,
-      b.email,
+      await jsonBody(request),
     );
   });
 }

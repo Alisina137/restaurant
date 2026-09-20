@@ -14,6 +14,7 @@ import { searchRestaurants } from "@/features/discovery/service";
 import { runtime } from "@/lib/runtime";
 import { configured } from "@/lib/env";
 import { currentUser } from "@/lib/session";
+import { getLowData } from "@/lib/preferences";
 
 const cities = ["Kabul", "Herat", "Mazar-i-Sharif", "Kandahar", "Jalalabad"];
 
@@ -25,6 +26,7 @@ export default async function Home({
   const query = await searchParams;
   const ready = configured();
   const actor = ready ? await currentUser().catch(() => null) : null;
+  const lowData = await getLowData();
   const mode = query.tab === "following" ? "following" : "discover";
   const city = cities.includes(query.city || "") ? query.city : undefined;
   const feed = ready
@@ -111,7 +113,12 @@ export default async function Home({
           ) : feed.items.length ? (
             <>
               {feed.items.map((post) => (
-                <PostCard key={post.id} post={post} signedIn={Boolean(actor)} />
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  signedIn={Boolean(actor)}
+                  lowData={lowData}
+                />
               ))}
               {feed.nextCursor && (
                 <Link
@@ -168,7 +175,7 @@ export default async function Home({
                 return (
                   <Link href={`/restaurants/${item.slug}`} key={item.id}>
                     <span className="suggestion-logo">
-                      {logo ? (
+                      {logo && !lowData ? (
                         <img src={`/api/media/${logo.id}`} alt="" />
                       ) : (
                         <Store size={19} />

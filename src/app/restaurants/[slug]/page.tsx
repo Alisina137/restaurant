@@ -15,10 +15,15 @@ import { listFeed } from "@/features/posts/service";
 import { restaurantSocial } from "@/features/discovery/service";
 import { runtime } from "@/lib/runtime";
 import { configured } from "@/lib/env";
+import { getLowData } from "@/lib/preferences";
 import { currentUser } from "@/lib/session";
+import { favoriteRestaurant } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 import { FollowButton } from "@/components/social-actions";
+import { FavoriteButton } from "@/components/customer-actions";
 import { PostCard } from "@/components/post-card";
 import { publicMenu } from "@/features/catalog/service";
+import { listAddresses } from "@/features/customers/service";
 import { OrderMenu } from "@/components/order-menu";
 export default async function PublicRestaurant({
   params,
@@ -30,10 +35,24 @@ export default async function PublicRestaurant({
   const r = await getPublic(db, (await params).slug);
   if (!r) notFound();
   const actor = await currentUser().catch(() => null);
-  const [social, feed, menu] = await Promise.all([
+  const [social, feed, menu, lowData, favorite, addresses] = await Promise.all([
     restaurantSocial(db, r.id, actor?.id),
     listFeed(db, { restaurantId: r.id, actorId: actor?.id, limit: 8 }),
-    publicMenu(db, r.id),
+    publicMenu(db, r.id, actor?.id),
+    getLowData(),
+    actor
+      ? db
+          .select({ id: favoriteRestaurant.id })
+          .from(favoriteRestaurant)
+          .where(
+            and(
+              eq(favoriteRestaurant.userId, actor.id),
+              eq(favoriteRestaurant.restaurantId, r.id),
+            ),
+          )
+          .then((rows) => Boolean(rows[0]))
+      : Promise.resolve(false),
+    actor ? listAddresses(db, actor) : Promise.resolve([]),
   ]);
   const cover = r.images.find((i) => i.kind === "cover");
   const logo = r.images.find((i) => i.kind === "logo");
@@ -44,8 +63,12 @@ export default async function PublicRestaurant({
         <ArrowLeft size={17} /> Explore restaurants
       </Link>
       <div className="profile-cover">
-        {cover ? (
-          <img src={`/api/media/${cover.id}`} alt={`${r.name} restaurant`} />
+        {cover && !lowData ? (
+          <img
+            src={`/api/media/${cover.id}`}
+            alt={`${r.name} restaurant`}
+            loading="lazy"
+          />
         ) : (
           <span className="profile-cover-empty">
             <Store size={56} />
@@ -93,6 +116,11 @@ export default async function PublicRestaurant({
           count={social.followerCount}
           signedIn={Boolean(actor)}
         />
+        <FavoriteButton
+          restaurantId={r.id}
+          initial={favorite}
+          signedIn={Boolean(actor)}
+        />
       </section>
 
       <nav className="profile-tabs" aria-label="Restaurant page sections">
@@ -118,6 +146,8 @@ export default async function PublicRestaurant({
         zones={menu.zones}
         signedIn={Boolean(actor)}
         customerName={actor?.name}
+        lowData={lowData}
+        savedAddresses={addresses}
       />
 
       <div className="restaurant-content-grid">
@@ -130,7 +160,12 @@ export default async function PublicRestaurant({
             <span className="muted small">Newest first</span>
           </div>
           {feed.items.map((item) => (
-            <PostCard key={item.id} post={item} signedIn={Boolean(actor)} />
+            <PostCard
+              key={item.id}
+              post={item}
+              signedIn={Boolean(actor)}
+              lowData={lowData}
+            />
           ))}
           {!feed.items.length && (
             <div className="empty-inline">

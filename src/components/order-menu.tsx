@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Bike, Check, Minus, Plus, ShoppingBag, Store, X } from "lucide-react";
 import { requestJson } from "./restaurant-form";
 import { formatMoney } from "@/features/orders/money";
+import { SavedMealButton } from "./customer-actions";
 
 type Variant = { id: string; name: string; priceMinor: number };
 type ExtraOption = { id: string; name: string; priceMinor: number };
@@ -23,6 +24,13 @@ type Meal = {
   priceMinor: number;
   imageKey: string | null;
   featured: boolean;
+  saved: boolean;
+  freshOffer: {
+    id: string;
+    specialPriceMinor: number | null;
+    stockRemaining: number;
+    endsAt: Date;
+  } | null;
   variants: Variant[];
   extraGroups: ExtraGroup[];
 };
@@ -53,8 +61,9 @@ function configuredPrice(
     .flatMap((group) => group.options)
     .filter((item) => optionIds.includes(item.id));
   return (
-    (variant?.priceMinor ?? meal.priceMinor) +
-    extras.reduce((sum, item) => sum + item.priceMinor, 0)
+    (meal.freshOffer?.specialPriceMinor ??
+      variant?.priceMinor ??
+      meal.priceMinor) + extras.reduce((sum, item) => sum + item.priceMinor, 0)
   );
 }
 
@@ -64,6 +73,8 @@ export function OrderMenu({
   zones,
   signedIn,
   customerName,
+  lowData,
+  savedAddresses,
 }: {
   restaurant: {
     id: string;
@@ -71,11 +82,20 @@ export function OrderMenu({
     acceptingOrders: boolean;
     deliveryAvailable: boolean;
     pickupAvailable: boolean;
+    deliveryOrdersEnabled: boolean;
+    pickupOrdersEnabled: boolean;
+    kitchenState: "open" | "busy" | "paused";
+    prepTimeMin: number;
+    prepTimeMax: number;
+    availabilityNote: string;
+    availabilityUpdatedAt: Date;
   };
   categories: Category[];
   zones: Zone[];
   signedIn: boolean;
   customerName?: string;
+  lowData: boolean;
+  savedAddresses: SavedAddress[];
 }) {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -83,7 +103,9 @@ export function OrderMenu({
   const [variantId, setVariantId] = useState<string | undefined>();
   const [extras, setExtras] = useState<string[]>([]);
   const [fulfillment, setFulfillment] = useState<"delivery" | "pickup">(
-    restaurant.deliveryAvailable ? "delivery" : "pickup",
+    restaurant.deliveryAvailable && restaurant.deliveryOrdersEnabled
+      ? "delivery"
+      : "pickup",
   );
   const [checkout, setCheckout] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -161,21 +183,34 @@ export function OrderMenu({
           <p className="muted">
             Prices are confirmed securely before your order is placed.
           </p>
+          <p className="small muted">
+            Estimated preparation: {restaurant.prepTimeMin}–
+            {restaurant.prepTimeMax} min · Delivered by the restaurant.
+          </p>
         </div>
         <span
           className={
-            restaurant.acceptingOrders ? "kitchen-state open" : "kitchen-state"
+            restaurant.acceptingOrders && restaurant.kitchenState !== "paused"
+              ? `kitchen-state ${restaurant.kitchenState}`
+              : "kitchen-state"
           }
         >
-          {restaurant.acceptingOrders ? (
+          {restaurant.acceptingOrders &&
+          restaurant.kitchenState !== "paused" ? (
             <>
-              <Check size={15} /> Taking orders
+              <Check size={15} />{" "}
+              {restaurant.kitchenState === "busy"
+                ? "Busy · longer prep"
+                : "Taking orders"}
             </>
           ) : (
             "Ordering paused"
           )}
         </span>
       </div>
+      {restaurant.availabilityNote && (
+        <p className="availability-note">{restaurant.availabilityNote}</p>
+      )}
       {!categories.some((category) => category.meals.length) ? (
         <div className="empty-inline">
           <Store size={27} />
@@ -215,7 +250,7 @@ export function OrderMenu({
                           onClick={() => openMeal(meal)}
                           aria-label={`Choose ${meal.name}`}
                         >
-                          {meal.imageKey ? (
+                          {meal.imageKey && !lowData ? (
                             <img
                               src={`/api/meal-media/${meal.id}`}
                               alt={meal.name}
@@ -226,8 +261,20 @@ export function OrderMenu({
                             </span>
                           )}
                           {meal.featured && <small>Popular</small>}
+                          {meal.freshOffer && (
+                            <small className="fresh-tag">
+                              Fresh Today · {meal.freshOffer.stockRemaining}{" "}
+                              left
+                            </small>
+                          )}
                         </button>
                         <div className="meal-info">
+                          <SavedMealButton
+                            mealId={meal.id}
+                            initial={meal.saved}
+                            signedIn={signedIn}
+                            compact
+                          />
                           <div>
                             <h3>{meal.name}</h3>
                             <p className="muted small clamp">
@@ -237,15 +284,20 @@ export function OrderMenu({
                           </div>
                           <div className="row spread">
                             <strong>
-                              {meal.variants.length
-                                ? `From ${formatMoney(Math.min(...meal.variants.map((item) => item.priceMinor)))}`
-                                : formatMoney(meal.priceMinor)}
+                              {meal.freshOffer?.specialPriceMinor
+                                ? formatMoney(meal.freshOffer.specialPriceMinor)
+                                : meal.variants.length
+                                  ? `From ${formatMoney(Math.min(...meal.variants.map((item) => item.priceMinor)))}`
+                                  : formatMoney(meal.priceMinor)}
                             </strong>
                             <button
                               className="round-add"
                               onClick={() => openMeal(meal)}
                               aria-label={`Add ${meal.name}`}
-                              disabled={!restaurant.acceptingOrders}
+                              disabled={
+                                !restaurant.acceptingOrders ||
+                                restaurant.kitchenState === "paused"
+                              }
                             >
                               <Plus size={19} />
                             </button>
@@ -320,7 +372,10 @@ export function OrderMenu({
                   <strong>{formatMoney(subtotal)}</strong>
                 </div>
                 <button
-                  disabled={!restaurant.acceptingOrders}
+                  disabled={
+                    !restaurant.acceptingOrders ||
+                    restaurant.kitchenState === "paused"
+                  }
                   onClick={() => setCheckout(true)}
                 >
                   Review order
@@ -352,7 +407,7 @@ export function OrderMenu({
             >
               <X />
             </button>
-            {activeMeal.imageKey && (
+            {activeMeal.imageKey && !lowData && (
               <img
                 className="sheet-meal-image"
                 src={`/api/meal-media/${activeMeal.id}`}
@@ -450,6 +505,7 @@ export function OrderMenu({
           setFulfillment={setFulfillment}
           signedIn={signedIn}
           customerName={customerName}
+          savedAddresses={savedAddresses}
           busy={busy}
           error={error}
           close={() => {
@@ -472,20 +528,25 @@ export function OrderMenu({
                       instructions: data.get("instructions"),
                     }
                   : undefined;
-              const quoted = await requestJson("/api/v1/quotes", "POST", {
-                restaurantId: restaurant.id,
-                fulfillment,
-                deliveryZoneId:
-                  fulfillment === "delivery" ? data.get("zone") : undefined,
-                address,
-                note: data.get("note"),
-                items: cart.map((item) => ({
-                  mealId: item.meal.id,
-                  variantId: item.variantId,
-                  extraOptionIds: item.extraOptionIds,
-                  quantity: item.quantity,
-                })),
-              });
+              const quoted = await requestJson<{ id: string }>(
+                "/api/v1/quotes",
+                "POST",
+                {
+                  restaurantId: restaurant.id,
+                  fulfillment,
+                  deliveryZoneId:
+                    fulfillment === "delivery" ? data.get("zone") : undefined,
+                  address,
+                  note: data.get("note"),
+                  items: cart.map((item) => ({
+                    mealId: item.meal.id,
+                    offerId: item.meal.freshOffer?.id,
+                    variantId: item.variantId,
+                    extraOptionIds: item.extraOptionIds,
+                    quantity: item.quantity,
+                  })),
+                },
+              );
               await requestJson("/api/v1/orders", "POST", {
                 quoteId: quoted.id,
                 idempotencyKey: crypto.randomUUID(),
@@ -514,6 +575,7 @@ function CheckoutSheet({
   setFulfillment,
   signedIn,
   customerName,
+  savedAddresses,
   busy,
   error,
   close,
@@ -523,6 +585,8 @@ function CheckoutSheet({
     name: string;
     deliveryAvailable: boolean;
     pickupAvailable: boolean;
+    deliveryOrdersEnabled: boolean;
+    pickupOrdersEnabled: boolean;
   };
   cart: CartItem[];
   subtotal: number;
@@ -531,6 +595,7 @@ function CheckoutSheet({
   setFulfillment: (value: "delivery" | "pickup") => void;
   signedIn: boolean;
   customerName?: string;
+  savedAddresses: SavedAddress[];
   busy: boolean;
   error: string;
   close: () => void;
@@ -575,27 +640,63 @@ function CheckoutSheet({
               }}
             >
               <div className="fulfillment-toggle">
-                {restaurant.deliveryAvailable && (
-                  <button
-                    type="button"
-                    className={fulfillment === "delivery" ? "selected" : ""}
-                    onClick={() => setFulfillment("delivery")}
-                  >
-                    <Bike size={17} /> Delivery
-                  </button>
-                )}
-                {restaurant.pickupAvailable && (
-                  <button
-                    type="button"
-                    className={fulfillment === "pickup" ? "selected" : ""}
-                    onClick={() => setFulfillment("pickup")}
-                  >
-                    <ShoppingBag size={17} /> Pickup
-                  </button>
-                )}
+                {restaurant.deliveryAvailable &&
+                  restaurant.deliveryOrdersEnabled && (
+                    <button
+                      type="button"
+                      className={fulfillment === "delivery" ? "selected" : ""}
+                      onClick={() => setFulfillment("delivery")}
+                    >
+                      <Bike size={17} /> Delivery
+                    </button>
+                  )}
+                {restaurant.pickupAvailable &&
+                  restaurant.pickupOrdersEnabled && (
+                    <button
+                      type="button"
+                      className={fulfillment === "pickup" ? "selected" : ""}
+                      onClick={() => setFulfillment("pickup")}
+                    >
+                      <ShoppingBag size={17} /> Pickup
+                    </button>
+                  )}
               </div>
               {fulfillment === "delivery" && (
                 <>
+                  {savedAddresses.length > 0 && (
+                    <label>
+                      Saved address
+                      <select
+                        defaultValue=""
+                        onChange={(event) => {
+                          const selected = savedAddresses.find(
+                            (item) => item.id === event.target.value,
+                          );
+                          const form = event.currentTarget.form;
+                          if (!selected || !form) return;
+                          for (const key of [
+                            "recipient",
+                            "phone",
+                            "city",
+                            "area",
+                            "address",
+                            "instructions",
+                          ] as const) {
+                            const control = form.elements.namedItem(key) as
+                              HTMLInputElement | HTMLTextAreaElement | null;
+                            if (control) control.value = selected[key];
+                          }
+                        }}
+                      >
+                        <option value="">Enter another address</option>
+                        {savedAddresses.map((item) => (
+                          <option value={item.id} key={item.id}>
+                            {item.label} · {item.area}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                   <label>
                     Delivery area
                     <select name="zone" required>
@@ -688,3 +789,14 @@ function CheckoutSheet({
     </div>
   );
 }
+
+type SavedAddress = {
+  id: string;
+  label: string;
+  recipient: string;
+  phone: string;
+  city: string;
+  area: string;
+  address: string;
+  instructions: string;
+};

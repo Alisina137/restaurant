@@ -96,6 +96,13 @@ export const approval = pgEnum("approval_status", [
   "suspended",
 ]);
 export const memberRole = pgEnum("member_role", ["owner", "staff"]);
+export const contributorPreset = pgEnum("contributor_preset", [
+  "manager",
+  "kitchen",
+  "content_editor",
+  "custom",
+]);
+export const kitchenState = pgEnum("kitchen_state", ["open", "busy", "paused"]);
 export type OpeningDay = {
   day: number;
   closed: boolean;
@@ -117,6 +124,21 @@ export const restaurant = pgTable(
     deliveryAvailable: boolean("delivery_available").notNull().default(false),
     pickupAvailable: boolean("pickup_available").notNull().default(false),
     acceptingOrders: boolean("accepting_orders").notNull().default(false),
+    kitchenState: kitchenState("kitchen_state").notNull().default("paused"),
+    deliveryOrdersEnabled: boolean("delivery_orders_enabled")
+      .notNull()
+      .default(true),
+    pickupOrdersEnabled: boolean("pickup_orders_enabled")
+      .notNull()
+      .default(true),
+    prepTimeMin: integer("prep_time_min").notNull().default(20),
+    prepTimeMax: integer("prep_time_max").notNull().default(40),
+    availabilityNote: text("availability_note").notNull().default(""),
+    availabilityUpdatedAt: timestamp("availability_updated_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
     status: approval("status").notNull().default("draft"),
     reviewNote: text("review_note").notNull().default(""),
     hours: jsonb("hours").$type<OpeningDay[]>().notNull().default([]),
@@ -167,7 +189,22 @@ export const membership = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     role: memberRole("role").notNull(),
+    permissionPreset: contributorPreset("permission_preset"),
+    canManageOrders: boolean("can_manage_orders").notNull().default(false),
+    canManageMenu: boolean("can_manage_menu").notNull().default(false),
+    canEditMenuContent: boolean("can_edit_menu_content")
+      .notNull()
+      .default(false),
+    canManagePosts: boolean("can_manage_posts").notNull().default(false),
+    canManageDelivery: boolean("can_manage_delivery").notNull().default(false),
+    canManageAvailability: boolean("can_manage_availability")
+      .notNull()
+      .default(false),
+    canViewDeliveryAddresses: boolean("can_view_delivery_addresses")
+      .notNull()
+      .default(false),
     createdAt: created(),
+    updatedAt: updated(),
   },
   (t) => [
     uniqueIndex("membership_user_restaurant_idx").on(t.userId, t.restaurantId),
@@ -302,6 +339,22 @@ export const savedPost = pgTable(
   },
   (t) => [uniqueIndex("saved_post_user_post_idx").on(t.userId, t.postId)],
 );
+export const favoriteRestaurant = pgTable(
+  "favorite_restaurant",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    restaurantId: uuid("restaurant_id")
+      .notNull()
+      .references(() => restaurant.id, { onDelete: "cascade" }),
+    createdAt: created(),
+  },
+  (t) => [
+    uniqueIndex("favorite_restaurant_user_idx").on(t.userId, t.restaurantId),
+  ],
+);
 export const report = pgTable(
   "report",
   {
@@ -404,6 +457,73 @@ export const meal = pgTable(
   ],
 );
 
+export const freshOffer = pgTable(
+  "fresh_offer",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    restaurantId: uuid("restaurant_id")
+      .notNull()
+      .references(() => restaurant.id, { onDelete: "cascade" }),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => post.id, { onDelete: "cascade" }),
+    mealId: uuid("meal_id")
+      .notNull()
+      .references(() => meal.id, { onDelete: "cascade" }),
+    specialPriceMinor: integer("special_price_minor"),
+    stockTotal: integer("stock_total").notNull(),
+    stockRemaining: integer("stock_remaining").notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    active: boolean("active").notNull().default(true),
+    version: integer("version").notNull().default(1),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [
+    uniqueIndex("fresh_offer_post_idx").on(t.postId),
+    index("fresh_offer_live_idx").on(t.active, t.startsAt, t.endsAt),
+    index("fresh_offer_restaurant_idx").on(t.restaurantId, t.updatedAt),
+  ],
+);
+
+export const savedMeal = pgTable(
+  "saved_meal",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    mealId: uuid("meal_id")
+      .notNull()
+      .references(() => meal.id, { onDelete: "cascade" }),
+    createdAt: created(),
+  },
+  (t) => [uniqueIndex("saved_meal_user_idx").on(t.userId, t.mealId)],
+);
+
+export const customerAddress = pgTable(
+  "customer_address",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    recipient: text("recipient").notNull(),
+    phone: text("phone").notNull(),
+    city: text("city").notNull(),
+    area: text("area").notNull(),
+    address: text("address").notNull(),
+    instructions: text("instructions").notNull().default(""),
+    isDefault: boolean("is_default").notNull().default(false),
+    version: integer("version").notNull().default(1),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [index("customer_address_user_idx").on(t.userId, t.createdAt)],
+);
+
 export const mealVariant = pgTable(
   "meal_variant",
   {
@@ -488,6 +608,8 @@ export type QuoteItemSnapshot = {
   extras: QuoteExtraSnapshot[];
   quantity: number;
   lineTotalMinor: number;
+  offerId?: string | null;
+  regularUnitPriceMinor?: number | null;
 };
 export type AddressSnapshot = {
   recipient: string;
@@ -542,6 +664,7 @@ export const order = pgTable(
       .references(() => quote.id),
     idempotencyKey: text("idempotency_key").notNull(),
     fulfillment: fulfillmentType("fulfillment").notNull(),
+    deliveryZoneId: uuid("delivery_zone_id").references(() => deliveryZone.id),
     status: orderStatus("status").notNull().default("awaiting_acceptance"),
     paymentStatus: paymentStatus("payment_status").notNull().default("unpaid"),
     items: jsonb("items").$type<QuoteItemSnapshot[]>().notNull(),
@@ -552,6 +675,9 @@ export const order = pgTable(
     currency: text("currency").notNull().default("AFN"),
     customerNote: text("customer_note").notNull().default(""),
     restaurantNote: text("restaurant_note").notNull().default(""),
+    inventoryRestoredAt: timestamp("inventory_restored_at", {
+      withTimezone: true,
+    }),
     version: integer("version").notNull().default(1),
     createdAt: created(),
     updatedAt: updated(),

@@ -23,7 +23,11 @@ type Profile = {
   hours: OpeningDay[];
   version: number;
 };
-export async function requestJson(url: string, method: string, body: unknown) {
+export async function requestJson<T = Record<string, never>>(
+  url: string,
+  method: string,
+  body?: unknown,
+): Promise<T> {
   const response = await fetch(url, {
     method,
     headers: { "Content-Type": "application/json" },

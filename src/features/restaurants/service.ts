@@ -27,13 +27,42 @@ export const publicFields = {
   deliveryAvailable: restaurant.deliveryAvailable,
   pickupAvailable: restaurant.pickupAvailable,
   acceptingOrders: restaurant.acceptingOrders,
+  kitchenState: restaurant.kitchenState,
+  deliveryOrdersEnabled: restaurant.deliveryOrdersEnabled,
+  pickupOrdersEnabled: restaurant.pickupOrdersEnabled,
+  prepTimeMin: restaurant.prepTimeMin,
+  prepTimeMax: restaurant.prepTimeMax,
+  availabilityNote: restaurant.availabilityNote,
+  availabilityUpdatedAt: restaurant.availabilityUpdatedAt,
   hours: restaurant.hours,
 };
+export type RestaurantPermission =
+  | "orders"
+  | "menu"
+  | "menu_content"
+  | "posts"
+  | "delivery"
+  | "availability"
+  | "delivery_addresses";
+
+const permissionColumns: Record<
+  RestaurantPermission,
+  keyof typeof membership.$inferSelect
+> = {
+  orders: "canManageOrders",
+  menu: "canManageMenu",
+  menu_content: "canEditMenuContent",
+  posts: "canManagePosts",
+  delivery: "canManageDelivery",
+  availability: "canManageAvailability",
+  delivery_addresses: "canViewDeliveryAddresses",
+};
+
 export async function member(
   db: Database,
   actor: Actor,
   id: string,
-  ownerOnly = false,
+  required: boolean | RestaurantPermission = false,
 ) {
   z.string().uuid().parse(id);
   const [row] = await db
@@ -43,7 +72,13 @@ export async function member(
       and(eq(membership.userId, actor.id), eq(membership.restaurantId, id)),
     )
     .limit(1);
-  if (!row || (ownerOnly && row.role !== "owner"))
+  const allowed =
+    row &&
+    (row.role === "owner" ||
+      required === false ||
+      (typeof required === "string" &&
+        Boolean(row[permissionColumns[required]])));
+  if (!allowed)
     throw new HttpError(
       403,
       "You do not have permission to manage this restaurant.",
@@ -85,7 +120,7 @@ export async function getPublic(db: Database, slug: string) {
 }
 export async function owned(db: Database, actor: Actor) {
   const rows = await db
-    .select({ restaurant, role: membership.role })
+    .select({ restaurant, role: membership.role, membership })
     .from(membership)
     .innerJoin(restaurant, eq(membership.restaurantId, restaurant.id))
     .where(eq(membership.userId, actor.id))
@@ -539,11 +574,38 @@ export async function addStaff(
   db: Database,
   actor: Actor,
   id: string,
-  email: unknown,
+  raw: unknown,
 ) {
   verified(actor);
   await member(db, actor, id, true);
-  const normalized = z.string().email().parse(email).trim().toLowerCase();
+  const contributor = z
+    .object({
+      email: z.string().email(),
+      preset: z
+        .enum(["manager", "kitchen", "content_editor", "custom"])
+        .default("manager"),
+      permissions: z
+        .object({
+          orders: z.boolean().default(false),
+          menu: z.boolean().default(false),
+          menuContent: z.boolean().default(false),
+          posts: z.boolean().default(false),
+          delivery: z.boolean().default(false),
+          availability: z.boolean().default(false),
+          deliveryAddresses: z.boolean().default(false),
+        })
+        .optional(),
+    })
+    .refine(
+      (value) =>
+        value.preset !== "custom" ||
+        Boolean(
+          value.permissions && Object.values(value.permissions).some(Boolean),
+        ),
+      { message: "Choose at least one custom permission." },
+    )
+    .parse(typeof raw === "string" ? { email: raw } : raw);
+  const normalized = contributor.email.trim().toLowerCase();
   const [target] = await db
     .select()
     .from(user)
@@ -556,20 +618,147 @@ export async function addStaff(
     );
   if (target.id === actor.id)
     throw new HttpError(400, "You already own this restaurant.");
-  const [result] = await db
-    .insert(membership)
-    .values({ restaurantId: id, userId: target.id, role: "staff" })
-    .onConflictDoNothing()
-    .returning();
-  if (!result)
-    throw new HttpError(409, "This person already belongs to the restaurant.");
-  await db.insert(audit).values({
-    actorId: actor.id,
-    restaurantId: id,
-    action: "staff_added",
-    detail: target.id,
+  const permissions = contributorPermissions(
+    contributor.preset,
+    contributor.permissions,
+  );
+  const [result] = await db.transaction(async (tx) => {
+    const inserted = await tx
+      .insert(membership)
+      .values({
+        restaurantId: id,
+        userId: target.id,
+        role: "staff",
+        permissionPreset: contributor.preset,
+        ...permissions,
+      })
+      .onConflictDoNothing()
+      .returning();
+    if (!inserted[0])
+      throw new HttpError(
+        409,
+        "This person already belongs to the restaurant.",
+      );
+    await tx.insert(audit).values({
+      actorId: actor.id,
+      restaurantId: id,
+      action: "contributor_added",
+      detail: `${target.id}:${contributor.preset}`,
+    });
+    return inserted;
   });
   return { id: result.id };
+}
+
+function contributorPermissions(
+  preset: "manager" | "kitchen" | "content_editor" | "custom",
+  custom?: {
+    orders: boolean;
+    menu: boolean;
+    menuContent: boolean;
+    posts: boolean;
+    delivery: boolean;
+    availability: boolean;
+    deliveryAddresses: boolean;
+  },
+) {
+  const selected =
+    preset === "manager"
+      ? {
+          orders: true,
+          menu: true,
+          menuContent: true,
+          posts: true,
+          delivery: true,
+          availability: true,
+          deliveryAddresses: true,
+        }
+      : preset === "kitchen"
+        ? {
+            orders: true,
+            menu: false,
+            menuContent: false,
+            posts: false,
+            delivery: false,
+            availability: true,
+            deliveryAddresses: false,
+          }
+        : preset === "content_editor"
+          ? {
+              orders: false,
+              menu: false,
+              menuContent: true,
+              posts: true,
+              delivery: false,
+              availability: false,
+              deliveryAddresses: false,
+            }
+          : custom!;
+  return {
+    canManageOrders: selected.orders,
+    canManageMenu: selected.menu,
+    canEditMenuContent: selected.menuContent,
+    canManagePosts: selected.posts,
+    canManageDelivery: selected.delivery,
+    canManageAvailability: selected.availability,
+    canViewDeliveryAddresses: selected.deliveryAddresses,
+  };
+}
+
+export async function updateContributor(
+  db: Database,
+  actor: Actor,
+  restaurantId: string,
+  raw: unknown,
+) {
+  verified(actor);
+  await member(db, actor, restaurantId, true);
+  const input = z
+    .object({
+      membershipId: z.string().uuid(),
+      preset: z.enum(["manager", "kitchen", "content_editor", "custom"]),
+      permissions: z.object({
+        orders: z.boolean(),
+        menu: z.boolean(),
+        menuContent: z.boolean(),
+        posts: z.boolean(),
+        delivery: z.boolean(),
+        availability: z.boolean(),
+        deliveryAddresses: z.boolean(),
+      }),
+    })
+    .refine(
+      (value) =>
+        value.preset !== "custom" ||
+        Object.values(value.permissions).some(Boolean),
+      { message: "Choose at least one custom permission." },
+    )
+    .parse(raw);
+  return db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(membership)
+      .set({
+        permissionPreset: input.preset,
+        ...contributorPermissions(input.preset, input.permissions),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(membership.id, input.membershipId),
+          eq(membership.restaurantId, restaurantId),
+          eq(membership.role, "staff"),
+        ),
+      )
+      .returning();
+    if (!updated) throw new HttpError(404, "Contributor membership not found.");
+    await tx.insert(audit).values({
+      actorId: actor.id,
+      restaurantId,
+      action: "contributor_permissions_updated",
+      detail: `${updated.userId}:${input.preset}`,
+    });
+    return updated;
+  });
 }
 export async function removeStaff(
   db: Database,
@@ -595,7 +784,7 @@ export async function removeStaff(
     await tx.insert(audit).values({
       actorId: actor.id,
       restaurantId: id,
-      action: "staff_removed",
+      action: "contributor_removed",
       detail: removed.userId,
     });
     return { removed: true };

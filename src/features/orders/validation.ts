@@ -21,6 +21,7 @@ export const quoteInput = z
       .array(
         z.object({
           mealId: z.string().uuid(),
+          offerId: z.string().uuid().optional(),
           variantId: z.string().uuid().optional(),
           extraOptionIds: z.array(z.string().uuid()).max(30).default([]),
           quantity: z.number().int().min(1).max(20),
