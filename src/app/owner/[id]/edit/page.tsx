@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
 import { pageUser } from "@/lib/session";
 import { runtime } from "@/lib/runtime";
-import { member } from "@/features/restaurants/service";
-import { restaurant } from "@/db/schema";
+import { managementProfile } from "@/features/restaurants/service";
 import { Title } from "@/components/ui";
 import { RestaurantForm } from "@/components/restaurant-form";
 export default async function Edit({
@@ -14,12 +12,17 @@ export default async function Edit({
   const actor = await pageUser();
   const { id } = await params;
   const { db } = runtime();
-  if (!(await member(db, actor, id, true).catch(() => null))) notFound();
-  const [r] = await db.select().from(restaurant).where(eq(restaurant.id, id));
-  if (!r || r.status === "suspended") notFound();
+  const result = await managementProfile(db, actor, id, true).catch(() => null);
+  if (!result || result.restaurant.status === "suspended") notFound();
+  const r = { ...result.profile, id: result.restaurant.id };
   return (
     <div className="narrow">
       <Title title="Edit your restaurant." />
+      {result.published && (
+        <p className="notice">
+          Your current page stays public while these changes are reviewed.
+        </p>
+      )}
       <RestaurantForm initial={r} />
     </div>
   );

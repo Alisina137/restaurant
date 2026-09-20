@@ -1,12 +1,14 @@
 import { api } from "@/lib/http";
 import { runtime } from "@/lib/runtime";
 import { currentUser } from "@/lib/session";
-import { searchRestaurants } from "@/features/discovery/service";
+import { searchMeals, searchRestaurants } from "@/features/discovery/service";
 
 export async function GET(request: Request) {
   return api(async () => {
     const query = new URL(request.url).searchParams;
     const actor = await currentUser();
+    if (query.get("type") === "meals")
+      return searchMeals(runtime().db, query.get("q") || undefined);
     return searchRestaurants(runtime().db, {
       q: query.get("q") || undefined,
       city: query.get("city") || undefined,

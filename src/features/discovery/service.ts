@@ -1,7 +1,16 @@
-import { and, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNotNull,
+  or,
+} from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { Database } from "@/db";
-import { follow, media, restaurant } from "@/db/schema";
+import { follow, meal, media, menuCategory, restaurant } from "@/db/schema";
 import { isOpen } from "@/features/restaurants/hours";
 
 export type DiscoveryFilters = {
@@ -70,7 +79,9 @@ export async function searchRestaurants(
         kind: media.kind,
       })
       .from(media)
-      .where(inArray(media.restaurantId, ids)),
+      .where(
+        and(inArray(media.restaurantId, ids), isNotNull(media.storageKey)),
+      ),
     db
       .select({ restaurantId: follow.restaurantId, value: count() })
       .from(follow)
@@ -127,4 +138,37 @@ export async function restaurantSocial(
     followerCount: Number(total[0].value),
     following: viewer.length > 0,
   };
+}
+
+export async function searchMeals(db: Database, query?: string) {
+  const q = query?.trim().slice(0, 100);
+  if (!q) return [];
+  return db
+    .select({
+      id: meal.id,
+      name: meal.name,
+      description: meal.description,
+      priceMinor: meal.priceMinor,
+      imageKey: meal.imageKey,
+      restaurantName: restaurant.name,
+      restaurantSlug: restaurant.slug,
+      cuisine: restaurant.cuisine,
+    })
+    .from(meal)
+    .innerJoin(restaurant, eq(restaurant.id, meal.restaurantId))
+    .innerJoin(menuCategory, eq(menuCategory.id, meal.categoryId))
+    .where(
+      and(
+        eq(restaurant.status, "approved"),
+        eq(meal.available, true),
+        eq(menuCategory.active, true),
+        or(
+          ilike(meal.name, `%${q}%`),
+          ilike(meal.description, `%${q}%`),
+          ilike(restaurant.name, `%${q}%`),
+        ),
+      ),
+    )
+    .orderBy(desc(meal.featured), desc(meal.createdAt))
+    .limit(24);
 }

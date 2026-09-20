@@ -5,7 +5,7 @@ import { api, sameOrigin, boundedBody, HttpError } from "@/lib/http";
 import { runtime } from "@/lib/runtime";
 import { requireUser } from "@/lib/session";
 import { member } from "@/features/restaurants/service";
-import { media, restaurant, audit } from "@/db/schema";
+import { media, restaurant, restaurantRevision, audit } from "@/db/schema";
 import { putImage, deleteImage, sanitizeImage } from "@/lib/storage";
 export async function POST(
   request: Request,
@@ -27,48 +27,92 @@ export async function POST(
     );
     const key = `restaurants/${id}/${randomUUID()}.webp`;
     await putImage(key, image);
-    let oldKey: string | undefined;
+    let oldKey: string | null | undefined;
     try {
       await db.transaction(async (tx) => {
-        const [r] = await tx
-          .update(restaurant)
-          .set({
-            status: "draft",
-            reviewNote: "",
-            version: sql`${restaurant.version}+1`,
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(restaurant.id, id),
-              sql`${restaurant.status} <> 'suspended'`,
-            ),
-          )
-          .returning();
-        if (!r)
+        const [[base], [revision]] = await Promise.all([
+          tx.select().from(restaurant).where(eq(restaurant.id, id)),
+          tx
+            .select()
+            .from(restaurantRevision)
+            .where(eq(restaurantRevision.restaurantId, id)),
+        ]);
+        if (!base || base.status === "suspended")
           throw new HttpError(
             409,
             "This restaurant is suspended. Contact support.",
+          );
+        if (revision?.status === "pending_review")
+          throw new HttpError(
+            409,
+            "This update is already under review. Wait for a decision first.",
           );
         const [old] = await tx
           .select()
           .from(media)
           .where(and(eq(media.restaurantId, id), eq(media.kind, kind)));
-        oldKey = old?.storageKey;
-        await tx
-          .insert(media)
-          .values({ restaurantId: id, kind, storageKey: key })
-          .onConflictDoUpdate({
-            target: [media.restaurantId, media.kind],
-            set: { storageKey: key },
-          });
-        await tx
-          .insert(audit)
-          .values({
-            actorId: actor.id,
-            restaurantId: id,
-            action: "photo_updated_requires_review",
-          });
+        if (base.status === "approved") {
+          if (!revision) {
+            await tx.insert(restaurantRevision).values({
+              restaurantId: id,
+              slug: base.slug,
+              name: base.name,
+              description: base.description,
+              city: base.city,
+              area: base.area,
+              address: base.address,
+              phone: base.phone,
+              cuisine: base.cuisine,
+              deliveryAvailable: base.deliveryAvailable,
+              pickupAvailable: base.pickupAvailable,
+              hours: base.hours,
+            });
+          } else {
+            await tx
+              .update(restaurantRevision)
+              .set({
+                status: "draft",
+                reviewNote: "",
+                version: sql`${restaurantRevision.version}+1`,
+                updatedAt: new Date(),
+              })
+              .where(eq(restaurantRevision.id, revision.id));
+          }
+          oldKey = old?.pendingStorageKey;
+          await tx
+            .insert(media)
+            .values({ restaurantId: id, kind, pendingStorageKey: key })
+            .onConflictDoUpdate({
+              target: [media.restaurantId, media.kind],
+              set: { pendingStorageKey: key },
+            });
+        } else {
+          await tx
+            .update(restaurant)
+            .set({
+              status: "draft",
+              reviewNote: "",
+              version: sql`${restaurant.version}+1`,
+              updatedAt: new Date(),
+            })
+            .where(eq(restaurant.id, id));
+          oldKey = old?.storageKey;
+          await tx
+            .insert(media)
+            .values({ restaurantId: id, kind, storageKey: key })
+            .onConflictDoUpdate({
+              target: [media.restaurantId, media.kind],
+              set: { storageKey: key },
+            });
+        }
+        await tx.insert(audit).values({
+          actorId: actor.id,
+          restaurantId: id,
+          action:
+            base.status === "approved"
+              ? "profile_revision_photo_updated"
+              : "photo_updated_requires_review",
+        });
       });
     } catch (e) {
       await deleteImage(key).catch(() => {});

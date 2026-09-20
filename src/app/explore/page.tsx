@@ -8,11 +8,13 @@ import {
   Search,
   Store,
 } from "lucide-react";
-import { searchRestaurants } from "@/features/discovery/service";
+import { searchMeals, searchRestaurants } from "@/features/discovery/service";
 import { runtime } from "@/lib/runtime";
 import { configured } from "@/lib/env";
 import { currentUser } from "@/lib/session";
 import { FollowButton } from "@/components/social-actions";
+import { formatMoney } from "@/features/orders/money";
+import { Utensils } from "lucide-react";
 
 const cities = ["Kabul", "Herat", "Mazar-i-Sharif", "Kandahar", "Jalalabad"];
 const cuisines = ["Afghan", "Pizza", "Burgers", "Cafe", "Asian", "Other"];
@@ -34,9 +36,12 @@ export default async function Explore({
     pickup: query.pickup === "1",
     actorId: actor?.id,
   };
-  const results = configured()
-    ? await searchRestaurants(runtime().db, filters)
-    : [];
+  const [results, meals] = configured()
+    ? await Promise.all([
+        searchRestaurants(runtime().db, filters),
+        searchMeals(runtime().db, filters.q),
+      ])
+    : [[], []];
   const filtered = Boolean(
     filters.q ||
     filters.city ||
@@ -147,9 +152,44 @@ export default async function Explore({
           </h2>
         </div>
         <span className="muted small">
-          Meal search becomes active with menus in Phase 4.
+          Restaurant pages and orderable meals
         </span>
       </div>
+      {meals.length > 0 && (
+        <section className="meal-search-section">
+          <div className="section-title-line">
+            <div>
+              <p className="eyebrow">MATCHING MEALS</p>
+              <h2>Order what you searched for</h2>
+            </div>
+            <span className="count-badge">{meals.length}</span>
+          </div>
+          <div className="meal-search-grid">
+            {meals.map((meal) => (
+              <Link
+                className="meal-search-card"
+                href={`/restaurants/${meal.restaurantSlug}#menu`}
+                key={meal.id}
+              >
+                <span className="meal-search-image">
+                  {meal.imageKey ? (
+                    <img src={`/api/meal-media/${meal.id}`} alt={meal.name} />
+                  ) : (
+                    <Utensils size={24} />
+                  )}
+                </span>
+                <span>
+                  <strong>{meal.name}</strong>
+                  <small>
+                    {meal.restaurantName} · {meal.cuisine}
+                  </small>
+                </span>
+                <b>{formatMoney(meal.priceMinor)}</b>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
       {results.length ? (
         <div className="explore-grid">
           {results.map((item) => {

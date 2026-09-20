@@ -5,7 +5,7 @@ import { runtime } from "@/lib/runtime";
 import { currentUser } from "@/lib/session";
 import { getImage } from "@/lib/storage";
 export async function GET(
-  _: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -19,7 +19,8 @@ export async function GET(
       .innerJoin(restaurant, eq(media.restaurantId, restaurant.id))
       .where(eq(media.id, id));
     if (!r) return new Response("Not found", { status: 404 });
-    if (r.status !== "approved") {
+    const draft = new URL(request.url).searchParams.get("draft") === "1";
+    if (draft || r.status !== "approved") {
       const actor = await currentUser();
       if (!actor) return new Response("Not found", { status: 404 });
       const [m] = await db
@@ -34,7 +35,13 @@ export async function GET(
       if (!m && !actor.isAdmin)
         return new Response("Not found", { status: 404 });
     }
-    const bytes = await getImage(r.media.storageKey);
+    const key = draft
+      ? r.media.pendingStorageKey || r.media.storageKey
+      : r.status === "approved"
+        ? r.media.storageKey
+        : null;
+    if (!key) return new Response("Not found", { status: 404 });
+    const bytes = await getImage(key);
     if (!bytes) return new Response("Not found", { status: 404 });
     return new Response(Buffer.from(bytes), {
       headers: {

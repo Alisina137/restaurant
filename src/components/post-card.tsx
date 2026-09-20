@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Bike, ImageIcon, MapPin, Store, Utensils } from "lucide-react";
 import { FollowButton, PostActions } from "./social-actions";
+import { formatMoney } from "@/features/orders/money";
 
 export type FeedPost = {
   id: string;
@@ -20,6 +21,12 @@ export type FeedPost = {
   liked: boolean;
   saved: boolean;
   following: boolean;
+  linkedMeal?: {
+    id: string;
+    name: string;
+    priceMinor: number;
+    imageKey: string | null;
+  } | null;
 };
 
 function relativeDate(date: Date) {
@@ -110,6 +117,25 @@ export function PostCard({
           </span>
         )}
       </div>
+      {post.linkedMeal && (
+        <Link
+          className="linked-meal-card"
+          href={`/restaurants/${post.restaurantSlug}#menu`}
+        >
+          <span className="linked-meal-image">
+            {post.linkedMeal.imageKey ? (
+              <img src={`/api/meal-media/${post.linkedMeal.id}`} alt="" />
+            ) : (
+              <Utensils size={20} />
+            )}
+          </span>
+          <span>
+            <small>ORDER FROM THIS POST</small>
+            <strong>{post.linkedMeal.name}</strong>
+          </span>
+          <b>{formatMoney(post.linkedMeal.priceMinor)}</b>
+        </Link>
+      )}
       <PostActions
         postId={post.id}
         initialLiked={post.liked}

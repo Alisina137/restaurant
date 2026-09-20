@@ -91,18 +91,53 @@ describe("restaurant ownership and review lifecycle", () => {
       version: approved.version,
     });
     expect(changed.status).toBe("draft");
-    expect(await getPublic(state.db, r.slug)).toBeNull();
+    expect((await getPublic(state.db, r.slug))?.description).toBe(
+      profile.description,
+    );
     await expect(
       updateRestaurant(state.db, owner, r.id, {
         ...profile,
         version: approved.version,
       }),
     ).rejects.toMatchObject({ status: 409 });
+    const revisionPending = await submitRestaurant(
+      state.db,
+      owner,
+      r.id,
+      changed.version,
+    );
+    const rejected = await reviewRestaurant(state.db, reviewer, r.id, {
+      decision: "changes_requested",
+      version: revisionPending.version,
+      note: "Clarify the updated description.",
+    });
+    expect((await getPublic(state.db, r.slug))?.description).toBe(
+      profile.description,
+    );
+    const revised = await updateRestaurant(state.db, owner, r.id, {
+      ...profile,
+      description: "A clearer updated identity approved for the public page.",
+      version: rejected.version,
+    });
+    const resubmitted = await submitRestaurant(
+      state.db,
+      owner,
+      r.id,
+      revised.version,
+    );
+    await reviewRestaurant(state.db, reviewer, r.id, {
+      decision: "approved",
+      version: resubmitted.version,
+      note: "",
+    });
+    expect((await getPublic(state.db, r.slug))?.description).toBe(
+      "A clearer updated identity approved for the public page.",
+    );
     const events = await state.db
       .select()
       .from(audit)
       .where(eq(audit.restaurantId, r.id));
-    expect(events.length).toBe(4);
+    expect(events.length).toBe(9);
   });
   it("validates uniqueness and never leaves orphan owners after failed creation", async () => {
     await expect(

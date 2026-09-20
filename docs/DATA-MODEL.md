@@ -2,7 +2,7 @@
 
 Design specification, not an applied schema. IDs use opaque UUIDs. Store UTC timestamps; display restaurant operating times in Asia/Kabul. Money is integer minor units plus currency `AFN`; the payment adapter converts to the provider's verified unit convention. Never use binary floating point for totals.
 
-Implementation status through Phase 3: users/authentication, restaurants, memberships, restaurant media, audit events, posts/post media, follows, post likes, saved posts and reports are applied by versioned migrations. Catalog, ordering, payment, subscription, review and notification entities below remain planned for their roadmap phases.
+Implementation status through Phase 4: users/authentication, restaurants and separately reviewed restaurant revisions, memberships, public/pending restaurant media, audit events, posts/post media, follows, post likes, saved posts, reports, menu categories, meals, variants, extras, delivery zones, expiring quotes, immutable order snapshots and order events are applied by versioned migrations. Payment provider events, subscriptions, reviews and notifications remain planned for later phases.
 
 | Entity                    | Important fields and relationships                                         | Constraints/indexes                                               |
 | ------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------- |

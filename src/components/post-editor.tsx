@@ -12,6 +12,7 @@ type ManagedPost = {
   version: number;
   publishedAt: Date | null;
   images: { id: string; position: number }[];
+  linkedMealId: string | null;
 };
 
 export function PostEditor({
@@ -19,11 +20,13 @@ export function PostEditor({
   posts,
   approved,
   storageEnabled,
+  meals,
 }: {
   restaurantId: string;
   posts: ManagedPost[];
   approved: boolean;
   storageEnabled: boolean;
+  meals: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
@@ -38,7 +41,10 @@ export function PostEditor({
       await requestJson(
         `/api/v1/owner/restaurants/${restaurantId}/posts`,
         "POST",
-        { caption: new FormData(form).get("caption") },
+        {
+          caption: new FormData(form).get("caption"),
+          linkedMealId: new FormData(form).get("linkedMealId") || null,
+        },
       );
       form.reset();
       router.refresh();
@@ -71,6 +77,17 @@ export function PostEditor({
             rows={5}
             placeholder="Share today’s special, a kitchen moment, or an announcement…"
           />
+        </label>
+        <label>
+          Link a menu item <span className="help">Optional</span>
+          <select name="linkedMealId">
+            <option value="">No linked meal</option>
+            {meals.map((meal) => (
+              <option value={meal.id} key={meal.id}>
+                {meal.name}
+              </option>
+            ))}
+          </select>
         </label>
         <div className="row spread wrap">
           <p className="small muted">
@@ -106,6 +123,7 @@ export function PostEditor({
             post={post}
             approved={approved}
             storageEnabled={storageEnabled}
+            meals={meals}
           />
         ))}
         {!posts.length && (
@@ -129,14 +147,17 @@ function ManagedPostCard({
   post,
   approved,
   storageEnabled,
+  meals,
 }: {
   restaurantId: string;
   post: ManagedPost;
   approved: boolean;
   storageEnabled: boolean;
+  meals: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [caption, setCaption] = useState(post.caption);
+  const [linkedMealId, setLinkedMealId] = useState(post.linkedMealId || "");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const base = `/api/v1/owner/restaurants/${restaurantId}/posts/${post.id}`;
@@ -145,7 +166,11 @@ function ManagedPostCard({
     setBusy("save");
     setError("");
     try {
-      await requestJson(base, "PATCH", { caption, version: post.version });
+      await requestJson(base, "PATCH", {
+        caption,
+        linkedMealId: linkedMealId || null,
+        version: post.version,
+      });
       router.refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -250,11 +275,29 @@ function ManagedPostCard({
           onChange={(event) => setCaption(event.target.value)}
         />
       </label>
+      <label>
+        Linked menu item
+        <select
+          value={linkedMealId}
+          onChange={(event) => setLinkedMealId(event.target.value)}
+        >
+          <option value="">No linked meal</option>
+          {meals.map((meal) => (
+            <option value={meal.id} key={meal.id}>
+              {meal.name}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="post-manager-actions">
         <button
           type="button"
           className="secondary"
-          disabled={Boolean(busy) || caption === post.caption}
+          disabled={
+            Boolean(busy) ||
+            (caption === post.caption &&
+              linkedMealId === (post.linkedMealId || ""))
+          }
           onClick={save}
         >
           {busy === "save" ? "Saving…" : "Save caption"}

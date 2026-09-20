@@ -6,6 +6,7 @@ export const captionInput = z.object({
     .trim()
     .min(3, "Write at least 3 characters.")
     .max(1200, "Keep posts under 1,200 characters."),
+  linkedMealId: z.string().uuid().nullable().optional(),
 });
 
 export const updatePostInput = captionInput.extend({

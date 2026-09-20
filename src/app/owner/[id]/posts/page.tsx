@@ -10,6 +10,7 @@ import { restaurant } from "@/db/schema";
 import { storageConfigured } from "@/lib/storage";
 import { PostEditor } from "@/components/post-editor";
 import { Title } from "@/components/ui";
+import { meal } from "@/db/schema";
 
 export default async function RestaurantPosts({
   params,
@@ -23,6 +24,10 @@ export default async function RestaurantPosts({
   const [r] = await db.select().from(restaurant).where(eq(restaurant.id, id));
   if (!r) notFound();
   const posts = await listOwnedPosts(db, actor, id);
+  const meals = await db
+    .select({ id: meal.id, name: meal.name })
+    .from(meal)
+    .where(eq(meal.restaurantId, id));
   return (
     <div className="owner-posts-page">
       <Link className="back-link" href={`/owner/${id}`}>
@@ -36,6 +41,7 @@ export default async function RestaurantPosts({
         posts={posts}
         approved={r.status === "approved"}
         storageEnabled={storageConfigured()}
+        meals={meals}
       />
     </div>
   );
