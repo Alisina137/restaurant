@@ -120,6 +120,44 @@ it("verifies email, protects admin fields, resets passwords once and revokes ses
     ).status,
   ).toBe(200);
 });
+it("allows sign-out from the actual development origin when Next changes port", async () => {
+  const alternateOrigin = "http://localhost:3001";
+  const signIn = await secureAuthHandler(
+    auth,
+    new Request(alternateOrigin + "/api/auth/sign-in/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        origin: alternateOrigin,
+        "x-real-ip": "192.0.2.13",
+      },
+      body: JSON.stringify({
+        email,
+        password: "Different-Password-42!",
+      }),
+    }),
+  );
+  expect(signIn.status).toBe(200);
+  const cookie = signIn.headers
+    .getSetCookie()
+    .map((value) => value.split(";")[0])
+    .join("; ");
+  expect(cookie).toContain("session_token");
+  const signOut = await secureAuthHandler(
+    auth,
+    new Request(alternateOrigin + "/api/auth/sign-out", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        origin: alternateOrigin,
+        cookie,
+        "x-real-ip": "192.0.2.13",
+      },
+      body: JSON.stringify({}),
+    }),
+  );
+  expect(signOut.status).toBe(200);
+});
 it("rejects cross-origin auth and enforces rate limits", async () => {
   const response = await secureAuthHandler(
     auth,
