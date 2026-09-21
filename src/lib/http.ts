@@ -39,11 +39,18 @@ export async function api<T>(fn: () => Promise<T>) {
   }
 }
 export function sameOrigin(request: Request) {
-  const expected = new URL(
-    process.env.BETTER_AUTH_URL || "http://localhost:3000",
-  ).origin;
-  if (request.headers.get("origin") !== expected)
+  const supplied = request.headers.get("origin");
+  if (!supplied) throw new HttpError(403, "This request is not allowed.");
+  try {
+    const allowed = new Set([new URL(request.url).origin]);
+    if (process.env.BETTER_AUTH_URL)
+      allowed.add(new URL(process.env.BETTER_AUTH_URL).origin);
+    if (!allowed.has(new URL(supplied).origin))
+      throw new HttpError(403, "This request is not allowed.");
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
     throw new HttpError(403, "This request is not allowed.");
+  }
 }
 export async function boundedBody(request: Request, limit: number) {
   if (Number(request.headers.get("content-length")) > limit)

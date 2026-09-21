@@ -9,6 +9,22 @@ type WorkspaceOption = {
   target: string;
 };
 
+async function updatePreferences(body: {
+  workspace?: string;
+  lowData?: boolean;
+}) {
+  const response = await fetch("/api/preferences", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const result = (await response.json().catch(() => null)) as {
+    error?: string;
+  } | null;
+  if (!response.ok)
+    throw new Error(result?.error || "Could not update this preference.");
+}
+
 export function WorkspaceSwitcher({
   active,
   options,
@@ -20,6 +36,7 @@ export function WorkspaceSwitcher({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   return (
     <label className="workspace-switcher">
       <span>{label}</span>
@@ -32,15 +49,17 @@ export function WorkspaceSwitcher({
           );
           if (!selected) return;
           setBusy(true);
+          setError("");
           try {
-            const response = await fetch("/api/preferences", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ workspace: selected.key }),
-            });
-            if (!response.ok) throw new Error();
+            await updatePreferences({ workspace: selected.key });
             router.push(selected.target);
             router.refresh();
+          } catch (reason) {
+            setError(
+              reason instanceof Error
+                ? reason.message
+                : "Could not switch workspace.",
+            );
           } finally {
             setBusy(false);
           }
@@ -52,6 +71,11 @@ export function WorkspaceSwitcher({
           </option>
         ))}
       </select>
+      {error && (
+        <small className="preference-error" role="alert">
+          {error}
+        </small>
+      )}
     </label>
   );
 }
@@ -65,28 +89,38 @@ export function LowDataToggle({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   return (
-    <button
-      type="button"
-      className={`low-data-toggle ${enabled ? "active" : ""}`}
-      disabled={busy}
-      aria-pressed={enabled}
-      onClick={async () => {
-        setBusy(true);
-        try {
-          const response = await fetch("/api/preferences", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ lowData: !enabled }),
-          });
-          if (!response.ok) throw new Error();
-          router.refresh();
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      {label}: {enabled ? "On" : "Off"}
-    </button>
+    <span className="preference-action">
+      <button
+        type="button"
+        className={`low-data-toggle ${enabled ? "active" : ""}`}
+        disabled={busy}
+        aria-pressed={enabled}
+        onClick={async () => {
+          setBusy(true);
+          setError("");
+          try {
+            await updatePreferences({ lowData: !enabled });
+            router.refresh();
+          } catch (reason) {
+            setError(
+              reason instanceof Error
+                ? reason.message
+                : "Could not update low-data mode.",
+            );
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {label}: {enabled ? "On" : "Off"}
+      </button>
+      {error && (
+        <small className="preference-error" role="alert">
+          {error}
+        </small>
+      )}
+    </span>
   );
 }
