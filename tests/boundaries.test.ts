@@ -10,6 +10,14 @@ it("rejects missing/foreign origins and oversized request streams", async () => 
   ).toThrow();
   expect(() =>
     sameOrigin(
+      new Request("http://127.0.0.1:3001/api", {
+        method: "POST",
+        headers: { origin: "http://127.0.0.1:3001" },
+      }),
+    ),
+  ).not.toThrow();
+  expect(() =>
+    sameOrigin(
       new Request("http://localhost:3000/api", {
         method: "POST",
         headers: { origin: "https://evil.example" },
