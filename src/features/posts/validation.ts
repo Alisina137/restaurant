@@ -1,13 +1,30 @@
 import { z } from "zod";
 
-export const captionInput = z.object({
-  caption: z
-    .string()
-    .trim()
-    .min(3, "Write at least 3 characters.")
-    .max(1200, "Keep posts under 1,200 characters."),
-  linkedMealId: z.string().uuid().nullable().optional(),
-});
+const freshOfferInput = z
+  .object({
+    availableQuantity: z.number().int().min(1).max(5000),
+    startsAt: z.string().datetime(),
+    endsAt: z.string().datetime(),
+    specialPriceMinor: z.number().int().positive().max(100_000_000).nullable(),
+  })
+  .refine((value) => new Date(value.endsAt) > new Date(value.startsAt), {
+    message: "Fresh Today must end after it starts.",
+  });
+
+export const captionInput = z
+  .object({
+    caption: z
+      .string()
+      .trim()
+      .min(3, "Write at least 3 characters.")
+      .max(1200, "Keep posts under 1,200 characters."),
+    linkedMealId: z.string().uuid().nullable().optional(),
+    freshOffer: freshOfferInput.nullable().optional(),
+  })
+  .refine((value) => !value.freshOffer || Boolean(value.linkedMealId), {
+    path: ["linkedMealId"],
+    message: "Link a menu item before creating a Fresh Today offer.",
+  });
 
 export const updatePostInput = captionInput.extend({
   version: z.number().int().positive(),

@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { Archive, ImagePlus, PencilLine, Send, Upload, X } from "lucide-react";
 import { requestJson } from "./restaurant-form";
 
+const DEFAULT_OFFER_START = new Date();
+const DEFAULT_OFFER_END = new Date(
+  DEFAULT_OFFER_START.getTime() + 6 * 60 * 60 * 1000,
+);
+
 type ManagedPost = {
   id: string;
   caption: string;
@@ -13,7 +18,33 @@ type ManagedPost = {
   publishedAt: Date | null;
   images: { id: string; position: number }[];
   linkedMealId: string | null;
+  freshOffer: {
+    stockTotal: number;
+    stockRemaining: number;
+    startsAt: Date;
+    endsAt: Date;
+    specialPriceMinor: number | null;
+  } | null;
 };
+
+function dateInput(value: Date | string) {
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
+}
+
+function freshFromForm(data: FormData) {
+  if (data.get("freshEnabled") !== "on") return null;
+  return {
+    availableQuantity: Number(data.get("freshQuantity")),
+    startsAt: new Date(String(data.get("freshStartsAt"))).toISOString(),
+    endsAt: new Date(String(data.get("freshEndsAt"))).toISOString(),
+    specialPriceMinor: data.get("freshPrice")
+      ? Math.round(Number(data.get("freshPrice")) * 100)
+      : null,
+  };
+}
 
 export function PostEditor({
   restaurantId,
@@ -38,12 +69,14 @@ export function PostEditor({
     setCreating(true);
     setError("");
     try {
+      const data = new FormData(form);
       await requestJson(
         `/api/v1/owner/restaurants/${restaurantId}/posts`,
         "POST",
         {
-          caption: new FormData(form).get("caption"),
-          linkedMealId: new FormData(form).get("linkedMealId") || null,
+          caption: data.get("caption"),
+          linkedMealId: data.get("linkedMealId") || null,
+          freshOffer: freshFromForm(data),
         },
       );
       form.reset();
@@ -78,6 +111,52 @@ export function PostEditor({
             placeholder="Share today’s special, a kitchen moment, or an announcement…"
           />
         </label>
+        <details className="fresh-offer-builder">
+          <summary>Make this an orderable Fresh Today special</summary>
+          <div className="stack">
+            <label className="check">
+              <input type="checkbox" name="freshEnabled" /> Enable limited offer
+            </label>
+            <div className="form-grid">
+              <label>
+                Available quantity
+                <input
+                  type="number"
+                  name="freshQuantity"
+                  min="1"
+                  max="5000"
+                  defaultValue="10"
+                />
+              </label>
+              <label>
+                Special price (AFN) <span className="help">Optional</span>
+                <input type="number" name="freshPrice" min="1" />
+              </label>
+            </div>
+            <div className="form-grid">
+              <label>
+                Starts
+                <input
+                  type="datetime-local"
+                  name="freshStartsAt"
+                  defaultValue={dateInput(DEFAULT_OFFER_START)}
+                />
+              </label>
+              <label>
+                Ends
+                <input
+                  type="datetime-local"
+                  name="freshEndsAt"
+                  defaultValue={dateInput(DEFAULT_OFFER_END)}
+                />
+              </label>
+            </div>
+            <p className="small muted">
+              Link a menu item first. Real stock is deducted only when an order
+              is placed.
+            </p>
+          </div>
+        </details>
         <label>
           Link a menu item <span className="help">Optional</span>
           <select name="linkedMealId">
@@ -158,17 +237,19 @@ function ManagedPostCard({
   const router = useRouter();
   const [caption, setCaption] = useState(post.caption);
   const [linkedMealId, setLinkedMealId] = useState(post.linkedMealId || "");
+  const [freshEnabled, setFreshEnabled] = useState(Boolean(post.freshOffer));
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const base = `/api/v1/owner/restaurants/${restaurantId}/posts/${post.id}`;
 
-  async function save() {
+  async function save(form: HTMLFormElement) {
     setBusy("save");
     setError("");
     try {
       await requestJson(base, "PATCH", {
         caption,
         linkedMealId: linkedMealId || null,
+        freshOffer: freshFromForm(new FormData(form)),
         version: post.version,
       });
       router.refresh();
@@ -289,19 +370,91 @@ function ManagedPostCard({
           ))}
         </select>
       </label>
-      <div className="post-manager-actions">
-        <button
-          type="button"
-          className="secondary"
-          disabled={
-            Boolean(busy) ||
-            (caption === post.caption &&
-              linkedMealId === (post.linkedMealId || ""))
-          }
-          onClick={save}
-        >
-          {busy === "save" ? "Saving…" : "Save caption"}
+      <form
+        className="fresh-offer-builder stack"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save(event.currentTarget);
+        }}
+      >
+        <label className="check">
+          <input
+            type="checkbox"
+            name="freshEnabled"
+            checked={freshEnabled}
+            onChange={(event) => setFreshEnabled(event.target.checked)}
+          />{" "}
+          Fresh Today limited offer
+        </label>
+        {freshEnabled && (
+          <>
+            <div className="form-grid">
+              <label>
+                Total quantity
+                <input
+                  type="number"
+                  name="freshQuantity"
+                  min="1"
+                  max="5000"
+                  defaultValue={post.freshOffer?.stockTotal || 10}
+                  required
+                />
+              </label>
+              <label>
+                Special price (AFN)
+                <input
+                  type="number"
+                  name="freshPrice"
+                  min="1"
+                  defaultValue={
+                    post.freshOffer?.specialPriceMinor
+                      ? post.freshOffer.specialPriceMinor / 100
+                      : ""
+                  }
+                />
+              </label>
+            </div>
+            <div className="form-grid">
+              <label>
+                Starts
+                <input
+                  type="datetime-local"
+                  name="freshStartsAt"
+                  defaultValue={
+                    post.freshOffer
+                      ? dateInput(post.freshOffer.startsAt)
+                      : dateInput(DEFAULT_OFFER_START)
+                  }
+                  required
+                />
+              </label>
+              <label>
+                Ends
+                <input
+                  type="datetime-local"
+                  name="freshEndsAt"
+                  defaultValue={
+                    post.freshOffer
+                      ? dateInput(post.freshOffer.endsAt)
+                      : dateInput(DEFAULT_OFFER_END)
+                  }
+                  required
+                />
+              </label>
+            </div>
+            {post.freshOffer && (
+              <p className="small muted">
+                {post.freshOffer.stockRemaining} of {post.freshOffer.stockTotal}{" "}
+                remain. Already sold units stay reserved.
+              </p>
+            )}
+          </>
+        )}
+        <button type="submit" className="secondary" disabled={Boolean(busy)}>
+          {busy === "save" ? "Saving…" : "Save post & offer"}
         </button>
+      </form>
+      <div className="post-manager-actions">
         {post.status === "published" ? (
           <button
             type="button"

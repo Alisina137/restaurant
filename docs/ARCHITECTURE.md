@@ -20,7 +20,9 @@ Development, test and production use separate databases/branches and credentials
 
 Use an established authentication library compatible with the selected runtime; final selection is a Phase 2 compatibility decision. Initial UX is email/password with secure recovery. Store password hashes using the library's supported secure hashing mechanism, never custom encryption. Sessions are revocable and held in secure HttpOnly cookies for the website. Add CSRF/origin checks and rate limits. Mobile token storage/refresh is a separate future implementation, not copying web cookies into an app.
 
-Restaurant membership authorizes every owner/staff operation. Derive actor identity from the session. Never accept actor role or restaurant ownership from request input. Admin access is explicitly granted and audited. Public queries exclude pending pages, private customer information and payment records. Orders are visible only to their customer, assigned restaurant staff or authorized support.
+Restaurant membership authorizes every owner/contributor operation. Contributor presets expand to explicit database permission flags for orders, menu pricing/configuration, menu copy, posts, delivery, availability and delivery-address access. Services check the required permission again for every mutation; hiding a navigation link is not authorization. Derive actor identity from the session. Never accept actor role or restaurant ownership from request input. Admin access is explicitly granted and audited, and an administrator is never implicitly made a restaurant member.
+
+The shell exposes Personal, Restaurant and Admin workspaces. The selected workspace is stored only as an HttpOnly preference cookie and is validated against the current session and live membership on every request. Changing workspace changes navigation and dashboard context, not the user's underlying identity or permissions. Public queries exclude pending pages, private customer information and payment records. Orders are visible only to their customer, assigned restaurant contributors with the required permission or authorized support.
 
 ## ADR-004: Payments and subscriptions
 
@@ -40,15 +42,17 @@ In-app notifications are baseline; owner order screens poll with a visible last-
 
 ## API boundaries
 
-| API group | Responsibility |
-|---|---|
-| `/api/v1/restaurants`, `/meals` | Public eligible catalog, filtering and detail |
-| `/api/v1/feed`, `/follows`, `/likes`, `/saves` | Paginated feed and authenticated social actions |
-| `/api/v1/quotes`, `/orders` | Server-priced quote and idempotent order creation; own-order reads |
-| `/api/v1/owner/...` | Membership-scoped publishing, catalog, fulfillment and settings |
-| `/api/v1/billing/...` | Authorized subscriptions and provider session requests |
-| `/api/webhooks/hesabpay` | Verified, idempotent provider event ingestion |
-| `/api/v1/admin/...` | Explicitly authorized moderation and reconciliation |
+| API group                                         | Responsibility                                                     |
+| ------------------------------------------------- | ------------------------------------------------------------------ |
+| `/api/v1/restaurants`, `/meals`                   | Public eligible catalog, filtering and detail                      |
+| `/api/v1/feed`, `/follows`, `/likes`, `/saves`    | Paginated feed and authenticated social actions                    |
+| `/api/v1/quotes`, `/orders`                       | Server-priced quote and idempotent order creation; own-order reads |
+| `/api/v1/favorites`, `/saved-meals`, `/addresses` | Private customer convenience data and reversible saves             |
+| `/api/preferences`                                | Validated workspace and low-data display preferences               |
+| `/api/v1/owner/...`                               | Membership-scoped publishing, catalog, fulfillment and settings    |
+| `/api/v1/billing/...`                             | Authorized subscriptions and provider session requests             |
+| `/api/webhooks/hesabpay`                          | Verified, idempotent provider event ingestion                      |
+| `/api/v1/admin/...`                               | Explicitly authorized moderation and reconciliation                |
 
 Define consistent error codes, field errors, request IDs and cursor pagination. Use transactional quote/order snapshots; enforce optimistic concurrency on order transitions. Never return raw database errors or secrets.
 
@@ -59,3 +63,5 @@ Target: HTTPS web runtime compatible with Next.js, Neon, media uploads and sched
 Use structured logs without secrets, full addresses or payment credentials. Record critical state transitions and provider references. Add error reporting, health checks, job failure alerts, migration/release instructions and rollback procedure before launch. Separate source rollback from data/payment recovery.
 
 Initial performance goals to measure: paginated feed; optimized images with fixed dimensions; no autoplay videos; database indexes for main queries; target p75 LCP under 2.5 seconds on representative pilot traffic, adjusted after real network measurements. No measured performance claims exist yet.
+
+Low-data mode is a server-readable preference. Main feed, restaurant and ordering pages avoid requesting nonessential imagery where implemented, and CSS disables decorative motion. It is an explicit user choice, not a claim that all network traffic is eliminated.

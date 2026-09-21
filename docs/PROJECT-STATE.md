@@ -2,8 +2,8 @@
 
 Project: Restaurant Social (temporary)
 Repository: Alisina137/restaurant
-Delivery revision: P04-R1
-Current phase: 4 — Menus and Ordering
+Delivery revision: SIDE-R1
+Current phase: Side Phase — Adaptive Roles & Local Advantage
 Status: implementation complete and locally verified; live-service and physical-device verification pending
 
 Confirmed: subscription restaurant pages, daily posts, menus, customer accounts, feed/search/filter/detail, ordering with HesabPay, restaurant-owned delivery, responsive web first and mobile later, one complete phase per delivery, Neon default.
@@ -12,10 +12,10 @@ Defaults: one restaurant per cart; one pilot city; owner-set area fees; monthly 
 
 Implemented stack: Next.js 16, React 19, TypeScript, Tailwind CSS 4, Drizzle ORM, Neon serverless PostgreSQL, Better Auth, Sharp and a private S3-compatible media adapter. Dependencies are locked by npm. Versioned JSON routes and domain services preserve a path for later mobile clients.
 
-Completed through Phase 4: all Phase 1–3 capabilities plus non-disruptive restaurant profile revisions; published details/photos remain live until a proposed revision is approved; category, meal, variant and extra management; meal images, search and post links; restaurant delivery zones/fees/minimums/ETAs; ordering availability control; one-restaurant carts; expiring server-priced quotes; immutable item/address/price order snapshots; idempotent order creation; customer order history and pre-acceptance cancellation; owner order queue; delivery and pickup state machines; responsive menu, cart, checkout and kitchen interfaces; versioned migration and integration tests.
+Completed through the Side Phase: all Phase 1–4 capabilities plus non-disruptive restaurant profile revisions; role-aware personal, restaurant and admin workspaces; multi-restaurant switching; server-enforced contributor permission presets and custom permissions; permission-specific owner tools; real badge counts; responsive guest/customer/contributor/owner/admin navigation; Fresh Today offers with limited windows, special prices, atomic stock and one-time inventory restoration; open/busy/paused kitchen state; independent delivery/pickup switches; preparation estimates and meal sold-out controls; restaurant favorites; saved meals; private saved addresses; recent orders; and explicit Order Again repricing before confirmation. Low-data mode, AFN formatting, English/Dari/Pashto message catalogs and RTL shell behavior are included.
 
-Verification: strict type check, lint and production build pass. Eighteen integration/security tests pass across five suites. No high or critical dependency advisory remains; four moderate advisories are inherited by development-only Drizzle migration tooling. Live Neon, SMTP and S3 checks, browser/device testing and deployment remain unperformed. See `docs/PHASE-4-VERIFICATION.md`.
+Verification: strict type check, lint and production build pass. Twenty-one integration/security tests pass across six suites, including permission isolation, Fresh Today stock races/restoration, admin separation and private customer data. Live Neon, SMTP and S3 checks, browser/device testing and deployment remain unperformed. See `docs/SIDE-PHASE-VERIFICATION.md`.
 
-Next: pull Phase 4, run migration `0002_eager_scarecrow.sql`, restart the application and complete the owner-to-customer acceptance checklist in `docs/PHASE-4-VERIFICATION.md`. Phase 5 adds HesabPay only after sandbox credentials and the intended merchant/settlement model are confirmed; it also adds subscriptions, verified callbacks, refunds and reconciliation.
+Next: merge the Side Phase pull request, pull `main`, run the migration command so `0003_fixed_wind_dancer.sql` is applied, restart the application and complete the role/ordering checklist in `docs/SIDE-PHASE-VERIFICATION.md`. Phase 5 adds HesabPay only after sandbox credentials and the intended merchant/settlement model are confirmed; it also adds subscriptions, verified callbacks, refunds and reconciliation.
 
-Phase record: Phase 4 → safe profile revisions; catalog and meal media; delivery configuration; pricing/quote/order services; customer cart/checkout/history; owner fulfillment; meal discovery/post links; responsive styling; migration/tests/build/security verification. These are internal delivery records, not user task/part instructions.
+Phase record: Side Phase → adaptive workspaces and navigation; contributor permissions; Fresh Today; kitchen/meal availability; favorites/saved meals/addresses; safe repriced reordering; admin views; low-data/i18n/RTL responsive polish; migration/tests/build/security verification. These are internal delivery records, not user task/part instructions.

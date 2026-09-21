@@ -14,7 +14,7 @@ async function access(restaurantId: string, postId: string) {
   if (!actor.emailVerified)
     throw new HttpError(403, "Verify your email first.");
   const { db } = runtime();
-  await member(db, actor, restaurantId);
+  await member(db, actor, restaurantId, "posts");
   const [record] = await db
     .select({ id: post.id, status: post.status })
     .from(post)

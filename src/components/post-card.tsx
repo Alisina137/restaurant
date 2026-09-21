@@ -27,6 +27,12 @@ export type FeedPost = {
     priceMinor: number;
     imageKey: string | null;
   } | null;
+  freshToday?: {
+    id: string;
+    specialPriceMinor: number | null;
+    stockRemaining: number;
+    endsAt: Date;
+  } | null;
 };
 
 function relativeDate(date: Date) {
@@ -44,9 +50,11 @@ function relativeDate(date: Date) {
 export function PostCard({
   post,
   signedIn,
+  lowData = false,
 }: {
   post: FeedPost;
   signedIn: boolean;
+  lowData?: boolean;
 }) {
   return (
     <article className="feed-card">
@@ -78,7 +86,7 @@ export function PostCard({
         />
       </header>
       <p className="post-caption preserve">{post.caption}</p>
-      {post.images.length ? (
+      {post.images.length && !lowData ? (
         <div
           className={`post-media media-count-${Math.min(post.images.length, 4)}`}
         >
@@ -130,10 +138,25 @@ export function PostCard({
             )}
           </span>
           <span>
-            <small>ORDER FROM THIS POST</small>
+            <small>
+              {post.freshToday ? "FRESH TODAY" : "ORDER FROM THIS POST"}
+            </small>
             <strong>{post.linkedMeal.name}</strong>
+            {post.freshToday && (
+              <em>
+                {post.freshToday.stockRemaining} left · ends{" "}
+                {new Intl.DateTimeFormat("en-AF", {
+                  hour: "numeric",
+                  minute: "2-digit",
+                }).format(new Date(post.freshToday.endsAt))}
+              </em>
+            )}
           </span>
-          <b>{formatMoney(post.linkedMeal.priceMinor)}</b>
+          <b>
+            {formatMoney(
+              post.freshToday?.specialPriceMinor ?? post.linkedMeal.priceMinor,
+            )}
+          </b>
         </Link>
       )}
       <PostActions

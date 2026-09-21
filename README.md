@@ -1,6 +1,6 @@
 # Restaurant Social
 
-Mobile-first restaurant discovery and ordering platform for Afghanistan. Phase 4 adds restaurant menus, meal options, delivery zones, secure server-priced checkout, customer order history and restaurant-managed fulfillment.
+Mobile-first restaurant discovery and ordering platform for Afghanistan. The Side Phase adds adaptive customer/restaurant/admin workspaces, contributor permissions, Fresh Today limited offers, live kitchen availability and safer repeat ordering on top of Phase 4.
 
 ## Requirements
 
@@ -62,21 +62,25 @@ The script refuses to grant administrator access to an unverified account. Admin
 
 Restaurant details and text posts work without image storage. To enable private restaurant and post photo uploads, configure all `S3_*` variables in `.env.local`. Uploads are decoded, size-limited, metadata-stripped, resized and re-encoded as WebP. The bucket must not be public; images are served through authorization-aware application routes.
 
-## Phase 4 workflow
+## Side Phase workflow
 
-After applying the migration, an approved restaurant can open its workspace and select **Manage menu & orders**. Owners and staff can:
+After applying the migration, a signed-in user can switch among Personal, owned restaurant, contributed restaurant and Admin workspaces when authorized. Owners can grant manager, kitchen, content-editor or custom permissions; the same permissions are enforced by server services and APIs.
+
+Approved restaurants can:
 
 - create categories, meals, sizes and extra groups;
 - upload meal photos and link menu items from posts;
 - define restaurant-operated delivery areas, fees, minimums and ETAs;
 - start or pause ordering without hiding the restaurant page;
+- publish time- and quantity-limited **Fresh Today** meal offers;
+- communicate open, busy or paused kitchen state and preparation estimates;
 - accept orders and move delivery or pickup through valid fulfillment states.
 
-Customers can search restaurants and meals, configure a meal, choose delivery or pickup, receive a server-calculated price, place an idempotent order, cancel before acceptance and follow its status from **Orders**.
+Customers can search restaurants and meals, favorite restaurants, save meals and private delivery addresses, receive a server-calculated price, place an idempotent order, cancel before acceptance and follow its status from **Orders**. **Order again** always creates a fresh quote and displays price or availability changes before confirmation.
 
 When an approved restaurant edits its profile or photos, the current version stays public. The proposed version is stored separately; approval publishes it atomically, while rejection leaves the current public page unchanged.
 
-Phase 4 orders are paid directly to the restaurant on delivery or pickup. HesabPay is intentionally not simulated; verified online payment is Phase 5.
+Side Phase orders are paid directly to the restaurant on delivery or pickup. HesabPay is intentionally not simulated; verified online payment is Phase 5.
 
 ## Verification commands
 
@@ -87,8 +91,8 @@ npm test
 npm run build
 ```
 
-See [Phase 4 verification](docs/PHASE-4-VERIFICATION.md) and [project state](docs/PROJECT-STATE.md) for exact results and remaining external checks.
+See [Side Phase verification](docs/SIDE-PHASE-VERIFICATION.md) and [project state](docs/PROJECT-STATE.md) for exact results and remaining external checks.
 
 ## Current limits
 
-HesabPay, subscriptions, online refunds, ratings, notifications and production deployment are later phases. Restaurants deliver their own orders; there is no platform driver network or live map. Phase 4 never marks an order paid without a verified payment integration.
+HesabPay, subscriptions, online refunds, ratings, notifications and production deployment are later phases. Restaurants deliver their own orders; there is no platform driver network or live map. The application never marks an order paid without a verified payment integration.

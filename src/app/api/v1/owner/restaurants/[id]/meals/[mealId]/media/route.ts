@@ -16,7 +16,13 @@ export async function POST(
     const actor = await requireUser();
     const { id, mealId } = await params;
     const { db } = runtime();
-    await member(db, actor, id);
+    const access = await member(db, actor, id);
+    if (
+      access.role !== "owner" &&
+      !access.canManageMenu &&
+      !access.canEditMenuContent
+    )
+      throw new HttpError(403, "You cannot update menu photos.");
     if (!actor.emailVerified)
       throw new HttpError(403, "Verify your email before uploading images.");
     const image = await sanitizeImage(

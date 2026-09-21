@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { pageUser } from "@/lib/session";
 import { runtime } from "@/lib/runtime";
 import { ownerCatalog } from "@/features/catalog/service";
+import { member } from "@/features/restaurants/service";
 import { Title } from "@/components/ui";
 import { DeliveryManager } from "@/components/delivery-manager";
 
@@ -14,8 +15,11 @@ export default async function DeliveryPage({
 }) {
   const actor = await pageUser();
   const { id } = await params;
+  const access = await member(runtime().db, actor, id, "delivery").catch(
+    () => null,
+  );
   const data = await ownerCatalog(runtime().db, actor, id).catch(() => null);
-  if (!data) notFound();
+  if (!data || !access) notFound();
   return (
     <>
       <Link className="back-link" href={`/owner/${id}/menu`}>

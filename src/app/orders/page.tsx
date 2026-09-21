@@ -6,6 +6,7 @@ import { customerOrders } from "@/features/orders/service";
 import { formatMoney } from "@/features/orders/money";
 import { Title, Status, Empty } from "@/components/ui";
 import { CancelOrder } from "@/components/order-actions";
+import { ReorderButton } from "@/components/customer-actions";
 
 export default async function Orders({
   searchParams,
@@ -92,6 +93,9 @@ export default async function Orders({
               {order.status === "awaiting_acceptance" && (
                 <CancelOrder id={order.id} />
               )}
+              {["delivered", "collected", "rejected", "cancelled"].includes(
+                order.status,
+              ) && <ReorderButton orderId={order.id} />}
             </article>
           ))}
         </div>

@@ -106,7 +106,7 @@ export function StaffEditor({
   staff,
 }: {
   id: string;
-  staff: { id: string; name: string; email: string; role: string }[];
+  staff: Contributor[];
 }) {
   const router = useRouter();
   const [error, setError] = useState(""),
@@ -126,43 +126,27 @@ export function StaffEditor({
   return (
     <div className="stack">
       <p className="muted small">
-        Add a colleague who already has a verified account. Staff can view this
-        workspace; only owners can change the profile or team.
+        Add someone with a verified account, then grant only the tools they
+        need. Contributors can never change ownership or approve restaurants.
       </p>
       {staff.map((s) => (
-        <div className="row spread wrap" key={s.id}>
-          <div>
-            <strong>{s.name}</strong>
-            <p className="small muted">
-              {s.email} · {s.role}
-            </p>
-          </div>
-          {s.role === "staff" && (
-            <button
-              disabled={busy}
-              className="secondary small-button"
-              onClick={() =>
-                run(() =>
-                  requestJson(
-                    `/api/v1/owner/restaurants/${id}/staff`,
-                    "DELETE",
-                    { id: s.id },
-                  ),
-                )
-              }
-            >
-              Remove access
-            </button>
-          )}
-        </div>
+        <ContributorEditor
+          key={s.id}
+          restaurantId={id}
+          contributor={s}
+          busy={busy}
+          run={run}
+        />
       ))}
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          const email = new FormData(e.currentTarget).get("email");
+          const data = new FormData(e.currentTarget);
           void run(() =>
             requestJson(`/api/v1/owner/restaurants/${id}/staff`, "POST", {
-              email,
+              email: data.get("email"),
+              preset: data.get("preset"),
+              permissions: permissionForm(data),
             }),
           );
         }}
@@ -172,8 +156,24 @@ export function StaffEditor({
           Colleague’s email
           <input name="email" type="email" required />
         </label>
+        <label>
+          Permission preset
+          <select name="preset" defaultValue="manager">
+            <option value="manager">
+              Manager — operations, menu, posts and delivery
+            </option>
+            <option value="kitchen">
+              Kitchen — orders and live availability
+            </option>
+            <option value="content_editor">
+              Content editor — posts and menu descriptions
+            </option>
+            <option value="custom">Custom — use permissions below</option>
+          </select>
+        </label>
+        <PermissionChecks />
         <button className="secondary" disabled={busy}>
-          Add staff member
+          Add contributor
         </button>
       </form>
       {error && (
@@ -182,6 +182,145 @@ export function StaffEditor({
         </p>
       )}
     </div>
+  );
+}
+
+type Contributor = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  permissionPreset: "manager" | "kitchen" | "content_editor" | "custom" | null;
+  canManageOrders: boolean;
+  canManageMenu: boolean;
+  canEditMenuContent: boolean;
+  canManagePosts: boolean;
+  canManageDelivery: boolean;
+  canManageAvailability: boolean;
+  canViewDeliveryAddresses: boolean;
+};
+
+function permissionForm(data: FormData) {
+  return {
+    orders: data.get("orders") === "on",
+    menu: data.get("menu") === "on",
+    menuContent: data.get("menuContent") === "on",
+    posts: data.get("posts") === "on",
+    delivery: data.get("delivery") === "on",
+    availability: data.get("availability") === "on",
+    deliveryAddresses: data.get("deliveryAddresses") === "on",
+  };
+}
+
+function PermissionChecks({ contributor }: { contributor?: Contributor }) {
+  const fields = [
+    ["orders", "Manage orders", contributor?.canManageOrders],
+    ["menu", "Manage menu and prices", contributor?.canManageMenu],
+    ["menuContent", "Edit menu descriptions", contributor?.canEditMenuContent],
+    ["posts", "Create daily posts", contributor?.canManagePosts],
+    ["delivery", "Manage delivery areas", contributor?.canManageDelivery],
+    [
+      "availability",
+      "Update kitchen availability",
+      contributor?.canManageAvailability,
+    ],
+    [
+      "deliveryAddresses",
+      "View delivery addresses",
+      contributor?.canViewDeliveryAddresses,
+    ],
+  ] as const;
+  return (
+    <fieldset className="permission-grid">
+      <legend>Custom permissions</legend>
+      {fields.map(([name, label, checked]) => (
+        <label className="check" key={name}>
+          <input name={name} type="checkbox" defaultChecked={checked} /> {label}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+function ContributorEditor({
+  restaurantId,
+  contributor,
+  busy,
+  run,
+}: {
+  restaurantId: string;
+  contributor: Contributor;
+  busy: boolean;
+  run: (fn: () => Promise<unknown>) => Promise<void>;
+}) {
+  if (contributor.role === "owner")
+    return (
+      <div className="contributor-card owner-card">
+        <div>
+          <strong>{contributor.name}</strong>
+          <p className="small muted">{contributor.email} · Owner</p>
+        </div>
+        <span className="status approved">Full control</span>
+      </div>
+    );
+  return (
+    <form
+      className="contributor-card stack"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        void run(() =>
+          requestJson(
+            `/api/v1/owner/restaurants/${restaurantId}/staff`,
+            "PATCH",
+            {
+              membershipId: contributor.id,
+              preset: data.get("preset"),
+              permissions: permissionForm(data),
+            },
+          ),
+        );
+      }}
+    >
+      <div className="row spread wrap">
+        <div>
+          <strong>{contributor.name}</strong>
+          <p className="small muted">{contributor.email}</p>
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          className="danger-link small-button"
+          onClick={() =>
+            run(() =>
+              requestJson(
+                `/api/v1/owner/restaurants/${restaurantId}/staff`,
+                "DELETE",
+                { id: contributor.id },
+              ),
+            )
+          }
+        >
+          Remove access
+        </button>
+      </div>
+      <label>
+        Permission preset
+        <select
+          name="preset"
+          defaultValue={contributor.permissionPreset || "custom"}
+        >
+          <option value="manager">Manager</option>
+          <option value="kitchen">Kitchen</option>
+          <option value="content_editor">Content editor</option>
+          <option value="custom">Custom</option>
+        </select>
+      </label>
+      <PermissionChecks contributor={contributor} />
+      <button className="secondary small-button" disabled={busy}>
+        Update permissions
+      </button>
+    </form>
   );
 }
 export function ReviewForm({

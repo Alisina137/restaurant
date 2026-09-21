@@ -25,15 +25,17 @@ Dari and Pashto right-to-left layout support and English message catalogs are de
 
 ## Roles
 
-| Role | Can do | Cannot do |
-|---|---|---|
-| Visitor | Browse public posts, restaurants and menus | Order or write social activity |
-| Customer | Manage own profile/address/orders; follow, like, save; review delivered orders | Read another customer's address or order |
-| Restaurant owner | Manage owned restaurants, staff, posts, menu, delivery settings, billing and orders | Modify another restaurant or approve own verification |
-| Restaurant staff | Manage assigned restaurant orders/menu/posts according to granted role | Change ownership, subscriptions or staff permissions by default |
-| Platform admin | Approve/suspend restaurants; handle reports and audited support actions | Mark payments paid without verified provider evidence |
+| Role                   | Can do                                                                                                   | Cannot do                                             |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Visitor                | Browse public posts, restaurants and menus                                                               | Order or write social activity                        |
+| Customer               | Manage own profile/address/orders; follow, like, save; review delivered orders                           | Read another customer's address or order              |
+| Restaurant owner       | Manage owned restaurants, contributors, posts, menu, availability, delivery settings, billing and orders | Modify another restaurant or approve own verification |
+| Restaurant contributor | Use only explicitly granted manager, kitchen, content or custom capabilities                             | Change ownership, billing or contributor permissions  |
+| Platform admin         | Approve/suspend restaurants; handle reports and audited support actions                                  | Mark payments paid without verified provider evidence |
 
 One user can be both a customer and an owner. Restaurant membership, not a single global role, governs restaurant access.
+
+The application shell adapts to the active context: visitor, personal customer, a selected restaurant membership, or platform admin. A user may belong to multiple restaurant pages and switches workspace without losing the personal customer experience. Navigation improves usability but never replaces server authorization.
 
 ## First release requirements
 
@@ -43,11 +45,15 @@ Discover defaults to newest published posts in the selected city; Following show
 
 Search restaurant and meal names with city, area, cuisine, price and open/delivery filters. Sorting supports newest posts and relevant restaurant results. Empty results offer clearing filters. Do not imply distance sorting without reliable coordinates.
 
+Fresh Today turns a daily post into a limited, orderable offer with a start/end time, special price and real remaining quantity. Stock is enforced atomically at order placement and restored once after pre-fulfillment rejection/cancellation. The offer expires automatically and must never be represented by fabricated scarcity.
+
 ### Restaurant page and menu
 
 Cover, logo, description, hours, address, contact, availability, follow action; tabs Posts/Menu/About/Reviews. Show separate open, delivery and pickup availability. Menus have categories and meals with description, image, base price, variants, optional extras and sold-out controls. A meal with variants shows its minimum available price as 'From'. No placeholder ratings; show 'No reviews yet'.
 
 Only approved restaurants with an active entitlement publish new posts or accept new orders. Owners may prepare drafts before activation. Subscription expiry hides posts from discovery and disables new publishing/orders, but preserves the public page with 'Not accepting orders' and keeps existing-order operations and billing access available. Administrative suspension overrides publishing/order permission and routes outstanding orders to support.
+
+An approved restaurant remains available with its current public details while an edited profile revision is drafted, reviewed or rejected. Only approval publishes the new details. Operational controls are separate: open/busy/paused kitchen state, independent delivery and pickup switches, preparation range/note and per-meal sold-out state.
 
 ### Delivery and checkout
 

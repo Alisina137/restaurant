@@ -63,4 +63,23 @@ export const zoneInput = z
     message: "The minimum ETA cannot exceed the maximum ETA.",
   });
 
-export const orderingInput = z.object({ acceptingOrders: z.boolean() });
+export const orderingInput = z
+  .object({
+    acceptingOrders: z.boolean().optional(),
+    kitchenState: z.enum(["open", "busy", "paused"]).optional(),
+    deliveryOrdersEnabled: z.boolean().optional(),
+    pickupOrdersEnabled: z.boolean().optional(),
+    prepTimeMin: z.number().int().min(5).max(240).optional(),
+    prepTimeMax: z.number().int().min(5).max(360).optional(),
+    availabilityNote: z.string().trim().max(240).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "Choose at least one availability setting.",
+  })
+  .refine(
+    (value) =>
+      value.prepTimeMin === undefined ||
+      value.prepTimeMax === undefined ||
+      value.prepTimeMin <= value.prepTimeMax,
+    { message: "The minimum prep time cannot exceed the maximum." },
+  );
