@@ -4,6 +4,24 @@ import * as schema from "@/db/schema";
 import type { Database } from "@/db";
 import type { Environment } from "./env";
 export type Mail = { to: string; subject: string; text: string };
+
+function trustedOrigins(env: Environment) {
+  return (request?: Request) => {
+    const origins = new Set([env.BETTER_AUTH_URL]);
+    // Next.js may choose another port when 3000 is occupied. Trust the actual
+    // same-origin development request; secureAuthHandler still rejects a
+    // foreign Origin header before Better Auth receives the request.
+    if (process.env.NODE_ENV !== "production" && request) {
+      try {
+        origins.add(new URL(request.url).origin);
+      } catch {
+        // Better Auth will reject malformed request URLs.
+      }
+    }
+    return [...origins];
+  };
+}
+
 export function createAuth(
   db: Database,
   env: Environment,
@@ -14,7 +32,7 @@ export function createAuth(
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(db, { provider: "pg", schema, transaction: true }),
-    trustedOrigins: [env.BETTER_AUTH_URL],
+    trustedOrigins: trustedOrigins(env),
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 12,

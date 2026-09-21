@@ -23,7 +23,7 @@ Open `.env.local` and configure at least:
 
 - `DATABASE_URL`: the connection URL for a development Neon database.
 - `BETTER_AUTH_SECRET`: a unique high-entropy value of at least 32 characters. A PowerShell generator is shown below.
-- `BETTER_AUTH_URL`: `http://localhost:3000` locally; the exact HTTPS origin in production.
+- `BETTER_AUTH_URL`: the exact origin open in your browser—normally `http://localhost:3000`; if Next.js starts on port 3001 because 3000 is occupied, use `http://localhost:3001` and restart the server. Use the exact HTTPS origin in production.
 
 ```powershell
 $Bytes = New-Object byte[] 48
