@@ -16,7 +16,16 @@ async function request(path: string, options?: RequestInit) {
   } });
 }
 async function signIn(email: string, secret = password) {
-  const response = await request("/api/auth/sign-in/email", { method: "POST", body: JSON.stringify({ email, password: secret }) });
+  let response: Response | undefined;
+  // Better Auth intentionally throttles repeated sign-in attempts from one CI runner IP.
+  // Exercise roles sequentially without changing production security settings.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    response = await request("/api/auth/sign-in/email", { method: "POST", body: JSON.stringify({ email, password: secret }) });
+    if (response.status !== 429) break;
+    if (attempt === 3) throw new Error("Sign-in throttled after retries for " + email);
+    await new Promise((resolve) => setTimeout(resolve, 11_000));
+  }
+  if (!response) throw new Error("Sign-in failed to return a response");
   const cookies = response.headers.getSetCookie().map((item) => item.split(";")[0]).join("; ");
   return { response, cookies };
 }
