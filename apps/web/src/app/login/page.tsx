@@ -1,6 +1,7 @@
 "use client";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ArrowLeft, ArrowRight, LockKeyhole, UtensilsCrossed } from "lucide-react";
 import { direction, isLocale, t, type Locale } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
