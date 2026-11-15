@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { auth } from "./auth";
 import { db, pool } from "./db";
-import { platformAdmin, tenant, tenantMembership, user, userPreference } from "./schema";
+import { location, platformAdmin, restaurantSetting, tenant, tenantMembership, user, userPreference } from "./schema";
 import type { StaffRole } from "@dineflow/shared";
 
 if (process.env.NODE_ENV === "production") throw new Error("Development seed is forbidden in production");
@@ -20,6 +20,8 @@ async function ensureUser(name: string, email: string) {
 }
 async function main() {
   await db.insert(tenant).values({ id: demoTenantId, slug: "demo-restaurant", name: "Demo Restaurant" }).onConflictDoNothing();
+  await db.insert(location).values({ id: "dev-location", tenantId: demoTenantId, name: "Main branch", city: "Kabul" }).onConflictDoNothing();
+  await db.insert(restaurantSetting).values({ tenantId: demoTenantId }).onConflictDoNothing();
   const users: { env: string; name: string; role: StaffRole | "platform_admin" }[] = [
     { env: "DEMO_OWNER_EMAIL", name: "Demo Owner", role: "owner" },
     { env: "DEMO_WAITER_EMAIL", name: "Demo Waiter", role: "waiter" },
@@ -31,6 +33,7 @@ async function main() {
     const email = process.env[entry.env];
     if (!email) continue;
     const userId = await ensureUser(entry.name, email.toLowerCase());
+    await db.update(user).set({ emailVerified: true }).where(eq(user.id, userId));
     await db.insert(userPreference).values({ userId }).onConflictDoNothing();
     if (entry.role === "platform_admin") {
       await db.insert(platformAdmin).values({ userId }).onConflictDoNothing();

@@ -1,13 +1,13 @@
-name: Verify Phase 1
+name: Verify DineFlow
 on:
   push:
-    branches: [main, phase-01-foundation]
+    branches: [main, "phase-*"]
   pull_request:
     branches: [main]
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:16
@@ -28,6 +28,8 @@ jobs:
       BETTER_AUTH_SECRET: ci_only_secret_do_not_use_in_production_1234567890
       BETTER_AUTH_URL: http://localhost:4000
       TRUSTED_ORIGINS: http://localhost:3000
+      PUBLIC_WEB_URL: http://localhost:3000
+      DEV_EMAIL_DELIVERY: console
       DEMO_PASSWORD: CiOnlyStrongPassword_123!DoNotReuse
       DEMO_OWNER_EMAIL: owner-ci@example.test
       DEMO_WAITER_EMAIL: waiter-ci@example.test
@@ -61,6 +63,7 @@ jobs:
           cat /tmp/dineflow-api.log
           exit 1
       - run: pnpm --filter @dineflow/api test:integration
+      - run: pnpm --filter @dineflow/api exec tsx src/phase2-ci.ts
       - name: API logs after failure
         if: failure()
         run: cat /tmp/dineflow-api.log || true

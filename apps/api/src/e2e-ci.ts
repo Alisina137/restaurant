@@ -36,7 +36,7 @@ async function main() {
   const health = await request("/api/health/ready");
   assert.equal(health.status, 200, "DB readiness must work");
   const publicSignup = await request("/api/auth/sign-up/email", { method: "POST", body: JSON.stringify({ email: "attacker@example.test", name: "Attacker", password }) });
-  assert.equal(publicSignup.status, 403, "P01 forbids public signup");
+  assert.equal(publicSignup.status, 200, "P02 enables account signup without granting restaurant access");
   const wrong = await signIn("owner-ci@example.test", "wrongPass12345");
   assert.notEqual(wrong.response.status, 200, "wrong password must not authenticate");
 
@@ -85,6 +85,6 @@ async function main() {
       assert.equal(revoked.status, 401, "signed-out session must be invalid");
     }
   }
-  console.info("PASS: signup blocked; 5 roles; wrong password; tenant isolation; locale persistence; membership revoke; sign-out.");
+  console.info("PASS: signup unprivileged; 5 roles; wrong password; tenant isolation; locale persistence; membership revoke; sign-out.");
 }
 main().then(async () => { await pool.end(); }).catch(async (error) => { console.error(error); await pool.end(); process.exitCode = 1; });

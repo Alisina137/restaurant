@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, LockKeyhole, UtensilsCrossed } from "lucide-react";
 import { direction, isLocale, t, type Locale } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
-import { getContext } from "@/lib/context";
+import { getContext, ApiError } from "@/lib/context";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,8 +28,17 @@ export default function LoginPage() {
     try {
       const result = await authClient.signIn.email({ email: email.trim().toLowerCase(), password });
       if (result.error) { setError(t(locale, "invalidLogin")); return; }
-      const context = await getContext();
-      router.replace(context.defaultRoute);
+      const next = new URLSearchParams(window.location.search).get("next");
+      if (next && next.startsWith("/auth/invite/") && !next.includes("..")) {
+        router.replace(next); return;
+      }
+      try {
+        const context = await getContext();
+        router.replace(context.defaultRoute);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 403) router.replace("/onboarding/restaurant");
+        else throw error;
+      }
     } catch { setError(t(locale, "offline")); }
     finally { setBusy(false); }
   }
@@ -69,6 +78,9 @@ export default function LoginPage() {
           <span>{busy ? t(locale, "loading") : t(locale, "signIn")}</span>{busy ? <span className="button-spinner" /> : arrow}
         </button>
         <p className="auth-note">{t(locale, "support")}</p>
+        <p className="auth-note"><Link className="text-link" href="/register">
+          {locale === "en" ? "Create a restaurant account" : locale === "fa-AF" ? "ایجاد حساب رستورانت" : "د رستورانت حساب جوړول"}
+        </Link></p>
       </form>
     </section>
   </main>;
