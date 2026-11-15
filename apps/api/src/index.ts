@@ -48,7 +48,8 @@ async function requireIdentity(req: AuthorizedRequest, res: Response, next: Next
 }
 app.get("/api/context", requireIdentity, (req: AuthorizedRequest, res) => res.json(req.identity));
 app.get("/api/tenants/:tenantId/access", requireIdentity, (req: AuthorizedRequest, res) => {
-  if (!req.identity || !canAccessTenant(req.identity, req.params.tenantId)) {
+  const tenantId = req.params.tenantId;
+  if (!req.identity || typeof tenantId !== "string" || !canAccessTenant(req.identity, tenantId)) {
     res.status(404).json({ code: "NOT_FOUND", message: "Restaurant unavailable" });
     return;
   }
