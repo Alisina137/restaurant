@@ -18,4 +18,4 @@
 6. Health/ready endpoints respond honestly; no raw errors or fake order counts.
 
 ## Verification status
-Code and automated unit tests have been authored. Full DB integration, browser screenshots and Expo device checks need the project's real database URL, public API tunnel and local install before this phase can be marked complete.
+GitHub Actions run 43722995802 passed: TypeScript, shared/API unit tests, Next.js production build, PostgreSQL migrations and demo seed, plus live API integration testing (5 roles, isolation, account status, sign-out, language). Browser screenshots, keyboard/responsive walkthrough and Android Expo Go checks have not yet run; Phase 1 remains IMPLEMENTED — VERIFICATION PENDING for device/visual gates.

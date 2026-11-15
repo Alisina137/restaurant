@@ -2,7 +2,7 @@
 **Product Specification:** v1.0, dated 2026-11-15. **Workflow:** Software Development Workflow V5.
 **Repository:** Alisina137/restaurant. This repository was empty when P01 started.
 **Current phase:** P01 — Foundation, app shells and identity.
-**Status:** Source implemented, external dependency/database/device verification pending.
+**Status:** IMPLEMENTED — VERIFICATION PENDING (live device/browser QA outstanding).
 
 ## Phase 1 baseline
 - pnpm monorepo with independent API (Express, PostgreSQL, Drizzle, Better Auth), Next.js 16 web and Expo SDK 57 waiter mobile.
@@ -14,10 +14,11 @@
 - Unreleased restaurant, kitchen, guest and finance operations are NOT active navigation yet.
 
 ## Acceptance/verification
-- AT-001: role landing, restricted tenant, sign-in/sign-out and session expiry require live DB and device/browser.
+- GitHub Actions run 43722995802: PostgreSQL 16 migration and development seed passed, live API sign-in for all 5 roles, foreign-tenant denial, signup prohibition, locale persistence, membership revoke, and sign-out verified.
+- AT-001: database/API integration verified in CI; physical device/browser workflows still pending.
 - Static tests: shared RBAC/locale rules and tenant access.
-- CI: install, TypeScript, unit and web production build; may be blocked until package lock and external services available.
-- UI: design tokens and RTL/LTR styles applied; real device/browser visual audit pending.
+- CI: pnpm install, TypeScript across 4 workspaces, shared/API unit tests, Next.js production build, migration, development seed, and live API integration tests all passed (run 43722995802). Dependency lockfile not yet committed; pnpm install uses non-frozen lockfile.
+- UI: design tokens and RTL/LTR styles applied; real browser widths, Android Expo Go and keyboard/visual accessibility audit pending.
 
 ## External setup (never commit credentials)
 - DATABASE_URL (PostgreSQL), BETTER_AUTH_SECRET, BETTER_AUTH_URL, TRUSTED_ORIGINS.
