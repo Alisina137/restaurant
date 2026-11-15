@@ -1,0 +1,22 @@
+{
+  "name": "dineflow",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.20.0",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @dineflow/api dev",
+    "dev:web": "pnpm --filter @dineflow/web dev",
+    "dev:mobile": "pnpm --filter @dineflow/mobile start",
+    "db:migrate": "pnpm --filter @dineflow/api db:migrate",
+    "seed:dev": "pnpm --filter @dineflow/api seed:dev",
+    "typecheck": "pnpm --filter @dineflow/shared typecheck && pnpm --filter @dineflow/api typecheck && pnpm --filter @dineflow/web typecheck && pnpm --filter @dineflow/mobile typecheck",
+    "test": "pnpm --filter @dineflow/shared test && pnpm --filter @dineflow/api test",
+    "build:web": "cross-env NODE_ENV=production pnpm --filter @dineflow/web build"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3"
+  }
+}
