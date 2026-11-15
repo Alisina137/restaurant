@@ -125,8 +125,8 @@ onboardingRouter.post("/complete", route(async (req, res) => {
     });
     res.status(201).json({ created: true, tenantId, defaultRoute: "/app/overview" });
   } catch (err) {
-    const dbError = err as { code?: string };
-    if (dbError.code === "23505") {
+    const dbError = err as { code?: string; cause?: { code?: string } };
+    if (dbError.code === "23505" || dbError.cause?.code === "23505") {
       const [claim] = await db.select({ tenantId: onboardingClaim.tenantId }).from(onboardingClaim)
         .where(eq(onboardingClaim.userId, person.id)).limit(1);
       if (claim) { res.json({ created: false, tenantId: claim.tenantId }); return; }
