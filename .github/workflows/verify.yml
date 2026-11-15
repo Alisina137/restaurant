@@ -1,0 +1,26 @@
+name: Verify Phase 1
+on:
+  push:
+    branches: [main, phase-01-foundation]
+  pull_request:
+    branches: [main]
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.20.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build:web
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000

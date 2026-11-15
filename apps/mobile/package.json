@@ -1,0 +1,28 @@
+{
+  "name": "@dineflow/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start --tunnel --clear --go",
+    "start:lan": "expo start --go",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@better-auth/expo": "1.7.25",
+    "@dineflow/shared": "workspace:*",
+    "@expo/vector-icons": "^15.0.2",
+    "better-auth": "1.7.25",
+    "expo": "~57.0.23",
+    "expo-router": "~57.0.0",
+    "expo-secure-store": "~57.0.0",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "^5.6.0",
+    "react-native-screens": "^4.25.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "typescript": "^5.9.3"
+  }
+}
