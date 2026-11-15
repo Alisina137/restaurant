@@ -31,9 +31,9 @@ export default function RestaurantOnboarding() {
       }
     } catch(e) {
       if(e instanceof Phase2Error&&e.status===401){router.replace("/register");return;}
-      setError(e instanceof Error?e.message:p2(locale,"error"));
+      setError(e instanceof Error?e.message:p2("fa-AF","error"));
     } finally {setLoading(false);}
-  },[router,locale]);
+  },[router]);
   useEffect(()=>{void load();},[load]);
   useEffect(()=>{document.documentElement.dir=direction(locale); document.documentElement.lang=locale;},[locale]);
   function update<K extends keyof Draft>(key:K,value:Draft[K]){

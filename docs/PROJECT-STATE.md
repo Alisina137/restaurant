@@ -3,7 +3,7 @@
 **Repository:** Alisina137/restaurant. **Delivery branch:** phase-02-onboarding-staff.
 
 ## Phase 2 — Tenant onboarding, staff invitations, platform bootstrap
-**Implementation status:** IMPLEMENTED — CI/real browser/device verification pending until the branch checks pass.
+**Implementation status:** IMPLEMENTED — LIVE BROWSER/DEVICE VERIFICATION PENDING. GitHub Actions CI passed for commit 177a184: run 43727729440 (types, tests, Next build, PostgreSQL migrations, P01 and P02 API integration).
 
 ### Scoped delivered features (P02 F01/F02/F15/F16)
 - Public owner account registration through Better Auth (verified email required for tenant creation). No role granted merely by account signup.
@@ -17,7 +17,7 @@
 
 ### Verification and known limits
 - P01 GitHub Actions run 43722995802 previously passed PostgreSQL migration/seed, web build, typechecks, API smoke.
-- P02 adds an isolated integration test for owner registration, draft resume, slug collision, idempotent creation, invitations and revocation, role permissions, tenant isolation, platform overview. CI config runs on phase branches, then production-build, PostgreSQL migration and real API integration.
+- GitHub Actions CI run 43727729440 passed, including P02 live API integration. P02 adds an isolated integration test for owner registration, draft resume, slug collision, idempotent creation, invitations and revocation, role permissions, tenant isolation, platform overview. CI config runs on phase branches, then production-build, PostgreSQL migration and real API integration.
 - No local browser or Expo Go device test was performed by this execution environment. Confirm web responsive/RTL screen results on Windows and phone before calling P02 fully verified.
 - External email provider/verified sender domain required for actual invite and email verification in production. No invented fallback or secret published. Trial is a configurable 14-day **proposed** pilot default; paid plans/billing remain P12.
 - Production signup must be tested with configured email delivery before launch; keep secrets out of Git.
