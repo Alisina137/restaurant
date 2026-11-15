@@ -30,6 +30,3 @@ export async function contextFor(user: { id: string; name: string; email: string
     memberships, defaultRoute: landingFor(role, "web")
   };
 }
-export function canAccessTenant(context: IdentityContext, tenantId: string): boolean {
-  return context.role !== "platform_admin" && context.tenantId === tenantId && context.memberships.some((m) => m.tenantId === tenantId);
-}

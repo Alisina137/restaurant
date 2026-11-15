@@ -8,7 +8,8 @@ import { isLocale } from "@dineflow/shared";
 import { auth } from "./auth";
 import { db } from "./db";
 import { auditEvent, tenantMembership, userPreference } from "./schema";
-import { canAccessTenant, contextFor, type IdentityContext } from "./context";
+import { contextFor, type IdentityContext } from "./context";
+import { canAccessTenant } from "./tenant-access";
 
 const app = express();
 app.disable("x-powered-by");

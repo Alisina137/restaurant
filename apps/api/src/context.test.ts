@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canAccessTenant, type IdentityContext } from "./context";
+import { canAccessTenant } from "./tenant-access";
+import type { IdentityContext } from "./context";
 const base: IdentityContext = {
   user: { id: "u1", name: "A", email: "a@example.com" }, locale: "en",
   role: "waiter", tenantId: "tenant-a", tenantName: "A",
