@@ -37,7 +37,7 @@ async function main() {
     ["kitchen-ci@example.test", "kitchen", "/kitchen/live"],
     ["cashier-ci@example.test", "cashier", "/cashier/checks"],
     ["platform-ci@example.test", "platform_admin", "/platform/overview"]
-  ]) {
+  ] as const) {
     const signedIn = await signIn(email);
     assert.equal(signedIn.response.status, 200, "correct credentials should authenticate: " + email);
     assert.ok(signedIn.cookies, "auth session cookie exists: " + email);
