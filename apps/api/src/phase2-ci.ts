@@ -63,8 +63,8 @@ async function main(){
   assert.equal(change.status,200,"owner may update tenant-local settings");
   const staff=await json<{items:{id:string;role:string;status:string}[]}>(await req("/api/tenant/staff","GET",undefined,owner));
   assert.equal(staff.items.length,1);
-  assert.equal(staff.items[0].role,"owner");
-  const lastOwner=await req("/api/tenant/staff/"+staff.items[0].id,"PATCH",{role:"waiter",status:"active"},owner);
+  assert.equal(staff.items[0]!.role,"owner");
+  const lastOwner=await req("/api/tenant/staff/"+staff.items[0]!.id,"PATCH",{role:"waiter",status:"active"},owner);
   assert.equal(lastOwner.status,403,"cannot demote sole owner");
   const inviteMail="new-waiter-ci@example.test";
   const inviteResp=await req("/api/tenant/invitations","POST",{email:inviteMail,role:"waiter",message:"Join our crew"},owner);
@@ -88,11 +88,11 @@ async function main(){
     .where(and(eq(tenantMembership.tenantId,created.tenantId),eq(tenantMembership.userId,invitedId))).limit(1);
   assert.equal(member.length,1);
   assert.equal((await req("/api/tenant/settings","GET",undefined,waiter)).status,403,"waiter cannot edit tenant settings");
-  const revoke=await req("/api/tenant/staff/"+member[0].id,"PATCH",{role:"waiter",status:"disabled"},owner);
+  const revoke=await req("/api/tenant/staff/"+member[0]!.id,"PATCH",{role:"waiter",status:"disabled"},owner);
   assert.equal(revoke.status,200,"owner may revoke waiter");
   assert.equal((await req("/api/context","GET",undefined,waiter)).status,403,"revoke prevents access immediately");
   const oldOwner=await login("owner-ci@example.test");
-  const foreignMember=await req("/api/tenant/staff/"+member[0].id,"PATCH",{role:"manager",status:"active"},oldOwner);
+  const foreignMember=await req("/api/tenant/staff/"+member[0]!.id,"PATCH",{role:"manager",status:"active"},oldOwner);
   assert.equal(foreignMember.status,404,"owner cannot mutate another tenant's staff");
   const platform=await login("platform-ci@example.test");
   const platformList=await json<{items:{id:string}[]}>(await req("/api/platform/restaurants","GET",undefined,platform));

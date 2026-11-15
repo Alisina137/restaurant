@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, Building2 } from "lucide-react";
+import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2 } from "lucide-react";
 import { direction, t, webAreaFor, type Locale, type WebArea } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
 import { ApiError, getContext, type WorkspaceContext } from "@/lib/context";

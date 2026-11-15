@@ -101,7 +101,7 @@ onboardingRouter.post("/complete", route(async (req, res) => {
   if (!person.verified) { fail(res, 403, "EMAIL_UNVERIFIED", "Verify your email before setup."); return; }
   const existing = await db.select({ tenantId: onboardingClaim.tenantId }).from(onboardingClaim)
     .where(eq(onboardingClaim.userId, person.id)).limit(1);
-  if (existing.length) { res.json({ tenantId: existing[0].tenantId, created: false }); return; }
+  if (existing.length) { res.json({ tenantId: existing[0]!.tenantId, created: false }); return; }
   const isPlatform = await db.select({ id: platformAdmin.userId }).from(platformAdmin)
     .where(eq(platformAdmin.userId, person.id)).limit(1);
   if (isPlatform.length) { fail(res, 403, "ACCESS_DENIED", "Platform operators cannot register a restaurant from this account."); return; }
@@ -203,7 +203,7 @@ staffRouter.patch("/staff/:id", route(async (req, res) => {
     const outcome = await db.transaction(async (tx) => {
       await tx.execute(sql`SELECT id FROM tenants WHERE id = ${data.tenantId} FOR UPDATE`);
       const [target] = await tx.select().from(tenantMembership)
-        .where(and(eq(tenantMembership.id, req.params.id), eq(tenantMembership.tenantId, data.tenantId))).limit(1);
+        .where(and(eq(tenantMembership.id, (req.params.id ?? "")), eq(tenantMembership.tenantId, data.tenantId))).limit(1);
       if (!target) return "NOT_FOUND";
       if (data.context.role === "manager" && (target.role === "owner" || target.role === "manager" || role === "owner" || role === "manager")) return "ACCESS_DENIED";
       if (target.userId === data.person.id && status === "disabled") return "SELF_DISABLE";
@@ -275,7 +275,7 @@ staffRouter.post("/invitations", route(async (req, res) => {
   const activeUser = await db.select({ id: user.id }).from(user).where(eq(user.email, email)).limit(1);
   if (activeUser.length) {
     const existing = await db.select().from(tenantMembership)
-      .where(and(eq(tenantMembership.tenantId, data.tenantId), eq(tenantMembership.userId, activeUser[0].id), eq(tenantMembership.status, "active"))).limit(1);
+      .where(and(eq(tenantMembership.tenantId, data.tenantId), eq(tenantMembership.userId, activeUser[0]!.id), eq(tenantMembership.status, "active"))).limit(1);
     if (existing.length) { fail(res, 409, "ALREADY_MEMBER", "This person already belongs to the restaurant."); return; }
   }
   const pending = await db.select().from(staffInvitation)
@@ -299,23 +299,23 @@ staffRouter.post("/invitations", route(async (req, res) => {
 staffRouter.post("/invitations/:id/resend", route(async (req, res) => {
   const data = await mayInvite(req, res); if (!data) return;
   const invite = await db.select().from(staffInvitation)
-    .where(and(eq(staffInvitation.id, req.params.id), eq(staffInvitation.tenantId, data.tenantId))).limit(1);
-  if (!invite.length || invite[0].status !== "pending") { fail(res, 409, "INVITATION_UNAVAILABLE", "Invitation cannot be resent."); return; }
-  if (data.context.role === "manager" && (invite[0].role === "owner" || invite[0].role === "manager")) {
+    .where(and(eq(staffInvitation.id, (req.params.id ?? "")), eq(staffInvitation.tenantId, data.tenantId))).limit(1);
+  if (!invite.length || invite[0]!.status !== "pending") { fail(res, 409, "INVITATION_UNAVAILABLE", "Invitation cannot be resent."); return; }
+  if (data.context.role === "manager" && (invite[0]!.role === "owner" || invite[0]!.role === "manager")) {
     fail(res, 403, "ACCESS_DENIED", "You cannot resend this invitation."); return;
   }
   const token = randomBytes(32).toString("base64url");
   await db.update(staffInvitation).set({ tokenHash: tokenHash(token), expiresAt: dateAfterHours(48), deliveryStatus: "pending" })
-    .where(and(eq(staffInvitation.id, invite[0].id), eq(staffInvitation.tenantId, data.tenantId)));
-  await audit(data.person.id, data.tenantId, "staff.invitation_resent", { invitationId: invite[0].id });
-  const sent = await dispatchInvite(invite[0].id, token, invite[0].email, data.context.tenantName ?? "your restaurant", invite[0].message);
+    .where(and(eq(staffInvitation.id, invite[0]!.id), eq(staffInvitation.tenantId, data.tenantId)));
+  await audit(data.person.id, data.tenantId, "staff.invitation_resent", { invitationId: invite[0]!.id });
+  const sent = await dispatchInvite(invite[0]!.id, token, invite[0]!.email, data.context.tenantName ?? "your restaurant", invite[0]!.message);
   res.status(sent ? 200 : 202).json({ deliveryStatus: sent ? "sent" : "failed",
     message: sent ? "Invitation resent." : "Invitation saved but email delivery failed." });
 }));
 staffRouter.post("/invitations/:id/revoke", route(async (req, res) => {
   const data = await mayInvite(req, res); if (!data) return;
   const [entry] = await db.select().from(staffInvitation)
-    .where(and(eq(staffInvitation.id, req.params.id), eq(staffInvitation.tenantId, data.tenantId))).limit(1);
+    .where(and(eq(staffInvitation.id, (req.params.id ?? "")), eq(staffInvitation.tenantId, data.tenantId))).limit(1);
   if (!entry || entry.status !== "pending") { fail(res, 409, "INVITATION_UNAVAILABLE", "Invitation is not pending."); return; }
   if (data.context.role === "manager" && (entry.role === "owner" || entry.role === "manager")) {
     fail(res, 403, "ACCESS_DENIED", "You cannot revoke this invitation."); return;
@@ -385,7 +385,7 @@ platformRestaurantRouter.get("/:id", route(async (req, res) => {
   const admin = await db.select().from(platformAdmin).where(eq(platformAdmin.userId, person.id)).limit(1);
   if (!admin.length) { fail(res, 403, "ACCESS_DENIED", "Platform administrators only."); return; }
   const [org] = await db.select({ id: tenant.id, name: tenant.name, slug: tenant.slug,
-    status: tenant.status, createdAt: tenant.createdAt }).from(tenant).where(eq(tenant.id, req.params.id)).limit(1);
+    status: tenant.status, createdAt: tenant.createdAt }).from(tenant).where(eq(tenant.id, (req.params.id ?? ""))).limit(1);
   if (!org) { fail(res, 404, "NOT_FOUND", "Restaurant not found."); return; }
   const [branches, subscriptions, memberships] = await Promise.all([
     db.select({ name: location.name, city: location.city }).from(location).where(eq(location.tenantId, org.id)).limit(1),
