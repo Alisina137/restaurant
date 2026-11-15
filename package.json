@@ -1,0 +1,1 @@
+{"name":"dineflow","private":true,"packageManager":"pnpm@10.17.1","scripts":{"dev:web":"pnpm --filter @dineflow/web dev","dev:api":"pnpm --filter @dineflow/api dev","dev:mobile":"pnpm --filter @dineflow/mobile start","check":"pnpm -r typecheck","db:setup":"pnpm --filter @dineflow/api db:setup","seed:dev":"pnpm --filter @dineflow/api seed:dev"}}

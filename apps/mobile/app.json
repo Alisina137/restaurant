@@ -1,0 +1,1 @@
+{"expo":{"name":"DineFlow","slug":"dineflow","scheme":"dineflow","version":"0.1.0","orientation":"portrait","userInterfaceStyle":"light","plugins":["expo-secure-store"],"android":{"package":"com.dineflow.waiter"},"ios":{"supportsTablet":true}}}

@@ -1,0 +1,1 @@
+import "./style.css";export const metadata={title:"DineFlow | Restaurant workspace",description:"Connected restaurant operations"};export default function Layout({children}:{children:React.ReactNode}){return <html lang="fa" suppressHydrationWarning><body>{children}</body></html>}
