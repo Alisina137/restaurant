@@ -7,7 +7,33 @@ on:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dineflow_ci
+          POSTGRES_PASSWORD: ci_only_not_a_real_password
+          POSTGRES_DB: dineflow_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dineflow_ci -d dineflow_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://dineflow_ci:ci_only_not_a_real_password@localhost:5432/dineflow_ci
+      BETTER_AUTH_SECRET: ci_only_secret_do_not_use_in_production_1234567890
+      BETTER_AUTH_URL: http://localhost:4000
+      TRUSTED_ORIGINS: http://localhost:3000
+      DEMO_PASSWORD: CiOnlyStrongPassword_123!DoNotReuse
+      DEMO_OWNER_EMAIL: owner-ci@example.test
+      DEMO_WAITER_EMAIL: waiter-ci@example.test
+      DEMO_KITCHEN_EMAIL: kitchen-ci@example.test
+      DEMO_CASHIER_EMAIL: cashier-ci@example.test
+      DEMO_PLATFORM_EMAIL: platform-ci@example.test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -22,3 +48,19 @@ jobs:
       - run: pnpm build:web
         env:
           NEXT_PUBLIC_API_URL: http://localhost:4000
+      - run: pnpm db:migrate
+      - run: pnpm seed:dev
+      - name: Boot API and wait for readiness
+        shell: bash
+        run: |
+          pnpm dev:api > /tmp/dineflow-api.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://localhost:4000/api/health/ready >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/dineflow-api.log
+          exit 1
+      - run: pnpm --filter @dineflow/api test:integration
+      - name: API logs after failure
+        if: failure()
+        run: cat /tmp/dineflow-api.log || true
