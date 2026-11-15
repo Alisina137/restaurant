@@ -2,11 +2,12 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed } from "lucide-react";
+import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2 } from "lucide-react";
 import { direction, t, webAreaFor, type Locale, type WebArea } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
 import { ApiError, getContext, type WorkspaceContext } from "@/lib/context";
 import { WorkspaceProvider } from "./workspace-provider";
+import { p2 } from "@/lib/phase2-copy";
 
 const rootPages: Record<WebArea, { route: string; label: "overview" | "live" | "openChecks"; icon: typeof LayoutDashboard }> = {
   app: { route: "/app/overview", label: "overview", icon: LayoutDashboard },
@@ -55,9 +56,24 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
       <Link className="sidebar-brand" href={page.route}><span className="brand-mark"><UtensilsCrossed size={20} /></span><strong>DineFlow</strong></Link>
       <div className="sidebar-caption">{t(locale, "workspace")}</div>
       <nav className="sidebar-nav">
-        <Link className={"nav-link" + (pathname === page.route ? " selected" : "")} href={page.route} aria-current={pathname === page.route ? "page" : undefined}>
+        <Link className={"nav-link" + (pathname === page.route ? " selected" : "")} href={page.route}
+          aria-current={pathname === page.route ? "page" : undefined} title={t(locale, page.label)}>
           <Icon size={20} strokeWidth={1.9} /><span>{t(locale, page.label)}</span>
         </Link>
+        {area==="app"&&<>
+          <Link href="/app/staff/directory" title={p2(locale,"team")}
+            className={"nav-link"+(pathname.startsWith("/app/staff/")?" selected":"")}
+            aria-current={pathname.startsWith("/app/staff/")?"page":undefined}>
+            <UsersRound size={20} strokeWidth={1.9}/><span>{p2(locale,"team")}</span></Link>
+          <Link href="/app/settings/restaurant" title={p2(locale,"settings")}
+            className={"nav-link"+(pathname.startsWith("/app/settings/")?" selected":"")}
+            aria-current={pathname.startsWith("/app/settings/")?"page":undefined}>
+            <Settings2 size={20} strokeWidth={1.9}/><span>{p2(locale,"settings")}</span></Link>
+        </>}
+        {area==="platform"&&<Link href="/platform/restaurants" title={p2(locale,"businesses")}
+          className={"nav-link"+(pathname.startsWith("/platform/restaurants")?" selected":"")}
+          aria-current={pathname.startsWith("/platform/restaurants")?"page":undefined}>
+          <Building2 size={20} strokeWidth={1.9}/><span>{p2(locale,"businesses")}</span></Link>}
       </nav>
       <div className="sidebar-bottom">
         <Link className={"nav-link" + (pathname.endsWith("/account") ? " selected" : "")} href={"/" + area + "/account"}>

@@ -10,19 +10,12 @@ import { db } from "./db";
 import { auditEvent, tenantMembership, userPreference } from "./schema";
 import { contextFor, type IdentityContext } from "./context";
 import { canAccessTenant } from "./tenant-access";
+import { onboardingRouter, staffRouter, publicInvitationRouter, platformRestaurantRouter } from "./phase2";
 
 const app = express();
 app.disable("x-powered-by");
 const origins = (process.env.TRUSTED_ORIGINS ?? "http://localhost:3000").split(",").map((x) => x.trim()).filter(Boolean);
 app.use(cors({ origin(origin, callback) { callback(null, !origin || origins.includes(origin)); }, credentials: true }));
-app.use((req, res, next) => {
-  // P01 has NO public registration. P02 introduces owner onboarding and staff invitations.
-  if (req.method === "POST" && req.path.startsWith("/api/auth/sign-up")) {
-    res.status(403).json({ code: "SIGNUP_DISABLED", message: "Account creation requires an invitation." });
-    return;
-  }
-  next();
-});
 app.all("/api/auth/*", toNodeHandler(auth));
 app.use(express.json({ limit: "32kb" }));
 
@@ -31,6 +24,10 @@ app.get("/api/health/ready", async (_req, res) => {
   try { await db.execute(sql`select 1`); res.json({ status: "ready" }); }
   catch { res.status(503).json({ code: "DB_UNAVAILABLE", message: "Database unavailable" }); }
 });
+app.use("/api/onboarding", onboardingRouter);
+app.use("/api/tenant", staffRouter);
+app.use("/api/invitations", publicInvitationRouter);
+app.use("/api/platform/restaurants", platformRestaurantRouter);
 
 type AuthorizedRequest = Request & { identity?: IdentityContext };
 async function requireIdentity(req: AuthorizedRequest, res: Response, next: NextFunction) {

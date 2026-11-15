@@ -11,7 +11,8 @@
     "test:integration": "tsx src/e2e-ci.ts",
     "db:migrate": "drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
-    "seed:dev": "tsx src/seed-dev.ts"
+    "seed:dev": "tsx src/seed-dev.ts",
+    "platform:grant": "tsx src/grant-platform-admin.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.25",
