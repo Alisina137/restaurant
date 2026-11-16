@@ -445,6 +445,7 @@ export const diningCheck=pgTable("dining_checks",{
  splitCount:integer("split_count").notNull().default(1),
  chargePolicy:jsonb("charge_policy").$type<ChargePolicy>().notNull(),
  subtotalMinor:integer("subtotal_minor").notNull().default(0),
+ discountMinor:integer("discount_minor").notNull().default(0),
  taxMinor:integer("tax_minor").notNull().default(0),
  serviceMinor:integer("service_minor").notNull().default(0),
  totalMinor:integer("total_minor").notNull().default(0),
@@ -517,7 +518,7 @@ export const checkActivity=pgTable("check_activities",{
  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
 },t=>[index("check_activity_history_idx").on(t.checkId,t.createdAt)]);
 export type ReceiptSnapshot={receiptNumber:string;checkNumber:number;restaurant:string;
- tableLabel:string;issuedAt:string;currency:string;subtotalMinor:number;taxMinor:number;
+ tableLabel:string;issuedAt:string;currency:string;subtotalMinor:number;discountMinor?:number;taxMinor:number;
  serviceMinor:number;totalMinor:number;paidMinor:number;footer:string;
  lines:Array<{nameFa:string;namePs:string;nameEn:string;quantity:number;unitPriceMinor:number;
  lineTotalMinor:number}>;payments:Array<{method:string;amountMinor:number;receivedMinor:number;
@@ -557,4 +558,42 @@ export const serviceRequest=pgTable("service_requests",{
 },t=>[
  index("service_requests_inbox_idx").on(t.tenantId,t.locationId,t.status,t.createdAt),
  index("service_requests_visit_idx").on(t.visitId,t.createdAt)
+]);
+
+/** P10 reviewed requests, separate refunds, immutable paid tender and receipt snapshots. */
+export const financeAdjustment=pgTable("finance_adjustments",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ checkId:text("check_id").notNull().references(()=>diningCheck.id),
+ kind:text("kind").notNull(),targetRoundId:text("target_round_id").references(()=>orderRound.id),
+ amountMinor:integer("amount_minor").notNull(),reason:text("reason").notNull(),
+ requestKey:text("request_key").notNull(),requestHash:text("request_hash").notNull(),
+ status:text("status").notNull().default("pending"),
+ requestedBy:text("requested_by").notNull().references(()=>user.id),
+ approvedBy:text("approved_by").references(()=>user.id),
+ decidedAt:timestamp("decided_at",{withTimezone:true}),
+ decisionNote:text("decision_note").notNull().default(""),
+ appliedBy:text("applied_by").references(()=>user.id),
+ appliedAt:timestamp("applied_at",{withTimezone:true}),
+ checkVersion:integer("check_version").notNull(),version:integer("version").notNull().default(1),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+ updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[
+ uniqueIndex("finance_adjustments_idempotency").on(t.checkId,t.requestKey),
+ index("finance_adjustments_queue").on(t.tenantId,t.locationId,t.status,t.createdAt),
+ index("finance_adjustments_check").on(t.checkId,t.createdAt)
+]);
+export const financeRefund=pgTable("finance_refunds",{
+ id:text("id").primaryKey(),adjustmentId:text("adjustment_id").notNull().unique().references(()=>financeAdjustment.id),
+ tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ checkId:text("check_id").notNull().references(()=>diningCheck.id),
+ shiftId:text("shift_id").notNull().references(()=>cashierShift.id),
+ cashierId:text("cashier_id").notNull().references(()=>user.id),
+ method:text("method").notNull(),amountMinor:integer("amount_minor").notNull(),
+ externalReference:text("external_reference"),note:text("note").notNull().default(""),
+ postedAt:timestamp("posted_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[
+ index("finance_refunds_check_idx").on(t.checkId,t.postedAt),
+ index("finance_refunds_shift_idx").on(t.shiftId,t.postedAt)
 ]);
