@@ -77,3 +77,4 @@ ALTER TABLE "order_rounds" ADD COLUMN "guest_session_id" text REFERENCES "guest_
 ALTER TABLE "order_rounds" DROP CONSTRAINT "order_rounds_source_check";
 ALTER TABLE "order_rounds" ADD CONSTRAINT "order_rounds_source_check" CHECK ("source" IN ('waiter','guest_qr'));
 ALTER TABLE "order_activities" ALTER COLUMN "actor_id" DROP NOT NULL;
+ALTER TABLE "restaurant_settings" ADD COLUMN "guest_policy_version" integer NOT NULL DEFAULT 1;

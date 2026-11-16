@@ -58,7 +58,7 @@ type LineSnapshot={
  modifierSnapshot:Array<{groupId:string;nameFa:string;namePs:string;nameEn:string;
   options:Array<{id:string;nameFa:string;namePs:string;nameEn:string;deltaMinor:number}>}>;
 };
-export async function priceLines(tx:Transaction,scope:OrderScope,lines:CartLine[]){
+export async function priceLines(tx:Transaction,scope:Pick<OrderScope,"tenantId"|"locationId">,lines:CartLine[]){
  const result:LineSnapshot[]=[];
  let subtotal=0;
  for(const line of lines){
@@ -111,7 +111,7 @@ export async function priceLines(tx:Transaction,scope:OrderScope,lines:CartLine[
  }
  return {lines:result,subtotal};
 }
-export async function orderChanged(tx:Transaction,scope:OrderScope,roundId:string,
+export async function orderChanged(tx:Transaction,scope:Pick<OrderScope,"tenantId"|"locationId"> & {actorId:string|null},roundId:string,
  eventType:string,payload:Record<string,unknown>){
  await tx.insert(orderActivity).values({id:randomUUID(),tenantId:scope.tenantId,locationId:scope.locationId,
    roundId,actorId:scope.actorId,action:eventType,details:payload});

@@ -69,6 +69,7 @@ export const restaurantSetting = pgTable("restaurant_settings", {
   locale: text("locale").notNull().default("fa-AF"), currency: text("currency").notNull().default("AFN"),
   openingHours: jsonb("opening_hours").notNull().default({}),
   orderingPolicy: text("ordering_policy").notNull().default("waiter_approval"),
+  guestPolicyVersion: integer("guest_policy_version").notNull().default(1),
   receiptFooter: text("receipt_footer").notNull().default(""),
   managerCanInvite: boolean("manager_can_invite").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
