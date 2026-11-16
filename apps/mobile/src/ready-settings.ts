@@ -1,0 +1,1 @@
+export const vibrationKey="dineflow:vibration:ready";

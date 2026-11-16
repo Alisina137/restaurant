@@ -41,8 +41,8 @@ export default function Orders(){
       accessibilityRole="button" style={styles.card}>
      <View style={[styles.cardHead,{flexDirection:rtl?"row-reverse":"row"}]}>
       <Text style={styles.cardTitle}>{o5(locale,"table")} {row.tableLabel}</Text>
-      <Text style={[styles.badge,{backgroundColor:row.status==="ready"?"#E6F6EC":"#FFF1DB",
-        color:row.status==="ready"?"#0F766E":"#93601E"}]}>{o5(locale,row.status)}</Text></View>
+      <Text style={[styles.badge,{backgroundColor:["ready","picked_up","served"].includes(row.status)?"#E6F6EC":"#FFF1DB",
+        color:["ready","picked_up","served"].includes(row.status)?"#0F766E":"#93601E"}]}>{o5(locale,row.status)}</Text></View>
      <Text style={[styles.meta,{textAlign:rtl?"right":"left"}]}>{o5(locale,"round")} #{row.roundNumber} · {new Date(row.createdAt).toLocaleString(locale)}</Text>
      <View style={[styles.cardFoot,{flexDirection:rtl?"row-reverse":"row"}]}>
       <Text style={styles.money}>{price(row.totalMinor,locale)}</Text>

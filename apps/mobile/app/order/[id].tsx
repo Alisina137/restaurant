@@ -37,9 +37,10 @@ export default function OrderDetailScreen(){
    const path="/api/orders/rounds/"+encodeURIComponent(id)+(lineId?"/lines/"+encodeURIComponent(lineId):"")+"/serve";
    await floorRequest(path,{method:"POST",body:{version:detail.ticket.version}});
    await load();
-  }catch(e){setError(e instanceof FloorRequestError&&e.code==="VERSION_CONFLICT"?
-    o5(locale,"versionConflict"):e instanceof Error?e.message:o5(locale,"failed"));
-    await load();
+  }catch(e){
+    const message=e instanceof FloorRequestError&&e.code==="VERSION_CONFLICT"?
+      o5(locale,"versionConflict"):e instanceof Error?e.message:o5(locale,"failed");
+    await load();setError(message);
   }finally{setServing(false);}
  }
  const order=detail?.round;

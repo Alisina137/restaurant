@@ -1,9 +1,8 @@
-import {useCallback,useRef,useState} from "react";
-import {ActivityIndicator,AppState,Pressable,RefreshControl,ScrollView,StyleSheet,Text,View,Vibration} from "react-native";
+import {useCallback,useState} from "react";
+import {ActivityIndicator,AppState,Pressable,RefreshControl,ScrollView,StyleSheet,Text,View} from "react-native";
 import {Ionicons} from "@expo/vector-icons";
 import {router,useFocusEffect} from "expo-router";
 import {direction} from "@dineflow/shared";
-import * as SecureStore from "expo-secure-store";
 import {useLocale} from "../src/locale";
 import {theme} from "../src/theme";
 import {floorRequest} from "../src/floor-api";
@@ -18,20 +17,11 @@ export default function Notifications(){
  const {locale}=useLocale(),rtl=direction(locale)==="rtl";
  const [tab,setTab]=useState<"all"|"unread">("all"),[page,setPage]=useState(1);
  const [data,setData]=useState<Alerts|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(""),[busy,setBusy]=useState("");
- const seen=useRef(new Map<string,string>()),initialized=useRef(false);
  const load=useCallback(async(silent=false)=>{
    if(!silent)setLoading(true);setError("");
    try{
     const result=await floorRequest<Alerts>("/api/orders/notifications?page="+page+(tab==="unread"?"&unread=1":""));
     setData(result);
-    const newItems=result.items.some(x=>seen.current.has(x.id)&&seen.current.get(x.id)!==x.lastNotifiedAt);
-    const newId=result.items.some(x=>!seen.current.has(x.id));
-    result.items.forEach(x=>seen.current.set(x.id,x.lastNotifiedAt));
-    if(initialized.current&&(newItems||newId)&&AppState.currentState==="active"){
-      const flag=await SecureStore.getItemAsync(vibrationKey);
-      if(flag==="1")Vibration.vibrate(220);
-    }
-    initialized.current=true;
    }catch(e){setError(e instanceof Error?e.message:o5(locale,"offlineAlerts"));}
    finally{setLoading(false);}
  },[page,tab,locale]);

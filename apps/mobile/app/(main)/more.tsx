@@ -9,7 +9,7 @@ import {authClient} from "../../src/auth-client";
 import {theme} from "../../src/theme";
 import {floorRequest} from "../../src/floor-api";
 import {o5} from "../../src/order-copy";
-import {vibrationKey} from "../notifications";
+import {vibrationKey} from "../../src/ready-settings";
 export default function More(){
  const {locale}=useLocale(),rtl=direction(locale)==="rtl";
  const [busy,setBusy]=useState(false),[vibrate,setVibrate]=useState(false),[unread,setUnread]=useState<number|null>(null);

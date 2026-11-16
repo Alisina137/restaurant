@@ -128,9 +128,12 @@ async function main(){
  const [option]=await db.select().from(menuModifierOption).where(and(eq(menuModifierOption.groupId,link.groupId),
    eq(menuModifierOption.deltaMinor,2500))).limit(1);
  assert.ok(group&&option);
- const roundInput=(n:number)=>({idempotencyKey:"p06-rush-"+n+"-"+randomUUID(),
-  note:"Rush service",lines:[{itemId:meal.id,itemVersion:meal.version,quantity:1,
-   note:"Batch "+n,selections:[{groupId:group.id,version:group.version,optionIds:[option.id]}]}]});
+ const roundInput=(n:number)=>{
+  const firstLine={itemId:meal.id,itemVersion:meal.version,quantity:1,
+   note:"Batch "+n,selections:[{groupId:group.id,version:group.version,optionIds:[option.id]}]};
+  return {idempotencyKey:"p06-rush-"+n+"-"+randomUUID(),note:"Rush service",
+    lines:n===0?[firstLine,{...firstLine,note:"Second course"}]:[firstLine]};
+ };
  const rush=await Promise.all(Array.from({length:10},(_,i)=>
    req("/api/orders/visits/"+visit.id+"/rounds","POST",roundInput(i),waiter)));
  const newIds:string[]=[];
@@ -139,6 +142,38 @@ async function main(){
  assert.equal(new Set(newIds).size,10);
  const p6Tickets=await db.select().from(kitchenTicket);
  for(const id of newIds)assert.ok(p6Tickets.some(t=>t.roundId===id));
+ // True multi-line kitchen flow: partial readiness must not release the whole ticket.
+ const rushId=newIds[0]!;
+ const [partialTicket]=await db.select().from(kitchenTicket).where(eq(kitchenTicket.roundId,rushId)).limit(1);
+ const partialLines=await db.select().from(orderLine).where(eq(orderLine.roundId,rushId))
+   .orderBy(asc(orderLine.lineIndex));
+ assert.ok(partialTicket);assert.equal(partialLines.length,2);
+ await json<{saved:boolean}>(await req("/api/orders/tickets/"+partialTicket.id+"/transition",
+   "POST",{version:1,nextStatus:"preparing"},kitchen),200);
+ const half=await json<{ready:boolean;version:number}>(await req(
+   "/api/orders/tickets/"+partialTicket.id+"/lines/"+partialLines[0]!.id+"/ready",
+   "POST",{version:2},kitchen),200);
+ assert.equal(half.ready,false);assert.equal(half.version,3);
+ const [midTicket]=await db.select().from(kitchenTicket).where(eq(kitchenTicket.id,partialTicket.id));
+ assert.equal(midTicket?.status,"preparing");
+ const [midAlert]=await db.select({n:count()}).from(staffNotification)
+   .where(eq(staffNotification.roundId,rushId));
+ assert.equal(midAlert?.n,0,"partial ready must not send premature whole-ticket alert");
+ const full=await json<{ready:boolean;version:number}>(await req(
+   "/api/orders/tickets/"+partialTicket.id+"/lines/"+partialLines[1]!.id+"/ready",
+   "POST",{version:3},kitchen),200);
+ assert.equal(full.ready,true);assert.equal(full.version,4);
+ const [fullAlert]=await db.select({n:count()}).from(staffNotification)
+   .where(eq(staffNotification.roundId,rushId));
+ assert.equal(fullAlert?.n,1);
+ const firstServed=await json<{complete:boolean;status:string;version:number}>(
+   await req("/api/orders/rounds/"+rushId+"/lines/"+partialLines[0]!.id+"/serve",
+     "POST",{version:4},waiter),200);
+ assert.equal(firstServed.complete,false);assert.equal(firstServed.status,"ready");
+ const allServed=await json<{complete:boolean;status:string}>(
+   await req("/api/orders/rounds/"+rushId+"/lines/"+partialLines[1]!.id+"/serve",
+     "POST",{version:5},waiter),200);
+ assert.equal(allServed.complete,true);assert.equal(allServed.status,"served");
  const streamAfter=await json<{events:{cursor:number;roundId:string}[];nextCursor:number}>(
    await req("/api/orders/changes?after="+stream.nextCursor,undefined,undefined,waiter),200);
  assert.ok(streamAfter.events.length>0);

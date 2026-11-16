@@ -112,9 +112,13 @@ export function KitchenOperations({tab}:{tab:Tab}){
  const first=useRef(true),lastBeep=useRef(0),revision=useRef(-1);
  useEffect(()=>{setNow(Date.now());const timer=setInterval(()=>setNow(Date.now()),10000);
    return()=>clearInterval(timer);},[]);
- useEffect(()=>{setSound(localStorage.getItem("dineflow-kitchen-sound")==="1");return()=>{
-   void soundRef.current?.close();soundRef.current=null;
- };},[]);
+ useEffect(()=>{
+   const enabled=localStorage.getItem("dineflow-kitchen-sound")==="1";
+   setSound(enabled);
+   if(enabled)try{soundRef.current=new AudioContext();void soundRef.current.resume().catch(()=>{});}
+   catch{/* Browser may require a new gesture before audio can play. */}
+   return()=>{void soundRef.current?.close();soundRef.current=null;};
+ },[]);
  const path=tab==="history"?"/api/orders/kitchen/history?page="+page+"&status="+encodeURIComponent(applied.status)+
    (applied.table?"&table="+encodeURIComponent(applied.table):"")+(applied.from?"&from="+applied.from:"")+
    (applied.to?"&to="+applied.to:""):
@@ -137,6 +141,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
    finally{setLoading(false);}
  },[path,tab,locale]);
  useEffect(()=>{setData(null);setPage(1);known.current.clear();first.current=true;},[tab]);
+ useEffect(()=>{known.current.clear();first.current=true;},[page]);
  useEffect(()=>{void load();},[load]);
  useEffect(()=>{
    const source=new EventSource(API_URL+"/api/orders/events",{withCredentials:true});
