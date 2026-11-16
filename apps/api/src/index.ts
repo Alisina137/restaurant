@@ -29,6 +29,7 @@ import {financeRouter} from "./finance-routes";
 import {financeHistoryRouter,guestFinanceRouter} from "./finance-history";
 import {guestAssistanceRouter,staffAssistanceRouter} from "./phase8-requests";
 import {adjustmentsRouter} from "./phase10-adjustments";
+import {waiterCorrectionRouter} from "./phase10-waiter";
 
 const app = express();
 app.disable("x-powered-by");
