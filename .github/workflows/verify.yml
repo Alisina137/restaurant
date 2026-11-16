@@ -64,6 +64,7 @@ jobs:
           exit 1
       - run: pnpm --filter @dineflow/api test:integration
       - run: pnpm --filter @dineflow/api exec tsx src/phase2-ci.ts
+      - run: pnpm --filter @dineflow/api exec tsx src/phase3-ci.ts
       - name: API logs after failure
         if: failure()
         run: cat /tmp/dineflow-api.log || true
