@@ -1,4 +1,4 @@
-import {and,eq,inArray,isNull,sql} from "drizzle-orm";
+import {and,inArray,isNull,sql} from "drizzle-orm";
 import {db} from "./db";
 import {orderOutbox,orderRevision} from "./schema";
 
@@ -11,10 +11,10 @@ import {orderOutbox,orderRevision} from "./schema";
 export async function reconcileOutboxBatch(limit=200):Promise<number>{
  if(!Number.isSafeInteger(limit)||limit<1||limit>1000)throw new Error("Invalid outbox batch.");
  return db.transaction(async tx=>{
-  const result=await tx.execute(sql<{id:string;tenant_id:string;location_id:string}>\`
+  const result=await tx.execute(sql<{id:string;tenant_id:string;location_id:string}>`
    SELECT id,tenant_id,location_id FROM order_outbox
    WHERE delivered_at IS NULL ORDER BY created_at,id
-   LIMIT \${limit} FOR UPDATE SKIP LOCKED\`);
+   LIMIT ${limit} FOR UPDATE SKIP LOCKED`);
   const rows=result.rows;
   if(!rows.length)return 0;
   const byLocation=new Map<string,string>();
@@ -23,7 +23,7 @@ export async function reconcileOutboxBatch(limit=200):Promise<number>{
   for(const [locationId,tenantId] of byLocation){
    await tx.insert(orderRevision).values({locationId,tenantId,version:1,changedAt:now})
     .onConflictDoUpdate({target:orderRevision.locationId,
-      set:{version:sql\`\${orderRevision.version} + 1\`,changedAt:now}});
+      set:{version:sql`${orderRevision.version} + 1`,changedAt:now}});
   }
   await tx.update(orderOutbox).set({deliveredAt:now})
    .where(and(isNull(orderOutbox.deliveredAt),inArray(orderOutbox.id,rows.map(row=>row.id))));
