@@ -64,6 +64,13 @@
       "when": 1794925600000,
       "tag": "0008_phase9_shift_variance_policy",
       "breakpoints": false
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794931000000,
+      "tag": "0009_phase8_service_recovery",
+      "breakpoints": false
     }
   ]
 }

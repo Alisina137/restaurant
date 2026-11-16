@@ -532,3 +532,60 @@ export const checkReceipt=pgTable("check_receipts",{
  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
  reprintCount:integer("reprint_count").notNull().default(0)
 },t=>[index("check_receipt_history_idx").on(t.tenantId,t.locationId,t.createdAt)]);
+
+/** P08: one visit-scoped customer assistance or bill-request lifecycle, no customer account. */
+export const serviceRequest=pgTable("service_requests",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ visitId:text("visit_id").notNull().references(()=>diningVisit.id),
+ tableId:text("table_id").notNull().references(()=>diningTable.id),
+ guestSessionId:text("guest_session_id").references(()=>guestVisitSession.id),
+ idempotencyKey:text("idempotency_key").notNull(),
+ type:text("type").notNull(),reason:text("reason").notNull(),
+ note:text("note").notNull().default(""),
+ splitPreference:text("split_preference"),
+ status:text("status").notNull().default("pending"),
+ version:integer("version").notNull().default(1),
+ assignedWaiterId:text("assigned_waiter_id").notNull().references(()=>user.id),
+ acknowledgedBy:text("acknowledged_by").references(()=>user.id),
+ acknowledgedAt:timestamp("acknowledged_at",{withTimezone:true}),
+ resolvedBy:text("resolved_by").references(()=>user.id),
+ resolvedAt:timestamp("resolved_at",{withTimezone:true}),
+ resolutionNote:text("resolution_note").notNull().default(""),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+ updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[
+ uniqueIndex("service_request_guest_idem").on(t.guestSessionId,t.idempotencyKey),
+ index("service_request_inbox").on(t.tenantId,t.locationId,t.status,t.createdAt),
+ index("service_request_visit").on(t.visitId,t.createdAt)
+]);
+export const serviceRevision=pgTable("service_revisions",{
+ locationId:text("location_id").primaryKey().references(()=>location.id),
+ tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ version:integer("version").notNull().default(1),
+ changedAt:timestamp("changed_at",{withTimezone:true}).notNull().defaultNow()
+});
+/** P08 P10 bridge: immutable approved cancellation delta; originals remain in ledger/history. */
+export const orderChangeRequest=pgTable("order_change_requests",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ visitId:text("visit_id").notNull().references(()=>diningVisit.id),
+ tableId:text("table_id").notNull().references(()=>diningTable.id),
+ roundId:text("round_id").notNull().references(()=>orderRound.id),
+ lineId:text("line_id").notNull().references(()=>orderLine.id),
+ ticketId:text("ticket_id").notNull().references(()=>kitchenTicket.id),
+ idempotencyKey:text("idempotency_key").notNull(),
+ status:text("status").notNull().default("pending"),
+ version:integer("version").notNull().default(1),
+ requestedBy:text("requested_by").notNull().references(()=>user.id),
+ reason:text("reason").notNull(),
+ decidedBy:text("decided_by").references(()=>user.id),
+ decisionReason:text("decision_reason").notNull().default(""),
+ deltaMinor:integer("delta_minor").notNull().default(0),
+ decidedAt:timestamp("decided_at",{withTimezone:true}),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[
+ uniqueIndex("order_change_idem").on(t.tenantId,t.requestedBy,t.idempotencyKey),
+ index("order_change_pending").on(t.tenantId,t.locationId,t.status,t.createdAt),
+ index("order_change_visit").on(t.visitId,t.createdAt)
+]);
