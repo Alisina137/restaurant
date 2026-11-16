@@ -2,7 +2,7 @@ import {Router} from "express";
 import {and,asc,count,desc,eq,inArray,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
-import {auditEvent,checkPayment,checkReceipt,checkShare,diningCheck,diningTable,diningVisit,
+import {auditEvent,financeRefund,checkPayment,checkReceipt,checkShare,diningCheck,diningTable,diningVisit,
  floorRevision,orderLine,orderRound,restaurantSetting,financeSetting,tenant} from "./schema";
 import {bodyObject,fail,field,int,route} from "./menu-helpers";
 import {calculate,financeScope,lockedCheck,pendingGuard,writeAudit} from "./finance-core";
@@ -89,6 +89,32 @@ financeHistoryRouter.get("/transactions",route(async(req,res)=>{
  const [settings]=await db.select({timezone:restaurantSetting.timezone}).from(restaurantSetting)
    .where(eq(restaurantSetting.tenantId,scope.tenantId)).limit(1);
  const timezone=settings?.timezone??"Asia/Kabul";
+ const view=typeof req.query.view==="string"?req.query.view:"payments";
+ if(view!=="payments"&&view!=="refunds")fail(400,"INVALID_FILTER","Unsupported ledger view.");
+ if(view==="refunds"){
+  const refundBusinessDate=sql`(${financeRefund.postedAt} AT TIME ZONE ${timezone})::date`;
+  const refundWhere=and(eq(financeRefund.tenantId,scope.tenantId),
+   eq(financeRefund.locationId,scope.locationId),
+   method==="all"?undefined:eq(financeRefund.method,method),
+   from?sql`${refundBusinessDate}>=${from}::date`:undefined,
+   to?sql`${refundBusinessDate}<=${to}::date`:undefined);
+  const [items,totals]=await Promise.all([
+    db.select({id:financeRefund.id,checkId:financeRefund.checkId,shiftId:financeRefund.shiftId,
+     method:financeRefund.method,amountMinor:financeRefund.amountMinor,
+     externalReference:financeRefund.externalReference,cashierId:financeRefund.cashierId,
+     createdAt:financeRefund.postedAt,checkNumber:diningCheck.number,tableLabel:diningTable.label})
+     .from(financeRefund).innerJoin(diningCheck,eq(diningCheck.id,financeRefund.checkId))
+     .innerJoin(diningTable,eq(diningTable.id,diningCheck.tableId))
+     .where(refundWhere).orderBy(desc(financeRefund.postedAt),desc(financeRefund.id))
+     .limit(20).offset((p-1)*20),
+    db.select({n:count()}).from(financeRefund).where(refundWhere)
+  ]);
+  res.setHeader("Cache-Control","no-store");
+  res.json({items:items.map(item=>({...item,
+   amountMinor:-item.amountMinor,receivedMinor:0,changeMinor:0,status:"refunded"})),
+   total:totals[0]?.n??0,page:p,perPage:20,timezone,view});
+  return;
+ }
  const businessDate=sql`(${checkPayment.createdAt} AT TIME ZONE ${timezone})::date`;
  const where=and(eq(checkPayment.tenantId,scope.tenantId),eq(checkPayment.locationId,scope.locationId),
    method==="all"?undefined:eq(checkPayment.method,method),
