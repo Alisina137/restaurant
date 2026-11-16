@@ -89,9 +89,9 @@ const styles=StyleSheet.create({
  time:{fontSize:11,color:theme.muted},input:{borderWidth:1,borderColor:theme.border,borderRadius:10,
   minHeight:45,color:theme.ink,backgroundColor:"white",paddingHorizontal:12,fontSize:13},
  primary:{backgroundColor:theme.brand,borderRadius:11,padding:14,flexDirection:"row",justifyContent:"center",alignItems:"center",gap:8},
- primaryText:{fontWeight:"850",color:"white",fontSize:14},
+ primaryText:{fontWeight:"800",color:"white",fontSize:14},
  secondary:{borderWidth:1,borderColor:theme.border,borderRadius:11,padding:13,flexDirection:"row",justifyContent:"center",gap:8},
- secondaryText:{color:theme.brand,fontWeight:"850",fontSize:13},
+ secondaryText:{color:theme.brand,fontWeight:"800",fontSize:13},
  link:{fontSize:13,fontWeight:"800",color:theme.brand,textAlign:"center",padding:7},
  empty:{padding:50,gap:16,alignItems:"center"},error:{backgroundColor:"#FFF0EC",padding:15,borderRadius:12},
  errorText:{color:"#9B332B"},retry:{color:theme.brand,marginTop:8,fontWeight:"800"}
