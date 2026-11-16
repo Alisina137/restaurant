@@ -12,7 +12,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
     "seed:dev": "tsx src/seed-dev.ts",
-    "platform:grant": "tsx src/grant-platform-admin.ts"
+    "platform:grant": "tsx src/grant-platform-admin.ts",
+    "backup:rehearsal": "node scripts/backup-rehearsal.mjs"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.25",

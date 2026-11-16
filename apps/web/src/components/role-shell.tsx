@@ -30,6 +30,12 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
   const [workspace, setWorkspace] = useState<WorkspaceContext | null>(null);
   const [loadError, setLoadError] = useState("");
   const [pending, setPending] = useState(true);
+  const [offline,setOffline]=useState(false);
+  useEffect(()=>{
+    const sync=()=>setOffline(navigator.onLine===false);
+    sync();window.addEventListener("online",sync);window.addEventListener("offline",sync);
+    return ()=>{window.removeEventListener("online",sync);window.removeEventListener("offline",sync);};
+  },[]);
   const refresh = useCallback(async () => {
     setLoadError("");
     try {
@@ -59,6 +65,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
   if (!page) return <div className="center-viewport">Invalid workspace.</div>;
   const Icon = page.icon;
   return <div className="workspace-layout" dir={direction(locale)}>
+    <a href="#main-content" className="skip-content-link">{locale==="en"?"Skip to main content":locale==="ps-AF"?"اصلي منځپانګې ته لاړ شئ":"رفتن به محتوای اصلی"}</a>
     <aside className="sidebar" aria-label="Workspace navigation">
       <Link className="sidebar-brand" href={page.route}><span className="brand-mark"><UtensilsCrossed size={20} /></span><strong>DineFlow</strong></Link>
       <div className="sidebar-caption">{t(locale, "workspace")}</div>
@@ -164,7 +171,8 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
         <div className="header-heading"><span className="header-label">{t(locale, "workspace")}</span><strong>{workspace?.tenantName ?? "DineFlow"}</strong></div>
         <div className="header-actions"><span className="online-indicator" /><span className="desktop-only">{workspace?.user.name ?? ""}</span><Link className="avatar-button" href={"/" + area + "/account"} aria-label={t(locale, "account")}><CircleUserRound size={24} /></Link></div>
       </header>
-      <main className="workspace-main" id="main-content">
+      {offline&&<div className="workspace-offline" role="status" aria-live="polite">{locale==="en"?"You are offline. Changes may not be saved; reconnect and refresh.":locale==="ps-AF"?"انټرنېټ نشته. بدلونونه ښايي خوندي نه شي؛ بېرته ونښلئ او تازه کړئ.":"شما آفلاین هستید. تغییرات ممکن است ذخیره نشوند؛ دوباره وصل شوید و صفحه را تازه کنید."}</div>}
+      <main className="workspace-main" id="main-content" tabIndex={-1} aria-busy={pending}>
         {pending ? <div className="shell-loading" aria-live="polite"><span className="spinner" />{t(locale, "loading")}</div> :
           loadError ? <section className="error-panel" role="alert"><h2>{t(locale, loadError === "NO_MEMBERSHIP" ? "noMembership" : "offline")}</h2><button className="button button-primary" onClick={() => { setPending(true); void refresh(); }}>{t(locale, "retry")}</button></section> :
           workspace ? <WorkspaceProvider.Provider value={{ workspace, setWorkspace }}>{children}</WorkspaceProvider.Provider> : null}
