@@ -2,7 +2,7 @@ import "dotenv/config";
 import assert from "node:assert/strict";
 import {and,count,eq} from "drizzle-orm";
 import {db,pool} from "./db";
-import {diningVisit} from "./schema";
+import {diningVisit,tenantMembership,user} from "./schema";
 if(process.env.NODE_ENV==="production"||!process.env.DEMO_PASSWORD)
  throw new Error("P04 integration tests require nonproduction CI credentials.");
 const BASE=process.env.E2E_API_URL??"http://localhost:4000",password=process.env.DEMO_PASSWORD;
@@ -30,6 +30,12 @@ const table=(sectionId:string,waiterId:string,label:string)=>({
 async function main(){
  const owner=await signIn("owner-ci@example.test"),waiter=await signIn("waiter-ci@example.test"),
    kitchen=await signIn("kitchen-ci@example.test"),other=await signIn("new-owner-ci@example.test");
+ // P01 identity regression disables the seeded demo waiter; restore the fixture for P04.
+ const [seededWaiter]=await db.select({id:user.id}).from(user).where(eq(user.email,"waiter-ci@example.test")).limit(1);
+ assert.ok(seededWaiter,"seed waiter identity");
+ await db.update(tenantMembership).set({status:"active"}).where(and(
+   eq(tenantMembership.userId,seededWaiter!.id),eq(tenantMembership.tenantId,"dev-restaurant"),
+   eq(tenantMembership.role,"waiter")));
  const prefix="/api/floor";
  assert.equal((await req(prefix+"/tables/board")).status,401);
  assert.equal((await req(prefix+"/tables/board","GET",undefined,kitchen)).status,403);
