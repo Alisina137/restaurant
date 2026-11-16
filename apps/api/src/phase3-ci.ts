@@ -52,7 +52,7 @@ async function main(){
     const stream=await fetch(URL+"/api/menu/events",{headers:{Origin:"http://localhost:3000",Cookie:owner},
       signal:streamController.signal});
     assert.equal(stream.status,200,"authenticated catalog revision stream");
-    assert.match(stream.headers.get("content-type")??"",/text\\/event-stream/);
+    assert.ok((stream.headers.get("content-type")??"").includes("text/event-stream"));
     const first=await Promise.race([
       stream.body!.getReader().read(),
       new Promise<never>((_resolve,reject)=>setTimeout(()=>reject(new Error("SSE first revision timed out")),6000))
