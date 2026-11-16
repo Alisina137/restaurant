@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { direction, t } from "@dineflow/shared";
@@ -6,10 +6,13 @@ import { fetchIdentity, type Identity } from "../../src/api";
 import { authClient } from "../../src/auth-client";
 import { theme } from "../../src/theme";
 import { useLocale } from "../../src/locale";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import { floorRequest } from "../../src/floor-api";
+import { f, type Board } from "../../src/floor";
 export default function Home() {
   const { locale, changeLocale } = useLocale();
   const [identity, setIdentity] = useState<Identity | null>(null);
+  const [floor, setFloor] = useState<Board | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const rtl = direction(locale) === "rtl";
@@ -20,13 +23,14 @@ export default function Home() {
       if (data.role !== "waiter") { setError("ACCESS"); setIdentity(null); return; }
       setIdentity(data);
       changeLocale(data.locale);
+      try { setFloor(await floorRequest<Board>("/api/floor/tables/board")); } catch { setFloor(null); }
     } catch (e) {
       const message = String(e);
       if (message.includes("401")) { router.replace("/sign-in"); return; }
       setError(message.includes("403") ? "MEMBERSHIP" : "NETWORK");
     } finally { setBusy(false); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
   return <ScrollView style={styles.root} contentContainerStyle={styles.content}>
     <View style={[styles.header, { flexDirection: rtl ? "row-reverse" : "row" }]}>
       <View><Text style={[styles.small, { textAlign: rtl ? "right" : "left" }]}>DINEFLOW</Text><Text style={styles.headerTitle}>{t(locale, "home")}</Text></View>
@@ -44,6 +48,14 @@ export default function Home() {
         <View style={styles.panel}>
           <View style={[styles.panelRow, { flexDirection: rtl ? "row-reverse" : "row" }]}><Ionicons name="storefront-outline" color={theme.brand} size={23} /><Text style={styles.sectionTitle}>{t(locale, "restaurant")}</Text></View>
           <Text style={[styles.panelName, { textAlign: rtl ? "right" : "left" }]}>{identity.tenantName}</Text>
+        </View>
+        <View style={styles.panel}>
+          <View style={[styles.panelRow, { flexDirection: rtl ? "row-reverse" : "row" }]}>
+            <Ionicons name="grid-outline" color={theme.brand} size={23}/>
+            <Text style={styles.sectionTitle}>{f(locale,"myActive")}</Text></View>
+          <Text style={styles.title}>{floor?floor.tables.filter(t=>t.visitId&&t.assignedWaiterId===floor.actorId).length:"—"}</Text>
+          <Pressable accessibilityRole="button" onPress={()=>router.push("/(main)/tables")} style={styles.action}>
+            <Text style={styles.actionText}>{f(locale,"openTables")}</Text></Pressable>
         </View>
         <View style={styles.panel}>
           <View style={[styles.panelRow, { flexDirection: rtl ? "row-reverse" : "row" }]}><Ionicons name="lock-closed-outline" color={theme.brand} size={23} /><Text style={styles.sectionTitle}>{t(locale, "secure")}</Text></View>
