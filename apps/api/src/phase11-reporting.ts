@@ -295,9 +295,14 @@ reportingRouter.get("/overview",route(async(req,res)=>{
   salesData(scope,day),
   db.select({n:count()}).from(diningVisit).where(and(eq(diningVisit.tenantId,scope.tenantId),
    eq(diningVisit.locationId,scope.locationId),eq(diningVisit.status,"open"))),
-  db.select({n:count()}).from(diningCheck).where(and(eq(diningCheck.tenantId,scope.tenantId),
-   eq(diningCheck.locationId,scope.locationId),eq(diningCheck.status,"open"),
-   sql`${diningCheck.totalMinor}>${diningCheck.paidMinor}`)),
+  rows(sql`SELECT COUNT(DISTINCT v.id)::bigint AS n
+   FROM dining_visits v LEFT JOIN dining_checks c ON c.visit_id=v.id AND c.tenant_id=${scope.tenantId}
+   WHERE v.tenant_id=${scope.tenantId} AND v.location_id=${scope.locationId} AND v.status='open'
+     AND ((c.id IS NOT NULL AND c.status='open' AND c.total_minor>c.paid_minor)
+       OR ((c.id IS NULL OR (c.locked_at IS NULL AND c.paid_minor=0 AND c.total_minor=0))
+         AND EXISTS (SELECT 1 FROM order_rounds o WHERE o.visit_id=v.id
+           AND o.tenant_id=${scope.tenantId} AND o.location_id=${scope.locationId}
+           AND o.status='accepted' AND o.total_minor>0)))`),
   rows(sql`SELECT COUNT(*)::bigint AS n FROM order_rounds
    WHERE tenant_id=${scope.tenantId} AND location_id=${scope.locationId}
    AND created_at >= (${today}::date::timestamp AT TIME ZONE ${range.timezone})
@@ -306,7 +311,7 @@ reportingRouter.get("/overview",route(async(req,res)=>{
  ]);
  res.setHeader("Cache-Control","no-store");
  res.json({businessDate:today,timezone:range.timezone,activeTables:active[0]?.n??0,
-  unpaidChecks:unpaid[0]?.n??0,ordersToday:n(orders[0]??{},"n"),
+  unpaidChecks:n(unpaid[0]??{},"n"),ordersToday:n(orders[0]??{},"n"),
   netCollectedTodayMinor:sales.totals.netCollectedMinor,
   cashTodayMinor:sales.totals.cashMinor,refundsTodayMinor:sales.totals.refundedMinor});
 }));
