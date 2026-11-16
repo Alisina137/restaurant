@@ -418,3 +418,116 @@ export const guestRevision=pgTable("guest_revisions",{
  version:integer("version").notNull().default(1),
  changedAt:timestamp("changed_at",{withTimezone:true}).notNull().defaultNow()
 });
+
+/** P09 cashier: all currency integers are AFN minor units (1 AFN = 100). */
+export const financeSetting=pgTable("finance_settings",{
+ tenantId:text("tenant_id").primaryKey().references(()=>tenant.id),
+ version:integer("version").notNull().default(1),
+ taxRateBps:integer("tax_rate_bps").notNull().default(0),
+ taxInclusive:boolean("tax_inclusive").notNull().default(false),
+ serviceRateBps:integer("service_rate_bps").notNull().default(0),
+ serviceFixedMinor:integer("service_fixed_minor").notNull().default(0),
+ receiptFooter:text("receipt_footer").notNull().default(""),
+ updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
+});
+export type ChargePolicy={taxRateBps:number;taxInclusive:boolean;serviceRateBps:number;
+ serviceFixedMinor:number;receiptFooter:string};
+export const diningCheck=pgTable("dining_checks",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ visitId:text("visit_id").notNull().unique().references(()=>diningVisit.id),
+ tableId:text("table_id").notNull().references(()=>diningTable.id),
+ number:integer("number").notNull(),
+ version:integer("version").notNull().default(1),
+ status:text("status").notNull().default("open"),
+ splitMode:text("split_mode").notNull().default("single"),
+ splitCount:integer("split_count").notNull().default(1),
+ chargePolicy:jsonb("charge_policy").$type<ChargePolicy>().notNull(),
+ subtotalMinor:integer("subtotal_minor").notNull().default(0),
+ taxMinor:integer("tax_minor").notNull().default(0),
+ serviceMinor:integer("service_minor").notNull().default(0),
+ totalMinor:integer("total_minor").notNull().default(0),
+ paidMinor:integer("paid_minor").notNull().default(0),
+ lockedAt:timestamp("locked_at",{withTimezone:true}),
+ settledAt:timestamp("settled_at",{withTimezone:true}),
+ settledBy:text("settled_by").references(()=>user.id),
+ receiptId:text("receipt_id"),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+ updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[
+ uniqueIndex("dining_check_location_number").on(t.locationId,t.number),
+ index("dining_check_status_idx").on(t.tenantId,t.locationId,t.status,t.createdAt)
+]);
+export const checkShare=pgTable("check_shares",{
+ id:text("id").primaryKey(),checkId:text("check_id").notNull().references(()=>diningCheck.id),
+ tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ shareIndex:integer("share_index").notNull(),
+ label:text("label").notNull().default(""),
+ amountMinor:integer("amount_minor").notNull(),
+ paidMinor:integer("paid_minor").notNull().default(0)
+},t=>[uniqueIndex("check_share_index_unique").on(t.checkId,t.shareIndex)]);
+export const checkShareLine=pgTable("check_share_lines",{
+ id:text("id").primaryKey(),shareId:text("share_id").notNull().references(()=>checkShare.id),
+ checkId:text("check_id").notNull().references(()=>diningCheck.id),
+ lineId:text("line_id").notNull().references(()=>orderLine.id),
+ quantity:integer("quantity").notNull(),
+ lineAmountMinor:integer("line_amount_minor").notNull()
+},t=>[uniqueIndex("check_share_line_unique").on(t.shareId,t.lineId),
+ index("check_share_line_check_idx").on(t.checkId)]);
+export const cashierShift=pgTable("cashier_shifts",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ cashierId:text("cashier_id").notNull().references(()=>user.id),
+ openingFloatMinor:integer("opening_float_minor").notNull().default(0),
+ closingCountMinor:integer("closing_count_minor"),
+ expectedMinor:integer("expected_minor"),
+ varianceMinor:integer("variance_minor"),
+ supervisorId:text("supervisor_id").references(()=>user.id),
+ status:text("status").notNull().default("open"),
+ openedAt:timestamp("opened_at",{withTimezone:true}).notNull().defaultNow(),
+ closedAt:timestamp("closed_at",{withTimezone:true})
+},t=>[index("cashier_shift_history_idx").on(t.tenantId,t.locationId,t.openedAt)]);
+export const checkPayment=pgTable("check_payments",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ checkId:text("check_id").notNull().references(()=>diningCheck.id),
+ shareId:text("share_id").notNull().references(()=>checkShare.id),
+ shiftId:text("shift_id").notNull().references(()=>cashierShift.id),
+ cashierId:text("cashier_id").notNull().references(()=>user.id),
+ idempotencyKey:text("idempotency_key").notNull(),
+ requestHash:text("request_hash").notNull(),
+ method:text("method").notNull(),status:text("status").notNull().default("posted"),
+ amountMinor:integer("amount_minor").notNull(),
+ receivedMinor:integer("received_minor").notNull(),changeMinor:integer("change_minor").notNull().default(0),
+ externalReference:text("external_reference"),
+ note:text("note").notNull().default(""),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[
+ uniqueIndex("check_payment_idem_unique").on(t.checkId,t.idempotencyKey),
+ index("check_payment_history_idx").on(t.tenantId,t.locationId,t.createdAt),
+ index("check_payment_shift_idx").on(t.shiftId,t.createdAt)
+]);
+export const checkActivity=pgTable("check_activities",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ checkId:text("check_id").notNull().references(()=>diningCheck.id),
+ actorId:text("actor_id").notNull().references(()=>user.id),
+ action:text("action").notNull(),details:jsonb("details").notNull().default({}),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("check_activity_history_idx").on(t.checkId,t.createdAt)]);
+export type ReceiptSnapshot={receiptNumber:string;checkNumber:number;restaurant:string;
+ tableLabel:string;issuedAt:string;currency:string;subtotalMinor:number;taxMinor:number;
+ serviceMinor:number;totalMinor:number;paidMinor:number;footer:string;
+ lines:Array<{nameFa:string;namePs:string;nameEn:string;quantity:number;unitPriceMinor:number;
+ lineTotalMinor:number}>;payments:Array<{method:string;amountMinor:number;receivedMinor:number;
+ changeMinor:number;createdAt:string;externalReference:string|null}>};
+export const checkReceipt=pgTable("check_receipts",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ checkId:text("check_id").notNull().unique().references(()=>diningCheck.id),
+ number:text("number").notNull().unique(),
+ snapshot:jsonb("snapshot").$type<ReceiptSnapshot>().notNull(),
+ issuedBy:text("issued_by").notNull().references(()=>user.id),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+ reprintCount:integer("reprint_count").notNull().default(0)
+},t=>[index("check_receipt_history_idx").on(t.tenantId,t.locationId,t.createdAt)]);
