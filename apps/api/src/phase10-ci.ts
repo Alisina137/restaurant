@@ -31,6 +31,7 @@ async function main(){
  const cashier=await login("cashier-ci@example.test");
  const owner=await login("owner-ci@example.test");
  const waiter=await login("waiter-ci@example.test");
+ const kitchen=await login("kitchen-ci@example.test");
  const other=await login("new-owner-ci@example.test");
  const [staff]=await db.select().from(user).where(eq(user.email,"waiter-ci@example.test")).limit(1);
  const [section]=await db.select().from(diningSection)
@@ -105,6 +106,27 @@ async function main(){
  assert.equal(discounted.check.discountMinor,100);
  assert.equal(discounted.check.totalMinor,current.check.totalMinor-100,
   "zero tax and fixed service policy make discount exactly 100 minor units");
+ // A correction request cannot secretly cancel food once a kitchen worker starts.
+ const [stillOpen]=await db.select().from(diningCheck).where(eq(diningCheck.id,check.id)).limit(1);
+ const [newTicket]=await db.select().from(kitchenTicket).where(eq(kitchenTicket.roundId,round2.round.id)).limit(1);
+ assert.ok(stillOpen&&newTicket);
+ const late=await expect<{adjustment:{id:string;version:number}}>(
+  await call("/api/finance/checks/"+check.id+"/adjustments","POST",{
+   kind:"void",roundId:round2.round.id,reason:"Guest requested late change",
+   version:stillOpen.version,requestKey:"p10-late-"+randomUUID()},cashier),201);
+ assert.equal((await call("/api/finance/checks/"+check.id+"/split","POST",{
+  mode:"single",version:stillOpen.version},cashier)).status,409,
+  "cashiers cannot split a check while correction is awaiting approval");
+ await expect<{saved:boolean}>(await call("/api/orders/tickets/"+newTicket.id+"/transition",
+  "POST",{version:newTicket.version,nextStatus:"preparing"},kitchen),200);
+ assert.equal((await call("/api/finance/adjustments/"+late.adjustment.id+"/decision",
+  "POST",{version:late.adjustment.version,decision:"approve"},owner)).status,409,
+  "manager must not void an order once kitchen preparation has started");
+ const [prepared]=await db.select().from(kitchenTicket).where(eq(kitchenTicket.id,newTicket.id)).limit(1);
+ assert.equal(prepared?.status,"preparing","prepared kitchen ticket survives denied void");
+ await expect<{adjustment:{status:string}}>(await call("/api/finance/adjustments/"+late.adjustment.id+
+  "/decision","POST",{version:late.adjustment.version,decision:"reject",
+   note:"Kitchen already started preparation"},owner),200);
  const [original]=await db.select().from(orderRound).where(eq(orderRound.id,round2.round.id)).limit(1);
  assert.equal(original?.totalMinor,round2.round.totalMinor,"order price snapshots never change");
  // Use a Phase 9 settled check containing an original cash tender.
