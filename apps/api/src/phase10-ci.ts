@@ -2,7 +2,7 @@ import "dotenv/config";
 import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
 import {and,desc,eq} from "drizzle-orm";
-import {db} from "./db";
+import {db,pool} from "./db";
 import {diningCheck,checkPayment,checkReceipt,diningSection,menuItem,menuItemGroup,
  menuModifierGroup,menuModifierOption,orderRound,kitchenTicket,user} from "./schema";
 if(process.env.NODE_ENV==="production"||!process.env.DEMO_PASSWORD)
@@ -159,4 +159,4 @@ async function main(){
  assert.equal(tenantCheck.status,404);
  console.info("P10 passed: tenant isolation, idempotency, self-review blocks, void/discount invariants, refund caps and shift reconciliation.");
 }
-void main().catch(error=>{console.error(error);process.exitCode=1;});
+void main().then(async()=>{await pool.end();}).catch(async error=>{console.error(error);await pool.end();process.exitCode=1;});
