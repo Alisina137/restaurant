@@ -2,6 +2,7 @@ import {Router} from "express";
 import {and,asc,count,eq,isNotNull,isNull,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
+import {enforceLimit} from "./phase12-core";
 import {diningSection,diningTable,diningVisit,tenantMembership,user} from "./schema";
 import {bump,bool,bodyObject,ensureAssigned,fail,field,floorRoute,floorScope,int,isManager,paging,recordId,version,
   type FloorScope} from "./floor-helpers";
@@ -109,6 +110,7 @@ tableRouter.post("/",floorRoute(async(req,res)=>{
   const scope=await floorScope(req,true),data=tableFields(bodyObject(req)),id=randomUUID();
   await db.transaction(async tx=>{
     await sectionAllowed(tx,scope,data.sectionId);
+    await enforceLimit(tx,scope.tenantId,"tables");
     await waiterAllowed(tx,scope,data.assignedWaiterId);
     await tx.insert(diningTable).values({...data,id,tenantId:scope.tenantId,locationId:scope.locationId});
     await bump(tx,scope,"floor.table_created",{tableId:id,label:data.label,sectionId:data.sectionId});
