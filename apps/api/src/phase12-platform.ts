@@ -83,6 +83,15 @@ tenantSaasRouter.get("/invoices",route(async(req,res)=>{
  res.setHeader("Cache-Control","no-store");
  res.json({items,total:total[0]?.n??0,page:p,perPage:20});
 }));
+tenantSaasRouter.get("/invoices/:id",route(async(req,res)=>{
+ const a=await actor(req),tenantId=a.tenantId!,id=identity(req);
+ const [invoice]=await db.select().from(subscriptionInvoice)
+  .where(and(eq(subscriptionInvoice.id,id),eq(subscriptionInvoice.tenantId,tenantId))).limit(1);
+ if(!invoice)fail(404,"NOT_FOUND","Invoice unavailable.");
+ const [org]=await db.select({name:tenant.name,slug:tenant.slug}).from(tenant)
+  .where(eq(tenant.id,tenantId)).limit(1);
+ res.setHeader("Cache-Control","no-store");res.json({invoice,restaurant:org??null});
+}));
 tenantSaasRouter.post("/invoices/:id/proofs",route(async(req,res)=>{
  const a=await actor(req,false,true),x=bodyObject(req),invoiceId=identity(req),tenantId=a.tenantId!;
  const reference=field(x.reference,100,"Payment reference",4),payMethod=method(x.method),note=field(x.note??"",500,"Note");
