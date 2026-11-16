@@ -60,8 +60,14 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - Added an isolated PostgreSQL backup/restore rehearsal script and operator runbook. No new schema migration or package installation required.
 - See `docs/PHASE-13-ACCEPTANCE.md`. **Manual gates are NOT certified:** 3-language full visual QA, physical Android/receipt validation, peak-load, production backup/media recovery and measured RPO/RTO, accessibility, and cash reconciliation.
 
+## Phase 14 status
+- P14 is a **software implementation** of pilot evidence and independent countersignature workflow, not proof of a real restaurant service day.
+- Owner/manager `/app/pilot`, platform `/platform/pilots`. Appendix-only, tenant-scoped PASS/FAIL evidence across 12 gates; 2-party cryptographically bound signatures are invalidated by any changed gate. Migrations required.
+- CI verifies state-machine and authorization in a disposable seeded PostgreSQL instance. **Manual release prerequisites remain unsigned:** target Android/printer, Dari/Pashto/English screens, actual tender, one supervised restaurant shift, real restore, load and incident drills.
+- Run `docs/PILOT-RUNBOOK.md` with real operators before tagging a release candidate. Until then **production launch is blocked**.
+
 ## Next phase
-P14 — supervised restaurant pilot; begin only after mandatory manual P13 release gates are signed off.
+No new product phase is scheduled. Complete and document manual pilot acceptance and only then approve a release.
 
 ## Local commands
 ```powershell

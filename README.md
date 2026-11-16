@@ -2,7 +2,7 @@
 
 A Dari-first, tenant-scoped restaurant SaaS for Afghanistan. Product source of truth: [Product Specification v1.0](docs/PRODUCT-SPECIFICATION-v1.md) and [Development Workflow V5](docs/SOFTWARE-DEVELOPMENT-WORKFLOW-v5.md).
 
-**Release status:** Phases 1–12 are merged to `main` (Phase 12 via PR #13). The P12 branch passed full GitHub CI, including live PostgreSQL acceptance and P01–P12 regression tests. Next is P13 production hardening. Pilot certification still requires supervised restaurant, browser/mobile, manual billing verification and receipt-printer QA.
+**Release status:** Phases 1–14 are implemented on the Phase 14 release-candidate branch; Phases 1–13 are verified and merged to main. Phase 14 adds supervised pilot evidence and independent approval records. **Actual real-restaurant shift and physical/financial/recovery certification are NOT performed or approved.**
 
 ## Phase 12 — Restaurant subscriptions, manual payment verification and platform operations
 
@@ -132,3 +132,6 @@ Follow [Phase 08 Acceptance](docs/PHASE-08-ACCEPTANCE.md) before live use.
 - Keyboard skip navigation and three-language disconnected-state feedback.
 - Disposable PostgreSQL restore rehearsal via `pnpm ops:rehearsal` (requires explicit environment confirmation, separate target database and PostgreSQL client tools).
 - Source and automated integration gates merged in [PR #14](https://github.com/Alisina137/restaurant/pull/14); browser, Android, printing, financial cash and real restore rehearsals require manual sign-off **before pilot**. See [Phase 13 Acceptance](docs/PHASE-13-ACCEPTANCE.md).
+
+## Phase 14 — Supervised pilot control room and release sign-off
+Restaurant owner/manager: `/app/pilot` shows 12 mandatory gates and current evidence; only the owner may record a PASS/FAIL or sign after all gates pass. Platform administrators use `/platform/pilots` for independent HOLD/APPROVE. Any changed gate invalidates both prior signatures; the record is not an automatic deployment switch. **No restaurant pilot has been conducted by this implementation.** See `docs/PILOT-RUNBOOK.md` and `docs/PHASE-14-ACCEPTANCE.md`. After pulling P14 run `pnpm db:migrate`.
