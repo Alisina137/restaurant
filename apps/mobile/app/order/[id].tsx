@@ -1,5 +1,5 @@
 import {useCallback,useState} from "react";
-import {ActivityIndicator,Alert,Pressable,ScrollView,StyleSheet,Text,View} from "react-native";
+import {ActivityIndicator,Alert,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from "react-native";
 import {Ionicons} from "@expo/vector-icons";
 import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {direction} from "@dineflow/shared";
@@ -7,16 +7,28 @@ import {useLocale} from "../../src/locale";
 import {theme} from "../../src/theme";
 import {floorRequest,FloorRequestError} from "../../src/floor-api";
 import {o5} from "../../src/order-copy";
+import {p10m} from "../../src/phase10-copy";
 import {type OrderDetail,nameOf,price} from "../../src/order-types";
+type CorrectionPreview={request:{id:string;status:"pending"|"approved"|"rejected"|"applied";reason:string}|null;
+ canRequest:boolean};
+const freshKey=()=>("waiter-cancel-"+Date.now().toString(36)+
+ "-"+Math.random().toString(36).slice(2,12));
 export default function OrderDetailScreen(){
  const {id}=useLocalSearchParams<{id:string}>(),{locale}=useLocale(),rtl=direction(locale)==="rtl";
  const [detail,setDetail]=useState<OrderDetail|null>(null),[tab,setTab]=useState<"items"|"activity">("items"),
   [error,setError]=useState(""),[loading,setLoading]=useState(true),[serving,setServing]=useState(false);
+ const [cancelOpen,setCancelOpen]=useState(false),[cancelReason,setCancelReason]=useState("");
+ const [correction,setCorrection]=useState<CorrectionPreview|null>(null),[cancelBusy,setCancelBusy]=useState(false);
+ const [cancelKey,setCancelKey]=useState(freshKey);
  const load=useCallback(async()=>{
   setLoading(true);setError("");
   try{
    if(!id)throw new Error(o5(locale,"failed"));
-   setDetail(await floorRequest<OrderDetail>("/api/orders/rounds/"+encodeURIComponent(id)));
+   const result=await floorRequest<OrderDetail>("/api/orders/rounds/"+encodeURIComponent(id));
+   setDetail(result);
+   const preview=await floorRequest<CorrectionPreview>("/api/orders/rounds/"+encodeURIComponent(id)+"/correction")
+     .catch(()=>null);
+   setCorrection(preview);
   }catch(e){setError(e instanceof Error?e.message:o5(locale,"offline"));}
   finally{setLoading(false);}
  },[id,locale]);
@@ -42,6 +54,24 @@ export default function OrderDetailScreen(){
       o5(locale,"versionConflict"):e instanceof Error?e.message:o5(locale,"failed");
     await load();setError(message);
   }finally{setServing(false);}
+ }
+ async function sendCancellation(){
+  if(!id||cancelBusy||cancelReason.trim().length<8)return;
+  setCancelBusy(true);setError("");
+  try{
+   await floorRequest("/api/orders/rounds/"+encodeURIComponent(id)+"/correction",{
+    method:"POST",body:{reason:cancelReason.trim(),idempotencyKey:cancelKey}});
+   setCancelKey(freshKey());setCancelOpen(false);setCancelReason("");
+   Alert.alert(p10m(locale,"cancelOrder"),p10m(locale,"sent"));await load();
+  }catch(e){setError(e instanceof Error?e.message:o5(locale,"failed"));await load();}
+  finally{setCancelBusy(false);}
+ }
+ function confirmCancellation(){
+  if(cancelReason.trim().length<8)return;
+  Alert.alert(p10m(locale,"cancelOrder"),p10m(locale,"confirm"),[
+   {text:o5(locale,"cancel"),style:"cancel"},
+   {text:o5(locale,"confirm"),onPress:()=>{void sendCancellation();}}
+  ]);
  }
  const order=detail?.round;
  return <ScrollView style={styles.root} contentContainerStyle={styles.content}>
@@ -103,6 +133,37 @@ export default function OrderDetailScreen(){
       {serving?<ActivityIndicator color="white"/>:<Ionicons name="checkmark-done-outline" size={20} color="white"/>}
       <Text style={styles.primaryText}>{o5(locale,"markServed")}</Text></Pressable>}
 
+   {(correction?.request||detail.ticket?.status==="new"&&order.status!=="voided")&&
+    <View style={styles.card}>
+     <Text style={styles.name}>{p10m(locale,"cancelOrder")}</Text>
+     <Text style={styles.muted}>{p10m(locale,"cancelExplain")}</Text>
+     {correction?.request?.status==="pending"||correction?.request?.status==="approved"?
+      <View style={styles.hint}><Text style={styles.stateText}>{p10m(locale,"waiting")}</Text>
+       <Text style={styles.muted}>{correction.request.reason}</Text></View>:
+      correction?.request?.status==="applied"?
+      <Text style={styles.stateText}>{p10m(locale,"approved")}</Text>:
+      correction?.request?.status==="rejected"?
+      <Text style={styles.muted}>{p10m(locale,"rejected")}</Text>:null}
+     {correction?.canRequest!==false&&detail.ticket?.status==="new"&&order.status!=="voided"&&
+      !(correction?.request?.status==="pending"||correction?.request?.status==="approved")&&<>
+      {!cancelOpen?<Pressable accessibilityRole="button" style={styles.secondary}
+       onPress={()=>setCancelOpen(true)}><Text style={styles.link}>{p10m(locale,"cancelOrder")}</Text></Pressable>:
+       <View style={styles.correctionForm}>
+        <Text style={styles.muted}>{p10m(locale,"reason")}</Text>
+        <TextInput multiline maxLength={500} textAlignVertical="top"
+         value={cancelReason} onChangeText={setCancelReason}
+         placeholder={p10m(locale,"reason")} style={styles.correctionInput}/>
+        <Pressable accessibilityRole="button" disabled={cancelBusy||cancelReason.trim().length<8}
+         style={[styles.primary,(cancelBusy||cancelReason.trim().length<8)&&{opacity:.5}]}
+         onPress={confirmCancellation}>
+         {cancelBusy?<ActivityIndicator color="white"/>:<Ionicons name="create-outline" size={20} color="white"/>}
+         <Text style={styles.primaryText}>{cancelBusy?p10m(locale,"busy"):p10m(locale,"send")}</Text>
+        </Pressable>
+        <Pressable style={styles.secondary} onPress={()=>setCancelOpen(false)}>
+         <Text style={styles.link}>{o5(locale,"cancel")}</Text></Pressable>
+       </View>}
+      </>}
+    </View>}
    <Pressable onPress={()=>router.push({pathname:"/visit/[id]/new-order",params:{id:order.visitId}})} style={styles.primary}>
     <Ionicons name="add-outline" size={20} color="white"/><Text style={styles.primaryText}>{o5(locale,"addRound")}</Text></Pressable>
    <Pressable style={styles.secondary} onPress={()=>router.push({pathname:"/table/[id]",params:{id:order.tableId}})}>
@@ -111,6 +172,9 @@ export default function OrderDetailScreen(){
  </ScrollView>;
 }
 const styles=StyleSheet.create({
+ correctionForm:{gap:11,marginTop:8},
+ correctionInput:{minHeight:98,backgroundColor:"#FAFCFB",borderWidth:1,borderColor:theme.border,
+  borderRadius:12,padding:12,color:theme.ink,fontSize:15},
  stateRow:{flexDirection:"row",alignItems:"center",gap:7},
  stateText:{color:theme.brand,fontSize:12,fontWeight:"800"},
  lineAction:{backgroundColor:"#E8F5ED",padding:12,borderRadius:11,alignItems:"center",justifyContent:"center",flexDirection:"row",gap:9},
