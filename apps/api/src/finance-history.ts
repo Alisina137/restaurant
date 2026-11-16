@@ -8,6 +8,7 @@ import {bodyObject,fail,field,int,route} from "./menu-helpers";
 import {calculate,financeScope,lockedCheck,pendingGuard,writeAudit} from "./finance-core";
 import {guestAccess,invalidateVisitSessions} from "./guest-security";
 export const financeHistoryRouter=Router();
+export const guestFinanceRouter=Router();
 const id=(req:import("express").Request)=>field(req.params.id,100,"ID",1);
 const page=(v:unknown)=>typeof v==="string"&&/^\d+$/.test(v)?Math.min(Math.max(1,Number(v)),10000):1;
 financeHistoryRouter.post("/checks/:id/settle",route(async(req,res)=>{
@@ -140,7 +141,7 @@ financeHistoryRouter.post("/receipts/:id/reprint",route(async(req,res)=>{
  res.json({id:result.id,reprintCount:result.reprintCount});
 }));
 /** Guests see only line snapshots, due and bill split metadata, never tender or staff identities. */
-financeHistoryRouter.get("/guest/bill",route(async(req,res)=>{
+guestFinanceRouter.get("/bill",route(async(req,res)=>{
  const scope=await guestAccess(req);
  const [check,rounds,charges]=await Promise.all([
    db.select().from(diningCheck).where(and(eq(diningCheck.visitId,scope.visitId),

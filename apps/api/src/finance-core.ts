@@ -157,5 +157,5 @@ export async function pendingGuard(tx:Tx,scope:FinanceScope,visitId:string){
 export function splitValues(total:number,count:number){
  if(!Number.isInteger(count)||count<1||count>10)fail(400,"INVALID_SPLIT","Split requires 1 to 10 shares.");
  const base=Math.floor(total/count),values=Array.from({length:count},()=>base);
- values[count-1]+=total-base*count;return values;
+ values[count-1]=(values[count-1]??0)+total-base*count;return values;
 }

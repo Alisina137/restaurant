@@ -101,7 +101,7 @@ financeRouter.get("/checks/:id",route(async(req,res)=>{
 financeRouter.post("/checks/:id/split",route(async(req,res)=>{
  const scope=await financeScope(req),checkId=id(req),body=bodyObject(req);
  const version=cashInt(body.version,"Version",1),mode=body.mode;
- if(!["single","equal","items"].includes(mode))fail(400,"INVALID_SPLIT","Select single, equal or by item.");
+ if(typeof mode!=="string"||!["single","equal","items"].includes(mode))fail(400,"INVALID_SPLIT","Select single, equal or by item.");
  const n=mode==="single"?1:cashInt(body.count,"Number of shares",2,10);
  const allocations=body.allocations;
  const response=await db.transaction(async tx=>{
@@ -130,7 +130,7 @@ financeRouter.post("/checks/:id/split",route(async(req,res)=>{
        if(found+quantity>line.quantity)fail(409,"INVALID_SPLIT","Item quantity allocated more than once.");
        allocated.set(lineId,found+quantity);
        const price=line.unitPriceMinor*quantity;
-       base[index-1]+=price;
+       base[index-1]=(base[index-1]??0)+price;
        assignments.push({shareIndex:index,lineId,quantity,lineAmountMinor:price});
      }
      if(lines.some(x=>allocated.get(x.id)!==x.quantity))

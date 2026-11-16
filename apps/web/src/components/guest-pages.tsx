@@ -352,6 +352,7 @@ export function GuestOrdersPage(){
    {done.map(x=><RoundCard key={x.id} row={x} locale={locale}/>)}
    {!rejected.length&&!done.length&&<div className="guest-empty"><ReceiptText size={38}/><h3>{g7(locale,"historyEmpty")}</h3></div>}
   </div>}
+  <Link className="guest-button secondary" href={"/g/"+visit+"/bill"}>{g7(locale,"receipt")} · {g7(locale,"total")}</Link>
   <div className="guest-footer-note"><ShieldCheck size={19}/>{g7(locale,"noPayment")}</div>
   <Link className="guest-button secondary" href={"/g/"+visit+"/menu"}>{g7(locale,"more")}</Link>
  </div>;
