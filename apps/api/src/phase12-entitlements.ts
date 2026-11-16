@@ -1,6 +1,6 @@
 import {and, count, eq, isNull, gt, sql} from "drizzle-orm";
 import {db} from "./db";
-import {diningTable,staffInvitation,subscriptionPlan,tenant,tenantMembership,tenantSubscription,tenantTrial} from "./schema";
+import {diningTable,staffInvitation,subscriptionPlan,tenant,tenantMembership,tenantSubscription,tenantTrial,platformSetting} from "./schema";
 import {fail} from "./menu-helpers";
 
 type Tx=Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -24,8 +24,11 @@ export async function subscriptionGate(tx:Tx,tenantId:string):Promise<void>{
   if(!subscription.trialEndsAt || subscription.trialEndsAt.getTime()<=now)
     fail(402,"TRIAL_EXPIRED","Trial ended. Ask the owner to review billing.");
  }else if(subscription.status==="active"){
-  if(!subscription.periodEnd || subscription.periodEnd.getTime()<=now)
-    fail(402,"RENEWAL_REQUIRED","Subscription period ended. Review outstanding invoices.");
+  const [policy]=await tx.select({graceDays:platformSetting.graceDays}).from(platformSetting)
+   .where(eq(platformSetting.id,"default")).limit(1);
+  const automaticGraceMs=(policy?.graceDays??7)*86_400_000;
+  if(!subscription.periodEnd || subscription.periodEnd.getTime()+automaticGraceMs<=now)
+    fail(402,"RENEWAL_REQUIRED","Paid period and grace ended. Review outstanding invoices.");
  }else if(subscription.status==="grace"){
   if(!subscription.graceEndsAt || subscription.graceEndsAt.getTime()<=now)
     fail(402,"GRACE_ENDED","Grace period ended. New visits are unavailable.");

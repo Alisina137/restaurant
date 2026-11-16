@@ -59,11 +59,16 @@ tenantSaasRouter.get("/",route(async(req,res)=>{
   db.select().from(platformSetting).where(eq(platformSetting.id,"default")).limit(1)
  ]);
  const plan=sub[0]?.planId?(await db.select().from(subscriptionPlan).where(eq(subscriptionPlan.id,sub[0].planId!)).limit(1))[0]??null:null;
- const now=Date.now(),deadline=sub[0]?.status==="trial"?sub[0].trialEndsAt??trial[0]?.expiresAt:
-  sub[0]?.status==="active"?sub[0].periodEnd:
-  sub[0]?.status==="grace"?sub[0].graceEndsAt:null;
+ const now=Date.now(),automaticGrace=sub[0]?.status==="active"&&sub[0].periodEnd?
+  new Date(sub[0].periodEnd.getTime()+(prefs[0]?.graceDays??7)*daysMs):null;
+ const inAutoGrace=!!automaticGrace&&!!sub[0]?.periodEnd&&sub[0].periodEnd.getTime()<=now;
+ const effectiveSub=sub[0]&&inAutoGrace?{...sub[0],status:"grace",
+  graceEndsAt:automaticGrace}:sub[0]??null;
+ const deadline=effectiveSub?.status==="trial"?effectiveSub.trialEndsAt??trial[0]?.expiresAt:
+  effectiveSub?.status==="active"?effectiveSub.periodEnd:
+  effectiveSub?.status==="grace"?effectiveSub.graceEndsAt:null;
  res.setHeader("Cache-Control","no-store");
- res.json({restaurant:org[0]??null,subscription:sub[0]??null,plan,
+ res.json({restaurant:org[0]??null,subscription:effectiveSub,plan,
   trialEndsAt:sub[0]?.trialEndsAt??trial[0]?.expiresAt??null,
   renewalAt:sub[0]?.periodEnd??null,canOpenNewVisits:org[0]?.status!=="suspended"&&
    org[0]?.status!=="rejected"&&org[0]?.status!=="pending"&&
