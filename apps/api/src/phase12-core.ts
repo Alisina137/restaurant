@@ -68,6 +68,8 @@ export async function subscription(tx:Tx|typeof db,tenantId:string){
 }
 export function effectiveStatus(sub:Awaited<ReturnType<typeof subscription>>,graceDays:number,now=new Date()){
  if(sub.status==="suspended")return "suspended";
+ // A zero-cost plan is free, not an invoice which can become overdue.
+ if(sub.priceMinor===0)return sub.trialEndsAt&&sub.trialEndsAt>now&&sub.status==="trial"?"trial":"active";
  const end=sub.status==="trial"?sub.trialEndsAt:sub.paidUntil;
  if(!end)return sub.status==="grace"?"suspended":sub.status;
  if(end.getTime()>=now.getTime())return sub.status==="trial"?"trial":"active";
