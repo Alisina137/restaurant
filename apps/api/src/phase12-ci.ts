@@ -92,8 +92,9 @@ async function main(){
  const createTable=(label:string)=>call("/api/floor/tables","POST",{...baseTable,label},owner);
  const a=await get<{id:string}>(await createTable("P12A-"+randomUUID().slice(0,4)),201);
  const b=await get<{id:string}>(await createTable("P12B-"+randomUUID().slice(0,4)),201);
- const [{n:tableCount}]=await db.select({n:sql<number>`COUNT(*)::integer`}).from(diningTable)
+ const [tableTotal]=await db.select({n:sql<number>`COUNT(*)::integer`}).from(diningTable)
   .where(and(eq(diningTable.tenantId,"dev-restaurant"),isNull(diningTable.archivedAt)));
+ const tableCount=tableTotal?.n??0;
  assert.ok(tableCount>=2);
  const tight=await get<{plan:{id:string}}>(await call("/api/platform/plans","POST",
   {...plan,code:planCode+"-tight",priceMinor:5500,tableLimit:tableCount},platform),201);
