@@ -28,6 +28,7 @@ import {guestStaffRouter} from "./guest-staff";
 import {financeRouter} from "./finance-routes";
 import {financeHistoryRouter,guestFinanceRouter} from "./finance-history";
 import {guestAssistanceRouter,staffAssistanceRouter} from "./phase8-requests";
+import {adjustmentsRouter} from "./phase10-adjustments";
 
 const app = express();
 app.disable("x-powered-by");
@@ -61,6 +62,7 @@ app.use("/api/guest",guestOrdersRouter);
 app.use("/api/guest/staff",guestStaffRouter);
 app.use("/api/finance",financeRouter);
 app.use("/api/finance",financeHistoryRouter);
+app.use("/api/finance",adjustmentsRouter);
 app.use("/api/guest",guestFinanceRouter);
 app.use("/api/guest",guestAssistanceRouter);
 app.use("/api/service",staffAssistanceRouter);

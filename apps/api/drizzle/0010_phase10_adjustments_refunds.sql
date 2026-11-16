@@ -39,3 +39,21 @@ CREATE TABLE finance_refunds (
 );
 CREATE INDEX finance_refunds_check_idx ON finance_refunds(check_id,posted_at);
 CREATE INDEX finance_refunds_shift_idx ON finance_refunds(shift_id,posted_at);
+-- Enable explicit void state while preserving all historical source and ticket rows.
+ALTER TABLE order_rounds DROP CONSTRAINT order_rounds_status_check;
+ALTER TABLE order_rounds ADD CONSTRAINT order_rounds_status_check CHECK(status IN ('accepted','voided'));
+ALTER TABLE kitchen_tickets DROP CONSTRAINT kitchen_tickets_status_check;
+ALTER TABLE kitchen_tickets ADD CONSTRAINT kitchen_tickets_status_check
+ CHECK(status IN ('new','preparing','ready','picked_up','served','voided'));
+ALTER TABLE kitchen_tickets DROP CONSTRAINT kitchen_ticket_status_times;
+ALTER TABLE kitchen_tickets ADD CONSTRAINT kitchen_ticket_status_times CHECK(
+ (status='new' AND started_at IS NULL AND ready_at IS NULL AND picked_up_at IS NULL AND served_at IS NULL)
+ OR (status='preparing' AND started_at IS NOT NULL AND ready_at IS NULL AND picked_up_at IS NULL AND served_at IS NULL)
+ OR (status='ready' AND started_at IS NOT NULL AND ready_at IS NOT NULL AND served_at IS NULL)
+ OR (status='picked_up' AND started_at IS NOT NULL AND ready_at IS NOT NULL AND picked_up_at IS NOT NULL AND served_at IS NULL)
+ OR (status='served' AND started_at IS NOT NULL AND ready_at IS NOT NULL AND served_at IS NOT NULL)
+ OR (status='voided' AND started_at IS NULL AND ready_at IS NULL AND picked_up_at IS NULL AND served_at IS NULL)
+);
+ALTER TABLE order_lines DROP CONSTRAINT order_lines_kitchen_status_valid;
+ALTER TABLE order_lines ADD CONSTRAINT order_lines_kitchen_status_valid
+ CHECK(kitchen_status IN ('new','preparing','ready','picked_up','served','voided'));
