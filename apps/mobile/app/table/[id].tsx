@@ -112,7 +112,7 @@ const styles=StyleSheet.create({
  headText:{fontSize:20,fontWeight:"800",color:theme.ink},
  center:{padding:55,gap:12,alignItems:"center"},
  hero:{backgroundColor:"#E7F5ED",padding:25,borderRadius:theme.radius,gap:12},
- name:{fontSize:28,fontWeight:"850",color:theme.ink},
+ name:{fontSize:28,fontWeight:"800",color:theme.ink},
  status:{paddingVertical:7,paddingHorizontal:13,borderRadius:20,alignSelf:"flex-start"},
  panel:{backgroundColor:theme.surface,borderWidth:1,borderColor:theme.border,borderRadius:16,padding:20,gap:15},
  row:{alignItems:"center",justifyContent:"space-between",gap:16,borderBottomWidth:1,borderBottomColor:theme.border,paddingBottom:12},
