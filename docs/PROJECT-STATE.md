@@ -22,8 +22,11 @@
 - Live responsive/browser/Expo Go QA still required. Historical price snapshots will be introduced alongside accepted orders in P05; P03 does not yet record orders.
 - The **initial 14-day trial is a pilot configuration** rather than implemented billing; subscriptions come in P12.
 
+## Phase 04
+New sections, table board, collision-safe visits, waiter assignment, cleaning cycle and Expo Tables UI are implemented on branch `phase-04-sections-tables-visits`. CI includes P04 integration and regressions. Live Windows/Android UI tests remain pending. See `docs/PHASE-04-ACCEPTANCE.md`.
+
 ## Next
-P04 — sections, restaurant tables, active visits, assigned waiters and safe collision handling.
+P05 — waiter ordering and minimal kitchen ticket receiver.
 
 ## Local commands
 ```powershell

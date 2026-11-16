@@ -41,8 +41,10 @@ export function RestaurantOverview(){
           <div><UtensilsCrossed size={23} color="var(--brand)"/><div><strong>{locale==="en"?"Build and publish menu":locale==="fa-AF"?"ایجاد و نشر منو":"مینو جوړ او خپور کړئ"}</strong>
             <p className="muted">{locale==="en"?"Categories, meals, modifiers and stock":locale==="fa-AF"?"دسته‌ها، غذاها، انتخاب‌ها و موجودی":"کټګورۍ، خواړه، انتخابونه او شتون"}</p></div>
             <Link className="button button-primary button-small" href="/app/menu/items">{locale==="en"?"Open menu":locale==="fa-AF"?"باز کردن منو":"مینو پرانیستل"} <ArrowUpRight size={16}/></Link></div>
-          <div className="planned-item"><Building2 size={23}/><div><strong>{p2(locale,"tableLater")}</strong></div>
-            <span className="muted">P04</span></div>
+          <div><Building2 size={23} color="var(--brand)"/><div>
+            <strong>{locale==="en"?"Configure sections and tables":locale==="fa-AF"?"تنظیم بخش‌ها و میزها":"برخې او مېزونه تنظیمول"}</strong>
+            <p className="muted">{locale==="en"?"Create floor sections, seat guests and assign waiters":locale==="fa-AF"?"ایجاد بخش‌ها، تعیین گارسون و نشاندن مشتری":"برخې جوړې کړئ، ګارسون وټاکئ او مېلمانه کېنوئ"}</p></div>
+            <Link className="button button-primary button-small" href="/app/tables/board">{locale==="en"?"Open floor":locale==="fa-AF"?"باز کردن سالن":"تالار پرانیستل"} <ArrowUpRight size={16}/></Link></div>
         </div>
       </section>
       <p className="muted">{p2(locale,"trialConfig")} {setup.trialExpiresAt?new Date(setup.trialExpiresAt).toLocaleDateString(locale):""}</p>
