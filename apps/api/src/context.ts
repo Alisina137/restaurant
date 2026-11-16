@@ -15,7 +15,7 @@ export async function contextFor(user: { id: string; name: string; email: string
     db.select().from(userPreference).where(eq(userPreference.userId, user.id)).limit(1),
     db.select({ tenantId: tenantMembership.tenantId, tenantName: tenant.name, role: tenantMembership.role })
       .from(tenantMembership).innerJoin(tenant, eq(tenantMembership.tenantId, tenant.id))
-      .where(and(eq(tenantMembership.userId, user.id), eq(tenantMembership.status, "active"), inArray(tenant.status, ["active", "trial"])))
+      .where(and(eq(tenantMembership.userId, user.id), eq(tenantMembership.status, "active"), inArray(tenant.status, ["active", "trial", "suspended", "pending"])))
   ]);
   const memberships = rows.filter((row): row is Membership => isStaffRole(row.role));
   const preferred = preferences[0]?.activeTenantId;
