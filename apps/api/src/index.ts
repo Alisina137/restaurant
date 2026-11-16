@@ -57,6 +57,7 @@ app.use("/api/floor/tables", tableRouter);
 app.use("/api/floor/visits", visitRouter);
 app.use("/api/floor", floorLiveRouter);
 app.use("/api/orders", orderRouter);
+app.use("/api/orders", waiterCorrectionRouter);
 app.use("/api/orders", serviceRouter);
 app.use("/api/guest",guestPublicRouter);
 app.use("/api/guest",guestOrdersRouter);
