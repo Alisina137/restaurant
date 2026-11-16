@@ -84,7 +84,7 @@ export default function Tables(){
              {sr8(locale,r.type)} · {sr8(locale,"table")} {r.tableLabel}</Text>
              <Text style={styles.meta}>{sr8(locale,r.status==="pending"?"pending":"acknowledged")}</Text>
           </View></View></Pressable>)}
-      {ready.length?ready.map(r=><Pressable key={r.id} style={styles.attentionCard}
+      {ready.length>0?ready.map(r=><Pressable key={r.id} style={styles.attentionCard}
        onPress={()=>router.push({pathname:"/order/[id]",params:{id:r.id}})}
        accessibilityRole="button">
         <View style={[styles.cardHead,{flexDirection:rtl?"row-reverse":"row"}]}>
@@ -99,7 +99,7 @@ export default function Tables(){
         </View>
        </Pressable>):requests.length===0?<View style={styles.empty}>
          <Ionicons name="checkmark-circle-outline" size={40} color={theme.brand}/>
-         <Text style={[styles.subtle,{textAlign:"center"}]}>{o5(locale,"noAttention")}</Text></View>}
+         <Text style={[styles.subtle,{textAlign:"center"}]}>{o5(locale,"noAttention")}</Text></View>:null}
       {!!ready.length&&<Pressable style={styles.openOrders}
        onPress={()=>router.push({pathname:"/(main)/orders",params:{tab:"ready"}})}>
        <Text style={styles.openOrdersText}>{o5(locale,"showActive")}</Text></Pressable>}
