@@ -42,7 +42,7 @@ export function GuestAssistance(){
       className={"guest-help-option"+(kind===key?" selected":"")}
       aria-pressed={kind===key} onClick={()=>{setKind(key);setError("");setSuccess("");}}>
         <Icon size={23}/><strong>{help8(locale,key)}</strong>
-        <small>{help8(locale,(key+"Desc") as "callDesc"|"waterDesc"|"billDesc"|"otherDesc")}</small>
+        <small>{help8(locale,({call_waiter:"callDesc",water:"waterDesc",bill:"billDesc",other:"otherDesc"} as const)[key])}</small>
        </button>;})}</div>
    <section className="guest-help-form">
      <h3>{help8(locale,kind)}</h3>
