@@ -8,7 +8,7 @@ import {f9} from "@/lib/finance-copy";
 import {g7} from "@/lib/guest-copy";
 import {money,receiptName} from "@/lib/finance-types";
 type Bill={visitId:string;tableLabel:string;restaurant:string;checkNumber:number|null;
- status:string;subtotalMinor:number;taxMinor:number;serviceMinor:number;totalMinor:number;
+ status:string;subtotalMinor:number;discountMinor:number;taxMinor:number;serviceMinor:number;totalMinor:number;
  paidMinor:number;dueMinor:number;splitMode:string;currency:string;noPaymentAction:boolean;
  lines:Array<{nameFa:string;namePs:string;nameEn:string;quantity:number;lineTotalMinor:number}>};
 export function GuestBill(){
@@ -43,6 +43,7 @@ export function GuestBill(){
       </div>)}</div>
       <div className="guest-bill-totals">
        <div><span>{f9(locale,"subtotal")}</span><b>{money(bill.subtotalMinor,locale)}</b></div>
+       {bill.discountMinor>0&&<div><span>{f9(locale,"discount")}</span><b>−{money(bill.discountMinor,locale)}</b></div>}
        <div><span>{f9(locale,"tax")}</span><b>{money(bill.taxMinor,locale)}</b></div>
        <div><span>{f9(locale,"service")}</span><b>{money(bill.serviceMinor,locale)}</b></div>
        <div className="total"><span>{f9(locale,"total")}</span><b>{money(bill.totalMinor,locale)}</b></div>

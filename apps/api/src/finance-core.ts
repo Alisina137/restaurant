@@ -1,10 +1,10 @@
 import type {Request} from "express";
-import {and,asc,desc,eq,inArray,sql} from "drizzle-orm";
+import {and,asc,desc,eq,inArray,ne,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
 import {scopeFor,fail} from "./menu-helpers";
 import {auditEvent,cashierShift,checkActivity,checkPayment,checkReceipt,checkShare,
- checkShareLine,diningCheck,diningTable,diningVisit,financeSetting,guestSubmission,kitchenTicket,
+ checkShareLine,diningCheck,diningTable,diningVisit,financeSetting,financeAdjustment,financeRefund,guestSubmission,kitchenTicket,
  orderLine,orderRound,restaurantSetting,tenant} from "./schema";
 export type Tx=Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type FinanceScope={tenantId:string;locationId:string;actorId:string;role:string};
@@ -18,14 +18,17 @@ export async function financeScope(req:Request,manage=false):Promise<FinanceScop
 export const amountMax=2_000_000_000;
 export const roundBps=(base:number,bps:number,denom=10000)=>Math.floor((base*bps+denom/2)/denom);
 export type Policy={taxRateBps:number;taxInclusive:boolean;serviceRateBps:number;serviceFixedMinor:number;receiptFooter:string};
-export function calculate(subtotal:number,policy:Policy){
- if(!Number.isSafeInteger(subtotal)||subtotal<0||subtotal>amountMax)fail(409,"AMOUNT_INVALID","Invalid accepted order subtotal.");
- const tax=policy.taxInclusive?roundBps(subtotal,policy.taxRateBps,10000+policy.taxRateBps):
-   roundBps(subtotal,policy.taxRateBps);
- const service=roundBps(subtotal,policy.serviceRateBps)+(subtotal?policy.serviceFixedMinor:0);
- const total=subtotal+(policy.taxInclusive?0:tax)+service;
+export function calculate(subtotal:number,policy:Policy,discount=0){
+ if(!Number.isSafeInteger(subtotal)||subtotal<0||subtotal>amountMax||
+    !Number.isSafeInteger(discount)||discount<0||discount>subtotal)
+  fail(409,"AMOUNT_INVALID","Invalid subtotal or discount.");
+ const net=subtotal-discount;
+ const tax=policy.taxInclusive?roundBps(net,policy.taxRateBps,10000+policy.taxRateBps):
+   roundBps(net,policy.taxRateBps);
+ const service=roundBps(net,policy.serviceRateBps)+(net?policy.serviceFixedMinor:0);
+ const total=net+(policy.taxInclusive?0:tax)+service;
  if(total>amountMax)fail(409,"AMOUNT_TOO_LARGE","Check total exceeds financial limit.");
- return {subtotalMinor:subtotal,taxMinor:tax,serviceMinor:service,totalMinor:total};
+ return {subtotalMinor:subtotal,discountMinor:discount,taxMinor:tax,serviceMinor:service,totalMinor:total};
 }
 export async function currentPolicy(tx:Tx,scope:FinanceScope){
  await tx.insert(financeSetting).values({tenantId:scope.tenantId}).onConflictDoNothing();
@@ -49,7 +52,7 @@ export async function lockTable(tx:Tx,scope:FinanceScope,tableId:string){
 }
 export async function currentOrders(tx:Tx,scope:FinanceScope,visitId:string){
  return tx.select().from(orderRound).where(and(eq(orderRound.visitId,visitId),
-   eq(orderRound.tenantId,scope.tenantId),eq(orderRound.locationId,scope.locationId)))
+   eq(orderRound.tenantId,scope.tenantId),eq(orderRound.locationId,scope.locationId),ne(orderRound.status,"voided")))
    .orderBy(asc(orderRound.roundNumber));
 }
 export async function ensureCheck(tx:Tx,scope:FinanceScope,visit:typeof diningVisit.$inferSelect){
@@ -74,7 +77,7 @@ export async function ensureCheck(tx:Tx,scope:FinanceScope,visit:typeof diningVi
 export async function syncCheck(tx:Tx,scope:FinanceScope,check:typeof diningCheck.$inferSelect){
  if(check.status==="settled"||check.lockedAt)return check;
  const rounds=await currentOrders(tx,scope,check.visitId);
- const amounts=calculate(rounds.reduce((s,r)=>s+r.totalMinor,0),check.chargePolicy);
+ const amounts=calculate(rounds.reduce((s,r)=>s+r.totalMinor,0),check.chargePolicy,check.discountMinor);
  if(check.subtotalMinor===amounts.subtotalMinor&&check.totalMinor===amounts.totalMinor)return check;
  if(check.paidMinor!==0||check.splitMode!=="single")fail(409,"CHECK_LOCKED","Cannot change locked check.");
  const [updated]=await tx.update(diningCheck).set({...amounts,version:check.version+1,updatedAt:new Date()})
@@ -124,7 +127,7 @@ export async function fullCheck(scope:FinanceScope,id:string){
    .where(eq(diningTable.id,check.tableId)).limit(1);
  const rounds=await db.select().from(orderRound).where(and(eq(orderRound.visitId,check.visitId),
    eq(orderRound.tenantId,scope.tenantId))).orderBy(asc(orderRound.roundNumber));
- const ids=rounds.map(r=>r.id);
+ const ids=rounds.filter(r=>r.status!=="voided").map(r=>r.id);
  const [lines,shares,payments,activities,receipt,restaurantSettingRow]=await Promise.all([
    ids.length?db.select().from(orderLine).where(and(eq(orderLine.tenantId,scope.tenantId),
      inArray(orderLine.roundId,ids))).orderBy(asc(orderLine.createdAt),asc(orderLine.lineIndex)):Promise.resolve([]),
@@ -136,8 +139,15 @@ export async function fullCheck(scope:FinanceScope,id:string){
  ]);
  const allocations=check.splitMode==="items"?await db.select().from(checkShareLine)
    .where(eq(checkShareLine.checkId,id)):[];
+ const [adjustments,refunds]=await Promise.all([
+  db.select().from(financeAdjustment).where(and(eq(financeAdjustment.checkId,id),
+    eq(financeAdjustment.tenantId,scope.tenantId))).orderBy(desc(financeAdjustment.createdAt)),
+  db.select().from(financeRefund).where(and(eq(financeRefund.checkId,id),
+    eq(financeRefund.tenantId,scope.tenantId))).orderBy(desc(financeRefund.postedAt))
+ ]);
  return {check,visit,tableLabel:table?.label??"",rounds,lines,shares,payments,activities,
-   allocations,receipt:receipt[0]??null,timezone:restaurantSettingRow[0]?.timezone??"Asia/Kabul",
+   adjustments,refunds,refundedMinor:refunds.reduce((sum,row)=>sum+row.amountMinor,0),
+    allocations,receipt:receipt[0]??null,timezone:restaurantSettingRow[0]?.timezone??"Asia/Kabul",
    dueMinor:check.totalMinor-check.paidMinor,currency:"AFN" as const};
 }
 export async function orderGuard(tx:Tx,scope:{tenantId:string;locationId:string},visitId:string){
@@ -147,16 +157,27 @@ export async function orderGuard(tx:Tx,scope:{tenantId:string;locationId:string}
  if(check&&(check.status!=="open"||check.lockedAt))
    fail(409,"CHECK_LOCKED","Check is locked for payment. Ask your cashier before adding another order.");
 }
+export async function pendingCorrectionGuard(tx:Tx,scope:FinanceScope,checkId:string){
+ const [active]=await tx.select({id:financeAdjustment.id}).from(financeAdjustment)
+  .where(and(eq(financeAdjustment.tenantId,scope.tenantId),
+   eq(financeAdjustment.locationId,scope.locationId),eq(financeAdjustment.checkId,checkId),
+   inArray(financeAdjustment.status,["pending","approved"]))).limit(1);
+ if(active)fail(409,"CORRECTION_PENDING","Resolve the open adjustment request before changing payments or splitting.");
+}
 export async function pendingGuard(tx:Tx,scope:FinanceScope,visitId:string){
  const [pending]=await tx.select({id:guestSubmission.id}).from(guestSubmission).where(and(
     eq(guestSubmission.visitId,visitId),eq(guestSubmission.tenantId,scope.tenantId),
     eq(guestSubmission.status,"pending"))).limit(1);
  if(pending)fail(409,"PENDING_GUEST_ORDER","Resolve pending guest orders before settling.");
+ const [check]=await tx.select({id:diningCheck.id}).from(diningCheck)
+  .where(and(eq(diningCheck.tenantId,scope.tenantId),eq(diningCheck.locationId,scope.locationId),
+    eq(diningCheck.visitId,visitId))).limit(1);
+ if(check)await pendingCorrectionGuard(tx,scope,check.id);
  const rounds=await currentOrders(tx,scope,visitId);
  if(!rounds.length)fail(409,"EMPTY_CHECK","Cannot settle a visit without ordered items.");
  const [unfinished]=await tx.select({id:kitchenTicket.id}).from(kitchenTicket)
    .where(and(eq(kitchenTicket.visitId,visitId),eq(kitchenTicket.tenantId,scope.tenantId),
-     sql`${kitchenTicket.status} <> 'served'`)).limit(1);
+     sql`${kitchenTicket.status} NOT IN ('served','voided')`)).limit(1);
  if(unfinished)fail(409,"UNSERVED_FOOD","All kitchen tickets must be served before closing this visit.");
 }
 export function splitValues(total:number,count:number){

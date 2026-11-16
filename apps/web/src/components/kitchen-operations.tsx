@@ -8,7 +8,7 @@ import {API_URL} from "@/lib/auth-client";
 import {name,amount,type WebDetail,type WebPage,type WebRow} from "@/lib/order-web-types";
 import {k6} from "@/lib/kitchen-copy";
 import type {Locale} from "@dineflow/shared";
-type Status="new"|"preparing"|"ready"|"picked_up"|"served";
+type Status="new"|"preparing"|"ready"|"picked_up"|"served"|"voided";
 type Tab="new"|"preparing"|"ready"|"history";
 type HistoryRow={id:string;roundId:string;visitId:string;tableId:string;tableLabel:string;
  status:Status;version:number;createdAt:string;startedAt:string|null;readyAt:string|null;
@@ -28,7 +28,7 @@ function Details({detail,locale}:{detail:WebDetail;locale:Locale}){
    {detail.lines.map(line=><div className="kitchen-line" key={line.id}>
     <div className="kitchen-line-head"><strong>{line.quantity} × {name({nameFa:line.itemNameFa,nameEn:line.itemNameEn,namePs:line.itemNamePs},locale)}</strong>
       <span className={"kitchen-line-pill "+line.kitchenStatus}>{k6(locale,(line.kitchenStatus==="picked_up"||line.kitchenStatus==="served")?line.kitchenStatus:
-        line.kitchenStatus==="new"||line.kitchenStatus==="preparing"||line.kitchenStatus==="ready"?line.kitchenStatus:"new")}</span></div>
+        line.kitchenStatus==="new"||line.kitchenStatus==="preparing"||line.kitchenStatus==="ready"||line.kitchenStatus==="voided"?line.kitchenStatus:"new")}</span></div>
     {!!line.modifierSnapshot.length&&<div className="kitchen-mods">{line.modifierSnapshot.flatMap(g=>
       g.options.map(o=><span key={g.groupId+o.id}>{name(g,locale)}: {name(o,locale)}</span>))}</div>}
     {!!line.note&&<div className="kitchen-item-note">{line.note}</div>}
@@ -232,7 +232,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
    {tab==="history"&&<form className="kitchen-history-filters settings-card" onSubmit={applyFilters}>
      <label className="field"><span>{k6(locale,"statusFilter")}</span>
        <select value={status} onChange={e=>setStatus(e.target.value)}>
-        {(["all","new","preparing","ready","picked_up","served"] as const).map(x=>
+        {(["all","new","preparing","ready","picked_up","served","voided"] as const).map(x=>
          <option key={x} value={x}>{x==="all"?k6(locale,"allStatus"):k6(locale,x)}</option>)}</select></label>
      <label className="field"><span>{k6(locale,"tableFilter")}</span>
        <input value={table} onChange={e=>setTable(e.target.value)} maxLength={100}/></label>

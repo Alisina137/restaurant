@@ -121,7 +121,10 @@ export function CashierCheckDetails({id,area="cashier"}:{id:string;area?:"cashie
     <div><Link href={base+"/checks"} className="finance-back"><ArrowLeft size={17}/>{f9(locale,"back")}</Link>
       <div className="eyebrow">DINEFLOW / {f9(locale,"check")}</div>
       <h1>{f9(locale,"table")} {data?.tableLabel??"—"} <span>#{data?.check.number??"—"}</span></h1></div>
-    <button type="button" className="button" onClick={()=>void load()}><RefreshCw size={17}/>{f9(locale,"refresh")}</button>
+    <div className="p10-row"><Link className="button button-primary"
+ href={area==="cashier"?"/cashier/adjustments?checkId="+encodeURIComponent(id):
+ "/app/billing/adjustments?checkId="+encodeURIComponent(id)}>↺ {locale==="en"?"Adjustments & refunds":locale==="ps-AF"?"سمونونه او بېرته ورکړې":"اصلاحات و بازپرداخت"}</Link>
+ <button type="button" className="button" onClick={()=>void load()}><RefreshCw size={17}/>{f9(locale,"refresh")}</button></div>
    </div>
    {loading&&!data?<div className="settings-card list-skeleton"><span/><span/><span/></div>:
     data&&<>
@@ -161,6 +164,7 @@ export function CashierCheckDetails({id,area="cashier"}:{id:string;area?:"cashie
         <div><span>{f9(locale,"tax")}{data.check.chargePolicy.taxInclusive?" (incl.)":""}</span>
           <b>{money(data.check.taxMinor,locale)}</b></div>
         <div><span>{f9(locale,"service")}</span><b>{money(data.check.serviceMinor,locale)}</b></div>
+        {data.check.discountMinor>0&&<div><span>{f9(locale,"discount")}</span><b>−{money(data.check.discountMinor,locale)}</b></div>}
         <div className="total"><span>{f9(locale,"total")}</span><strong>{money(data.check.totalMinor,locale)}</strong></div>
         <div><span>{f9(locale,"paid")}</span><b>{money(data.check.paidMinor,locale)}</b></div>
         <div className="due"><span>{f9(locale,"due")}</span><strong>{money(data.dueMinor,locale)}</strong></div>

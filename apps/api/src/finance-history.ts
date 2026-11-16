@@ -2,7 +2,7 @@ import {Router} from "express";
 import {and,asc,count,desc,eq,inArray,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
-import {auditEvent,checkPayment,checkReceipt,checkShare,diningCheck,diningTable,diningVisit,
+import {auditEvent,financeRefund,checkPayment,checkReceipt,checkShare,diningCheck,diningTable,diningVisit,
  floorRevision,orderLine,orderRound,restaurantSetting,financeSetting,tenant} from "./schema";
 import {bodyObject,fail,field,int,route} from "./menu-helpers";
 import {calculate,financeScope,lockedCheck,pendingGuard,writeAudit} from "./finance-core";
@@ -32,7 +32,8 @@ financeHistoryRouter.post("/checks/:id/settle",route(async(req,res)=>{
    const [table]=await tx.select().from(diningTable).where(eq(diningTable.id,visit.tableId)).limit(1);
    const [restaurant]=await tx.select({name:tenant.name}).from(tenant).where(eq(tenant.id,scope.tenantId)).limit(1);
    const rounds=await tx.select({id:orderRound.id}).from(orderRound).where(and(
-     eq(orderRound.visitId,visit.id),eq(orderRound.tenantId,scope.tenantId)));
+     eq(orderRound.visitId,visit.id),eq(orderRound.tenantId,scope.tenantId),
+     sql`${orderRound.status} <> 'voided'`));
    const lines=rounds.length?await tx.select({nameFa:orderLine.itemNameFa,namePs:orderLine.itemNamePs,
       nameEn:orderLine.itemNameEn,quantity:orderLine.quantity,unitPriceMinor:orderLine.unitPriceMinor,
       lineTotalMinor:orderLine.lineTotalMinor})
@@ -46,7 +47,8 @@ financeHistoryRouter.post("/checks/:id/settle",route(async(req,res)=>{
    const snapshot={
      receiptNumber,checkNumber:check.number,restaurant:restaurant?.name??"DineFlow",
      tableLabel:table?.label??"—",issuedAt:now.toISOString(),currency:"AFN",
-     subtotalMinor:check.subtotalMinor,taxMinor:check.taxMinor,serviceMinor:check.serviceMinor,
+     subtotalMinor:check.subtotalMinor,discountMinor:check.discountMinor,
+     taxMinor:check.taxMinor,serviceMinor:check.serviceMinor,
      totalMinor:check.totalMinor,paidMinor:check.paidMinor,footer:check.chargePolicy.receiptFooter,
      lines,payments:payments.map(x=>({method:x.method,amountMinor:x.amountMinor,
        receivedMinor:x.receivedMinor,changeMinor:x.changeMinor,createdAt:x.createdAt.toISOString(),
@@ -87,6 +89,32 @@ financeHistoryRouter.get("/transactions",route(async(req,res)=>{
  const [settings]=await db.select({timezone:restaurantSetting.timezone}).from(restaurantSetting)
    .where(eq(restaurantSetting.tenantId,scope.tenantId)).limit(1);
  const timezone=settings?.timezone??"Asia/Kabul";
+ const view=typeof req.query.view==="string"?req.query.view:"payments";
+ if(view!=="payments"&&view!=="refunds")fail(400,"INVALID_FILTER","Unsupported ledger view.");
+ if(view==="refunds"){
+  const refundBusinessDate=sql`(${financeRefund.postedAt} AT TIME ZONE ${timezone})::date`;
+  const refundWhere=and(eq(financeRefund.tenantId,scope.tenantId),
+   eq(financeRefund.locationId,scope.locationId),
+   method==="all"?undefined:eq(financeRefund.method,method),
+   from?sql`${refundBusinessDate}>=${from}::date`:undefined,
+   to?sql`${refundBusinessDate}<=${to}::date`:undefined);
+  const [items,totals]=await Promise.all([
+    db.select({id:financeRefund.id,checkId:financeRefund.checkId,shiftId:financeRefund.shiftId,
+     method:financeRefund.method,amountMinor:financeRefund.amountMinor,
+     externalReference:financeRefund.externalReference,cashierId:financeRefund.cashierId,
+     createdAt:financeRefund.postedAt,checkNumber:diningCheck.number,tableLabel:diningTable.label})
+     .from(financeRefund).innerJoin(diningCheck,eq(diningCheck.id,financeRefund.checkId))
+     .innerJoin(diningTable,eq(diningTable.id,diningCheck.tableId))
+     .where(refundWhere).orderBy(desc(financeRefund.postedAt),desc(financeRefund.id))
+     .limit(20).offset((p-1)*20),
+    db.select({n:count()}).from(financeRefund).where(refundWhere)
+  ]);
+  res.setHeader("Cache-Control","no-store");
+  res.json({items:items.map(item=>({...item,
+   amountMinor:-item.amountMinor,receivedMinor:0,changeMinor:0,status:"refunded"})),
+   total:totals[0]?.n??0,page:p,perPage:20,timezone,view});
+  return;
+ }
  const businessDate=sql`(${checkPayment.createdAt} AT TIME ZONE ${timezone})::date`;
  const where=and(eq(checkPayment.tenantId,scope.tenantId),eq(checkPayment.locationId,scope.locationId),
    method==="all"?undefined:eq(checkPayment.method,method),
@@ -174,7 +202,7 @@ guestFinanceRouter.get("/bill",route(async(req,res)=>{
      eq(diningCheck.tenantId,scope.tenantId),eq(diningCheck.locationId,scope.locationId))).limit(1),
    db.select({id:orderRound.id,totalMinor:orderRound.totalMinor})
     .from(orderRound).where(and(eq(orderRound.visitId,scope.visitId),
-      eq(orderRound.tenantId,scope.tenantId))),
+      eq(orderRound.tenantId,scope.tenantId),sql`${orderRound.status} <> 'voided'`)),
    db.select().from(financeSetting).where(eq(financeSetting.tenantId,scope.tenantId)).limit(1)
  ]);
  const subtotal=rounds.reduce((sum,r)=>sum+r.totalMinor,0);
@@ -183,7 +211,7 @@ guestFinanceRouter.get("/bill",route(async(req,res)=>{
  // Before the cashier locks a check, late accepted rounds must be reflected in
  // the guest view even if the cashier has not yet reopened the check detail.
  // Once tender starts, the persisted charge snapshot is authoritative.
- const values=c?.status==="open"&&!c.lockedAt?calculate(subtotal,c.chargePolicy):
+ const values=c?.status==="open"&&!c.lockedAt?calculate(subtotal,c.chargePolicy,c.discountMinor):
    c??calculate(subtotal,{taxRateBps:p?.taxRateBps??0,taxInclusive:p?.taxInclusive??false,
    serviceRateBps:p?.serviceRateBps??0,serviceFixedMinor:p?.serviceFixedMinor??0,receiptFooter:""});
  const lines=rounds.length?await db.select({nameFa:orderLine.itemNameFa,namePs:orderLine.itemNamePs,
@@ -193,7 +221,7 @@ guestFinanceRouter.get("/bill",route(async(req,res)=>{
  res.setHeader("Cache-Control","no-store");
  res.json({restaurant:scope.tenantName,tableLabel:scope.tableLabel,visitId:scope.visitId,
    checkNumber:c?.number??null,status:c?.status??"not_opened",currency:"AFN",
-   subtotalMinor:values.subtotalMinor,taxMinor:values.taxMinor,serviceMinor:values.serviceMinor,
+   subtotalMinor:values.subtotalMinor,discountMinor:values.discountMinor,taxMinor:values.taxMinor,serviceMinor:values.serviceMinor,
    totalMinor:values.totalMinor,paidMinor:c?.paidMinor??0,dueMinor:values.totalMinor-(c?.paidMinor??0),
    splitMode:c?.splitMode??"single",lines,noPaymentAction:true});
 }));

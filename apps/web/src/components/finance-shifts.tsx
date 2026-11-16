@@ -5,6 +5,7 @@ import {Banknote,Check,Clock3,RefreshCw,ShieldCheck,Wallet,CalendarDays} from "l
 import {useWorkspace} from "./workspace-provider";
 import {jsonRequest} from "@/lib/phase2-api";
 import {f9} from "@/lib/finance-copy";
+import {p10} from "@/lib/phase10-copy";
 import {parseAFN,isoTime,money,type Shift,type ShiftCurrent} from "@/lib/finance-types";
 type History={items:Shift[];total:number;page:number;perPage:number};
 export function FinanceShifts(){
@@ -79,6 +80,8 @@ export function FinanceShifts(){
          <strong>{money(current.shift.openingFloatMinor,locale)}</strong></div>
        <div className="finance-stat"><span>{f9(locale,"cashSales")}</span>
          <strong>{money(current.cashMinor,locale)}</strong></div>
+       <div className="finance-stat"><span>{p10(locale,"refund")} · {f9(locale,"cash")}</span>
+         <strong>−{money(current.refundedCashMinor,locale)}</strong></div>
        <div className="finance-stat"><span>{f9(locale,"transfers")}</span>
          <strong>{money(current.transferMinor,locale)}</strong></div>
        <div className="finance-stat"><span>{f9(locale,"transactions")}</span>

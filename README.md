@@ -2,7 +2,7 @@
 
 A Dari-first, tenant-scoped restaurant SaaS for Afghanistan. Product source of truth: [Product Specification v1.0](docs/PRODUCT-SPECIFICATION-v1.md) and [Development Workflow V5](docs/SOFTWARE-DEVELOPMENT-WORKFLOW-v5.md).
 
-**Release status:** Phases 1–7 are merged to `main`; Phase 8 guest service requests and live waiter/manager assistance are now implemented on the Phase 8 feature branch. Phase 9 cashier checks, shift ledger and receipts are merged to `main` via PR #8. Neither phase is production-certified without real-device and browser QA.
+**Release status:** Phases 1–9 are merged to `main`. Phase 10 reviewed financial corrections and refunds are implemented on the Phase 10 feature branch, pending verified merge. No production certification is claimed without real-device and browser QA.
 
 ## Workspace
 - `apps/api` — Express 4, Drizzle/PostgreSQL, Better Auth, roles, menu, floor and kitchen/notification APIs (port **4000**).
@@ -105,3 +105,12 @@ See [Project State](docs/PROJECT-STATE.md), [Phase 05 Acceptance](docs/PHASE-05-
 - Validation: `pnpm --filter @dineflow/api exec tsx src/phase8-ci.ts` in a seeded disposable development database with API running.
 
 Follow [Phase 08 Acceptance](docs/PHASE-08-ACCEPTANCE.md) before live use.
+
+## Phase 10 — Reviewed financial corrections and refunds
+
+- Cashier correction requests: `/cashier/adjustments`; manager approval/review: `/app/billing/adjustments`.
+- Before a tender or split, a different manager can approve a fixed discount or void an unstarted kitchen round; no accepted source order is deleted.
+- After settlement, approved cash or externally verified-transfer refunds become independent reversal entries. They do **not** modify original posted tenders or immutable receipts. Cash shift reconciliation subtracts cash refunds.
+- Pending corrections block tender/split/settlement until reviewed. All changes are tenant-scoped and versioned, with audit, idempotency and capped sums.
+- Automated API regression (disposable development DB) `pnpm --filter @dineflow/api exec tsx src/phase10-ci.ts` runs in GitHub CI after the earlier phases.
+- See [Phase 10 Acceptance](docs/PHASE-10-ACCEPTANCE.md). Bank/card refund automation is not implemented; real-money reconciliation must be supervised during pilot.

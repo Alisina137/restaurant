@@ -4,11 +4,11 @@ import {createHash,randomUUID} from "node:crypto";
 import {db} from "./db";
 import {auditEvent,cashierShift,checkActivity,checkPayment,checkReceipt,checkShare,
  checkShareLine,diningCheck,diningTable,diningVisit,financeSetting,guestSubmission,kitchenTicket,
- orderLine,orderRound,restaurantSetting,serviceRequest,tenant,tenantMembership,user} from "./schema";
+ orderLine,orderRound,restaurantSetting,serviceRequest,financeRefund,tenant,tenantMembership,user} from "./schema";
 import {bodyObject,fail,field,int,route} from "./menu-helpers";
 import {bump} from "./floor-helpers";
 import {lockTable,currentOrders,calculate,currentPolicy,ensureCheck,financeScope,
- getCheckForVisit,fullCheck,lockedCheck,orderGuard,pendingGuard,splitValues,writeAudit,
+ getCheckForVisit,fullCheck,lockedCheck,orderGuard,pendingGuard,pendingCorrectionGuard,splitValues,writeAudit,
  amountMax,type Tx,type FinanceScope} from "./finance-core";
 import {guestAccess} from "./guest-security";
 export const financeRouter=Router();
@@ -70,7 +70,7 @@ financeRouter.get("/checks",route(async(req,res)=>{
      inArray(diningCheck.visitId,checked))):Promise.resolve([]),
    checked.length?db.select({visitId:orderRound.visitId,totalMinor:orderRound.totalMinor})
       .from(orderRound).where(and(eq(orderRound.tenantId,scope.tenantId),
-        inArray(orderRound.visitId,checked))):Promise.resolve([]),
+        inArray(orderRound.visitId,checked),sql`${orderRound.status} <> 'voided'`)):Promise.resolve([]),
    checked.length?db.select({visitId:serviceRequest.visitId}).from(serviceRequest)
      .where(and(eq(serviceRequest.tenantId,scope.tenantId),
        eq(serviceRequest.locationId,scope.locationId),eq(serviceRequest.type,"bill"),
@@ -83,7 +83,7 @@ financeRouter.get("/checks",route(async(req,res)=>{
  const result=visits.map(({visit,table})=>{
   const c=checks.find(x=>x.visitId===visit.id);
   const sum=rounds.filter(x=>x.visitId===visit.id).reduce((s,x)=>s+x.totalMinor,0);
-  const totals=c?.status==="open"&&!c.lockedAt?calculate(sum,c.chargePolicy):
+  const totals=c?.status==="open"&&!c.lockedAt?calculate(sum,c.chargePolicy,c.discountMinor):
     c??calculate(sum,policy);
   return {id:c?.id??null,visitId:visit.id,tableId:table.id,tableLabel:table.label,
    waiterId:visit.waiterId,openedAt:visit.openedAt,status:c?.status??"open",
@@ -116,6 +116,7 @@ financeRouter.post("/checks/:id/split",route(async(req,res)=>{
  const response=await db.transaction(async tx=>{
    const check=await lockedCheck(tx,scope,checkId);
    if(check.status!=="open"||check.paidMinor>0)fail(409,"SPLIT_LOCKED","Cannot change split after tender.");
+    await pendingCorrectionGuard(tx,scope,check.id);
    if(check.version!==version)fail(409,"VERSION_CONFLICT","Another cashier updated this check.");
    // Allow reconfiguration after a first split, but no new orders after a split has been created.
    const current=await currentOrders(tx,scope,check.visitId);
@@ -209,6 +210,7 @@ financeRouter.post("/checks/:id/payments",route(async(req,res)=>{
      return {created:false,payment:prior,check};
    }
    if(check.status!=="open")fail(409,"CHECK_SETTLED","Check already settled.");
+    await pendingCorrectionGuard(tx,scope,check.id);
    if(check.version!==version)fail(409,"VERSION_CONFLICT","Check changed on another device.");
    const [share]=await tx.select().from(checkShare).where(and(eq(checkShare.id,shareId),
      eq(checkShare.checkId,check.id),eq(checkShare.tenantId,scope.tenantId))).limit(1);
@@ -253,6 +255,9 @@ financeRouter.get("/shifts/oversight",route(async(req,res)=>{
    method:checkPayment.method,amountMinor:checkPayment.amountMinor})
    .from(checkPayment).where(and(eq(checkPayment.tenantId,scope.tenantId),
      inArray(checkPayment.shiftId,shiftIds))):[];
+ const refunds=shiftIds.length?await db.select({shiftId:financeRefund.shiftId,
+   method:financeRefund.method,amountMinor:financeRefund.amountMinor}).from(financeRefund)
+   .where(and(eq(financeRefund.tenantId,scope.tenantId),inArray(financeRefund.shiftId,shiftIds))):[];
  const [policy]=await db.select({shiftVarianceLimitMinor:financeSetting.shiftVarianceLimitMinor})
    .from(financeSetting).where(eq(financeSetting.tenantId,scope.tenantId)).limit(1);
  res.setHeader("Cache-Control","no-store");
@@ -262,7 +267,9 @@ financeRouter.get("/shifts/oversight",route(async(req,res)=>{
      const cashMinor=items.filter(x=>x.method==="cash").reduce((n,x)=>n+x.amountMinor,0);
      const transferMinor=items.filter(x=>x.method==="manual_transfer").reduce((n,x)=>n+x.amountMinor,0);
      return {shift,cashierName,cashMinor,transferMinor,transactions:items.length,
-       expectedMinor:shift.openingFloatMinor+cashMinor};
+       refundedCashMinor:refunds.filter(x=>x.shiftId===shift.id&&x.method==="cash").reduce((n,x)=>n+x.amountMinor,0),
+        expectedMinor:shift.openingFloatMinor+cashMinor-
+         refunds.filter(x=>x.shiftId===shift.id&&x.method==="cash").reduce((n,x)=>n+x.amountMinor,0)};
    })});
 }));
 financeRouter.get("/shifts/current",route(async(req,res)=>{
@@ -272,8 +279,11 @@ financeRouter.get("/shifts/current",route(async(req,res)=>{
     eq(checkPayment.shiftId,shift.id),eq(checkPayment.tenantId,scope.tenantId))):[];
  const cashMinor=payments.filter(x=>x.method==="cash").reduce((n,x)=>n+x.amountMinor,0);
  res.setHeader("Cache-Control","no-store");
- res.json({shift,transactions:payments.length,cashMinor,transferMinor:payments.filter(x=>x.method==="manual_transfer")
-   .reduce((n,x)=>n+x.amountMinor,0),expectedMinor:(shift?.openingFloatMinor??0)+cashMinor});
+ const refunds=shift?await db.select().from(financeRefund).where(and(
+    eq(financeRefund.shiftId,shift.id),eq(financeRefund.tenantId,scope.tenantId))):[];
+ const refundedCashMinor=refunds.filter(x=>x.method==="cash").reduce((n,x)=>n+x.amountMinor,0);
+ res.json({shift,transactions:payments.length,cashMinor,refundedCashMinor,transferMinor:payments.filter(x=>x.method==="manual_transfer")
+   .reduce((n,x)=>n+x.amountMinor,0),expectedMinor:(shift?.openingFloatMinor??0)+cashMinor-refundedCashMinor});
 }));
 financeRouter.post("/shifts/open",route(async(req,res)=>{
  const scope=await financeScope(req),body=bodyObject(req);
@@ -310,7 +320,9 @@ financeRouter.post("/shifts/:id/close",route(async(req,res)=>{
      fail(403,"ACCESS_DENIED","Only shift cashier or manager can close it.");
    if(shift.status!=="open")fail(409,"SHIFT_CLOSED","Shift has already closed.");
    const items=await tx.select().from(checkPayment).where(eq(checkPayment.shiftId,shiftId));
-   const expected=shift.openingFloatMinor+items.filter(x=>x.method==="cash").reduce((n,x)=>n+x.amountMinor,0);
+   const refunds=await tx.select().from(financeRefund).where(eq(financeRefund.shiftId,shiftId));
+    const expected=shift.openingFloatMinor+items.filter(x=>x.method==="cash").reduce((n,x)=>n+x.amountMinor,0)
+      -refunds.filter(x=>x.method==="cash").reduce((n,x)=>n+x.amountMinor,0);
    const variance=countMinor-expected;
    const [policy]=await tx.select({limit:financeSetting.shiftVarianceLimitMinor})
      .from(financeSetting).where(eq(financeSetting.tenantId,scope.tenantId)).limit(1);

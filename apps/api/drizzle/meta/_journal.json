@@ -71,6 +71,13 @@
       "when": 1794930000000,
       "tag": "0009_phase8_service_requests",
       "breakpoints": false
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795000000000,
+      "tag": "0010_phase10_adjustments_refunds",
+      "breakpoints": false
     }
   ]
 }

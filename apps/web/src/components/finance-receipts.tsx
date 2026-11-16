@@ -117,6 +117,7 @@ export function ReceiptView({area="cashier",id}:{area?:"cashier"|"app";id:string
       </div>
       <div className="finance-receipt-totals">
        <div><span>{f9(locale,"subtotal")}</span><b>{money(receipt.snapshot.subtotalMinor,locale)}</b></div>
+       {!!receipt.snapshot.discountMinor&&<div><span>{f9(locale,"discount")}</span><b>−{money(receipt.snapshot.discountMinor,locale)}</b></div>}
        <div><span>{f9(locale,"tax")}</span><b>{money(receipt.snapshot.taxMinor,locale)}</b></div>
        <div><span>{f9(locale,"service")}</span><b>{money(receipt.snapshot.serviceMinor,locale)}</b></div>
        <div className="grand"><span>{f9(locale,"total")}</span><strong>{money(receipt.snapshot.totalMinor,locale)}</strong></div>

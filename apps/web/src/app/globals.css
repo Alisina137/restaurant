@@ -904,3 +904,15 @@ a { color:inherit; text-decoration:none; }
 .guest-bill-choice legend{font-size:12px;font-weight:800;color:#527861}
 .guest-bill-choice label{display:flex;gap:8px;align-items:center;font-size:13px;color:#2b6a4c}
 .guest-bill-choice input{width:17px;height:17px;accent-color:#167653}
+
+/* P10 correction and refund workflow — compact mobile-first forms and stable cards. */
+.p10-console .page-heading h1{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap}
+.p10-grid{display:grid;grid-template-columns:minmax(290px,1fr) minmax(350px,1.25fr);gap:1.1rem;align-items:start}
+.p10-console .settings-card{min-width:0}
+.p10-row{display:flex;align-items:center;flex-wrap:wrap;gap:.65rem;justify-content:space-between}
+.p10-request-card{padding:1rem;border:1px solid var(--border, #d5dfeb);border-radius:14px;margin-top:.8rem;display:grid;gap:.7rem}
+.p10-request-card p{margin:.2rem 0}
+.p10-request-card small{opacity:.75;overflow-wrap:anywhere}
+.p10-filter{display:flex;gap:.5rem;flex-wrap:wrap;margin:.75rem 0}
+.p10-request-card .finance-field{width:100%}
+@media(max-width:850px){.p10-grid{grid-template-columns:minmax(0,1fr)}}

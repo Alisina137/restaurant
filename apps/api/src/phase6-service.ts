@@ -244,7 +244,7 @@ serviceRouter.get("/kitchen/history",route(async(req,res)=>{
  const pageRaw=typeof req.query.page==="string"?Number(req.query.page):1;
  const page=Number.isSafeInteger(pageRaw)&&pageRaw>=1?Math.min(pageRaw,10000):1;
  const status=typeof req.query.status==="string"?req.query.status:"all";
- const valid=["all","new","preparing","ready","picked_up","served"];
+ const valid=["all","new","preparing","ready","picked_up","served","voided"];
  if(!valid.includes(status))fail(400,"INVALID_FILTER","Unsupported history status.");
  const table=typeof req.query.table==="string"?field(req.query.table,100,"Table",1):"";
  const start=typeof req.query.from==="string"?req.query.from:"";
