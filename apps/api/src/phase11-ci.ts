@@ -109,8 +109,9 @@ async function main(){
  const file=await call("/api/reports/export?kind=transactions&from="+sales.from+"&to="+sales.to,owner);
  assert.equal(file.status,200);
  assert.ok(file.headers.get("content-type")?.includes("text/csv"));
- const raw=await file.text();
- assert.ok(raw.startsWith("\uFEFF"),"UTF-8 BOM helps multilingual spreadsheet imports");
+ const bytes=new Uint8Array(await file.arrayBuffer());
+ assert.deepEqual([...bytes.slice(0,3)],[239,187,191],"CSV must include UTF-8 BOM bytes");
+ const raw=new TextDecoder().decode(bytes);
  assert.ok(raw.includes('"refund"')&&raw.includes('"payment"'),"Refund and tender remain separate rows");
  const salesExport=await call("/api/reports/export?kind=sales",owner);
  assert.equal(salesExport.status,200);assert.ok((await salesExport.text()).includes("netCollectedMinor"));
