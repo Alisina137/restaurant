@@ -2,7 +2,10 @@
 
 A Dari-first, tenant-scoped restaurant SaaS for Afghanistan. Product source of truth: [Product Specification v1.0](docs/PRODUCT-SPECIFICATION-v1.md) and [Development Workflow V5](docs/SOFTWARE-DEVELOPMENT-WORKFLOW-v5.md).
 
-**Release status:** Phases 1–10 are merged to `main` (Phase 10 via PR #10). The next planned phase is P11 reporting and exports. Automated CI checks passed for the Phase 10 merge head; production certification still requires a supervised pilot, real-device, browser, and receipt-printer QA.
+**Release status:** Phases 1–11 are merged to `main` (P11 via PR #11), with green full GitHub CI on the Phase 11 merge head. Next is P12 SaaS subscriptions and platform administration. Production certification still requires supervised restaurant, browser/mobile and receipt-printer QA.
+
+## Phase 11 — Reporting and operational audit
+Restaurant owners and managers can open `/app/reports` to view real Sales, Items, Service and Audit data. The restaurant Overview displays live operational KPIs. Reports enforce a 90-day restaurant-business-date window, use settled check totals for sales, posted tenders/refunds for net cash collected, and support audited CSV downloads. Cashier and waiter roles do not have permission to export these management reports. See `docs/PHASE-11-ACCEPTANCE.md`.
 
 ## Workspace
 - `apps/api` — Express 4, Drizzle/PostgreSQL, Better Auth, roles, menu, floor and kitchen/notification APIs (port **4000**).
