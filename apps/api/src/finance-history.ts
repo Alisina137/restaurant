@@ -32,7 +32,8 @@ financeHistoryRouter.post("/checks/:id/settle",route(async(req,res)=>{
    const [table]=await tx.select().from(diningTable).where(eq(diningTable.id,visit.tableId)).limit(1);
    const [restaurant]=await tx.select({name:tenant.name}).from(tenant).where(eq(tenant.id,scope.tenantId)).limit(1);
    const rounds=await tx.select({id:orderRound.id}).from(orderRound).where(and(
-     eq(orderRound.visitId,visit.id),eq(orderRound.tenantId,scope.tenantId)));
+     eq(orderRound.visitId,visit.id),eq(orderRound.tenantId,scope.tenantId),
+     sql`${orderRound.status} <> 'voided'`));
    const lines=rounds.length?await tx.select({nameFa:orderLine.itemNameFa,namePs:orderLine.itemNamePs,
       nameEn:orderLine.itemNameEn,quantity:orderLine.quantity,unitPriceMinor:orderLine.unitPriceMinor,
       lineTotalMinor:orderLine.lineTotalMinor})
@@ -46,7 +47,8 @@ financeHistoryRouter.post("/checks/:id/settle",route(async(req,res)=>{
    const snapshot={
      receiptNumber,checkNumber:check.number,restaurant:restaurant?.name??"DineFlow",
      tableLabel:table?.label??"—",issuedAt:now.toISOString(),currency:"AFN",
-     subtotalMinor:check.subtotalMinor,taxMinor:check.taxMinor,serviceMinor:check.serviceMinor,
+     subtotalMinor:check.subtotalMinor,discountMinor:check.discountMinor,
+     taxMinor:check.taxMinor,serviceMinor:check.serviceMinor,
      totalMinor:check.totalMinor,paidMinor:check.paidMinor,footer:check.chargePolicy.receiptFooter,
      lines,payments:payments.map(x=>({method:x.method,amountMinor:x.amountMinor,
        receivedMinor:x.receivedMinor,changeMinor:x.changeMinor,createdAt:x.createdAt.toISOString(),
@@ -174,7 +176,7 @@ guestFinanceRouter.get("/bill",route(async(req,res)=>{
      eq(diningCheck.tenantId,scope.tenantId),eq(diningCheck.locationId,scope.locationId))).limit(1),
    db.select({id:orderRound.id,totalMinor:orderRound.totalMinor})
     .from(orderRound).where(and(eq(orderRound.visitId,scope.visitId),
-      eq(orderRound.tenantId,scope.tenantId))),
+      eq(orderRound.tenantId,scope.tenantId),sql`${orderRound.status} <> 'voided'`)),
    db.select().from(financeSetting).where(eq(financeSetting.tenantId,scope.tenantId)).limit(1)
  ]);
  const subtotal=rounds.reduce((sum,r)=>sum+r.totalMinor,0);
@@ -183,7 +185,7 @@ guestFinanceRouter.get("/bill",route(async(req,res)=>{
  // Before the cashier locks a check, late accepted rounds must be reflected in
  // the guest view even if the cashier has not yet reopened the check detail.
  // Once tender starts, the persisted charge snapshot is authoritative.
- const values=c?.status==="open"&&!c.lockedAt?calculate(subtotal,c.chargePolicy):
+ const values=c?.status==="open"&&!c.lockedAt?calculate(subtotal,c.chargePolicy,c.discountMinor):
    c??calculate(subtotal,{taxRateBps:p?.taxRateBps??0,taxInclusive:p?.taxInclusive??false,
    serviceRateBps:p?.serviceRateBps??0,serviceFixedMinor:p?.serviceFixedMinor??0,receiptFooter:""});
  const lines=rounds.length?await db.select({nameFa:orderLine.itemNameFa,namePs:orderLine.itemNamePs,
@@ -193,7 +195,7 @@ guestFinanceRouter.get("/bill",route(async(req,res)=>{
  res.setHeader("Cache-Control","no-store");
  res.json({restaurant:scope.tenantName,tableLabel:scope.tableLabel,visitId:scope.visitId,
    checkNumber:c?.number??null,status:c?.status??"not_opened",currency:"AFN",
-   subtotalMinor:values.subtotalMinor,taxMinor:values.taxMinor,serviceMinor:values.serviceMinor,
+   subtotalMinor:values.subtotalMinor,discountMinor:values.discountMinor,taxMinor:values.taxMinor,serviceMinor:values.serviceMinor,
    totalMinor:values.totalMinor,paidMinor:c?.paidMinor??0,dueMinor:values.totalMinor-(c?.paidMinor??0),
    splitMode:c?.splitMode??"single",lines,noPaymentAction:true});
 }));
