@@ -2,7 +2,7 @@
 import {createContext,useCallback,useContext,useEffect,useMemo,useState,type Dispatch,type SetStateAction,type ReactNode} from "react";
 import {usePathname,useRouter} from "next/navigation";
 import Link from "next/link";
-import {ArrowLeft,BookOpen,CheckCircle2,ShoppingBasket,ReceiptText,RefreshCw,ShieldCheck,UtensilsCrossed,WifiOff} from "lucide-react";
+import {ArrowLeft,BookOpen,CheckCircle2,ShoppingBasket,ReceiptText,Bell,RefreshCw,ShieldCheck,UtensilsCrossed,WifiOff} from "lucide-react";
 import {direction,type Locale} from "@dineflow/shared";
 import {g7} from "@/lib/guest-copy";
 import {API_URL} from "@/lib/auth-client";
@@ -91,7 +91,7 @@ export function GuestShell({visit,children}:{visit:string;children:ReactNode}){
       <Link href={sessionStorage.getItem(entryKey(visit))!} className="guest-button primary">{g7(locale,"verify")}</Link>}
  </div>;
  const base="/g/"+encodeURIComponent(visit),inMenu=pathname.includes("/menu")||pathname.includes("/item/"),
-   inOrders=pathname.includes("/orders");
+   inOrders=pathname.includes("/orders"),inHelp=pathname.includes("/help");
  const state={session,locale,setLocale,cart,setCart,catalog,refreshCatalog,loading,error,total,units,stale,visit};
  return <GuestContext.Provider value={state}>
    <div className="guest-app" dir={direction(locale)}>
@@ -119,6 +119,8 @@ export function GuestShell({visit,children}:{visit:string;children:ReactNode}){
          <BookOpen size={21}/><span>{g7(locale,"menu")}</span></Link>
        <Link href={base+"/orders"} className={inOrders?"selected":""} aria-current={inOrders?"page":undefined}>
          <ReceiptText size={21}/><span>{g7(locale,"order")}</span></Link>
+       <Link href={base+"/help"} className={inHelp?"selected":""} aria-current={inHelp?"page":undefined}>
+         <Bell size={21}/><span>{g7(locale,"assistance")}</span></Link>
      </nav>
     </div>
    </div>

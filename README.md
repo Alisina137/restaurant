@@ -2,7 +2,7 @@
 
 A Dari-first, tenant-scoped restaurant SaaS for Afghanistan. Product source of truth: [Product Specification v1.0](docs/PRODUCT-SPECIFICATION-v1.md) and [Development Workflow V5](docs/SOFTWARE-DEVELOPMENT-WORKFLOW-v5.md).
 
-**Release status:** Phases 1–7 are merged to `main`; Phase 8 service requests remain unimplemented. Phase 9 cashier checks, shift ledger and receipts are implemented in `phase-09-cashier-checks-ledger`, built on the merged Phase 7 codebase, but not yet production-certified.
+**Release status:** Phases 1–7 are merged to `main`; Phase 8 guest service requests and live waiter/manager assistance are now implemented on the Phase 8 feature branch. Phase 9 cashier checks, shift ledger and receipts are merged to `main` via PR #8. Neither phase is production-certified without real-device and browser QA.
 
 ## Workspace
 - `apps/api` — Express 4, Drizzle/PostgreSQL, Better Auth, roles, menu, floor and kitchen/notification APIs (port **4000**).
@@ -93,3 +93,15 @@ pnpm build:web
 GitHub CI on the Phase 9 branch also runs PostgreSQL migrations, seed, P01–P06 and P09 live API integrations (10-ticket rush, 100× safe idempotent retry from P05, assignment isolation, ready/served, notification replay and state/version conflicts). Tests on a real Android device and browser are still necessary before a live restaurant pilot.
 
 See [Project State](docs/PROJECT-STATE.md), [Phase 05 Acceptance](docs/PHASE-05-ACCEPTANCE.md), and [Phase 06 Acceptance](docs/PHASE-06-ACCEPTANCE.md) for scope, test cases and remaining boundaries.
+
+## Phase 08 — Guest assistance and table service (development branch)
+
+- Guest web `/g/:visit/help`: verified active-visit session, **Call waiter**, **Water**, **Cutlery**, **Request bill** (together/split preference), **Other** (note required); optional note ≤200 characters; live Pending → Acknowledged → Resolved status.
+- Anti-spam: one unresolved request of each kind per visit, transaction-serialized and deduplicated; 60-second repeated-request cooldown. Closing a visit expires guest session; requests are tenant/location/visit scoped.
+- Waiter Expo: **Customer requests** card on Home, active requests on **Tables → Needs Attention**, table detail summary, and `/requests` inbox with acknowledgement, resolution and history.
+- Owner/manager web: `/app/service/requests` for all authorized restaurant tables and reconciliation. Cashier **Payment Requested** uses real unresolved bill requests, including zero-total visits; no fabricated data.
+- Real-time experience: active screen polling and app-resume refresh. Backend uses durable Postgres rows, revision bumps and audit events; no push delivery guarantee.
+- **Boundary:** P08 intake/handling of guest service requests and P05 additional immutable order rounds are functional. Destructive item changes, voids, refund approvals and financial corrections remain gated for P10; no mutation of accepted kitchen/financial snapshots is exposed.
+- Validation: `pnpm --filter @dineflow/api exec tsx src/phase8-ci.ts` in a seeded disposable development database with API running.
+
+Follow [Phase 08 Acceptance](docs/PHASE-08-ACCEPTANCE.md) before live use.

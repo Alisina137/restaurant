@@ -8,12 +8,13 @@ import {f,type Board,type Status,type Table} from "../../src/floor";
 import {useLocale} from "../../src/locale";
 import {theme} from "../../src/theme";
 import {o5} from "../../src/order-copy";
+import {sr8,type ServiceList} from "../../src/service-copy";
 import {type Page,type OrderSummary,price} from "../../src/order-types";
 type Tab="all"|"mine"|"attention";
 const allStates:Status[]=["available","occupied","cleaning","disabled"];
 export default function Tables(){
  const {locale}=useLocale(),rtl=direction(locale)==="rtl";
- const [data,setData]=useState<Board|null>(null),[ready,setReady]=useState<OrderSummary[]>([]),[tab,setTab]=useState<Tab>("all");
+ const [data,setData]=useState<Board|null>(null),[ready,setReady]=useState<OrderSummary[]>([]),[requests,setRequests]=useState<ServiceList["items"]>([]),[tab,setTab]=useState<Tab>("all");
  const [filter,setFilter]=useState<Status|null>(null),[query,setQuery]=useState("");
  const [busy,setBusy]=useState(true),[error,setError]=useState("");
  const load=useCallback(async(quiet=false)=>{
@@ -26,6 +27,7 @@ export default function Tables(){
     const orders=await floorRequest<Page<OrderSummary>>("/api/orders/my?status=ready&page=1");
     setReady(orders.items);
    }catch{setReady([]);}
+    try{const r=await floorRequest<ServiceList>("/api/service/requests?status=active&page=1");setRequests(r.items);}catch{setRequests([]);}
   }
   catch(e){
    if(e instanceof FloorRequestError&&e.status===401){router.replace("/sign-in");return;}
@@ -74,7 +76,15 @@ export default function Tables(){
     <Pressable accessibilityRole="button" onPress={()=>void load()}><Text style={styles.retry}>{f(locale,"retry")}</Text></Pressable></View>}
   {!data&&busy?<View style={styles.center}><ActivityIndicator size="large" color={theme.brand}/><Text style={styles.subtle}>{f(locale,"loading")}</Text></View>:
    tab==="attention"?<View style={styles.list}>
-      {ready.length?ready.map(r=><Pressable key={r.id} style={styles.attentionCard}
+      {requests.map(r=><Pressable key={r.id} style={styles.attentionCard}
+       onPress={()=>router.push("/requests")} accessibilityRole="button">
+        <View style={[styles.cardHead,{flexDirection:rtl?"row-reverse":"row"}]}>
+          <Ionicons name="notifications-outline" size={23} color={theme.brand}/>
+          <View style={styles.cardInfo}><Text style={styles.cardName}>
+             {sr8(locale,r.type)} · {sr8(locale,"table")} {r.tableLabel}</Text>
+             <Text style={styles.meta}>{sr8(locale,r.status==="pending"?"pending":"acknowledged")}</Text>
+          </View></View></Pressable>)}
+      {ready.length>0?ready.map(r=><Pressable key={r.id} style={styles.attentionCard}
        onPress={()=>router.push({pathname:"/order/[id]",params:{id:r.id}})}
        accessibilityRole="button">
         <View style={[styles.cardHead,{flexDirection:rtl?"row-reverse":"row"}]}>
@@ -87,9 +97,9 @@ export default function Tables(){
           </View>
           <Ionicons name={rtl?"chevron-back":"chevron-forward"} size={20} color={theme.brand}/>
         </View>
-       </Pressable>):<View style={styles.empty}>
+       </Pressable>):requests.length===0?<View style={styles.empty}>
          <Ionicons name="checkmark-circle-outline" size={40} color={theme.brand}/>
-         <Text style={[styles.subtle,{textAlign:"center"}]}>{o5(locale,"noAttention")}</Text></View>}
+         <Text style={[styles.subtle,{textAlign:"center"}]}>{o5(locale,"noAttention")}</Text></View>:null}
       {!!ready.length&&<Pressable style={styles.openOrders}
        onPress={()=>router.push({pathname:"/(main)/orders",params:{tab:"ready"}})}>
        <Text style={styles.openOrdersText}>{o5(locale,"showActive")}</Text></Pressable>}

@@ -866,3 +866,41 @@ a { color:inherit; text-decoration:none; }
 .finance-manager-ack{padding:12px;border-radius:11px;border:1px solid #e6ba76;background:#fff7e6;color:#795725}
 .finance-shift-history .section-heading{margin-bottom:15px}
 @media(max-width:690px){.finance-shift-manager-grid{grid-template-columns:1fr}}
+
+/* P08 guest request cards and live visit attention */
+.guest-help{display:grid;gap:18px}
+.guest-help-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.guest-help-option{display:grid;gap:9px;justify-items:start;text-align:start;min-height:132px;border:1px solid #d8e5dc;background:#fff;border-radius:16px;padding:18px;color:#296c4c;cursor:pointer}
+.guest-help-option.selected{background:#e9f7ef;border-color:#4caf7d;box-shadow:0 0 0 2px #4caf7d22}
+.guest-help-option strong{font-weight:900;font-size:15px}
+.guest-help-option small{font-size:12px;line-height:1.5;color:#6f8578}
+.guest-help-form,.guest-help-history{padding:20px;background:#fff;border:1px solid #dfeadf;border-radius:17px;display:grid;gap:13px}
+.guest-help-form h3,.guest-help-history h3{font-size:18px;margin:0}
+.guest-help-form textarea{min-height:90px;resize:vertical;border:1px solid #d7e6dc;border-radius:12px;padding:12px;width:100%;background:#fff;color:#123f30}
+.guest-help-counter{font-size:11px;color:#798779;justify-self:end}
+.guest-help-current,.guest-help-success{display:flex;align-items:center;gap:10px;padding:13px;border-radius:11px;color:#397251;background:#e6f5ec;font-size:12px;line-height:1.6}
+.guest-help-submit{display:flex!important;align-items:center;justify-content:center;gap:9px;min-height:48px}
+.guest-help-submit:disabled{opacity:.52;cursor:not-allowed}
+.guest-help-history-header{display:flex;justify-content:space-between;align-items:center}
+.guest-help-row{display:flex;gap:12px;align-items:start;border-top:1px solid #ebf0ec;padding:14px 0}
+.guest-help-icon{background:#e4f4e9;color:#176e4d;padding:9px;border-radius:11px}
+.guest-help-row>div{flex:1;display:grid;gap:7px}
+.guest-help-row strong{font-size:13px}
+.guest-help-row small,.guest-help-row time{font-size:11px;color:#6a8274}
+.guest-help-row p{margin:0;font-size:12px;line-height:1.5;color:#607569;white-space:pre-wrap}
+@media(max-width:385px){.guest-help-grid{grid-template-columns:1fr}.guest-help-option{min-height:100px}}
+
+.service-console-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start}
+.service-console-card{display:grid;gap:14px}
+.service-console-card h2{font-size:20px;margin:6px 0 0}
+.service-console-top{display:flex;align-items:center;justify-content:space-between}
+.service-console-icon{width:45px;height:45px;display:grid;place-items:center;background:#e7f6ec;color:#16845e;border-radius:14px}
+.service-console-note{color:#516c5e;font-size:13px;line-height:1.6;white-space:pre-wrap}
+.service-console-actions{display:grid;gap:10px}
+.service-console-actions input{min-height:45px;border:1px solid #dae7dd;border-radius:10px;padding:11px;background:#fff;color:#254d3c}
+.service-console-actions button{min-height:44px;justify-content:center}
+
+.guest-bill-choice{display:flex;flex-wrap:wrap;gap:12px;border:1px solid #d6e5d9;border-radius:13px;padding:14px}
+.guest-bill-choice legend{font-size:12px;font-weight:800;color:#527861}
+.guest-bill-choice label{display:flex;gap:8px;align-items:center;font-size:13px;color:#2b6a4c}
+.guest-bill-choice input{width:17px;height:17px;accent-color:#167653}

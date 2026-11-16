@@ -27,14 +27,14 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - `pnpm typecheck`, `pnpm test`, `pnpm build:web`, Postgres migrations, P01–P05 API regressions and P06 integration (100 safe replay requests, one ticket, mandatory modifiers, stale prices, kitchen state conflicts, tenant isolation and closure guard).
 - Browser/mobile visual QA is not performed by GitHub Actions; check 320–1280px, Dari/Pashto/English, mobile Expo Go and network retries locally.
 
-## Current phase dependency note (P09)
-- P07 guest QR/PIN verification and review flows have been merged into `main` (PR #7).
-- P08 assistance/order-correction phase has not yet been implemented. P09 Payment Requested is deliberately empty without real request data.
-- P09 implementation and PostgreSQL acceptance checks are in `phase-09-cashier-checks-ledger` based on merged P07. See `docs/PHASE-09-ACCEPTANCE.md` for scope, checkout/receipt verification, and known limitations.
-- P09 is not production-certified; manual real-browser, mobile and receipt printer QA are outstanding even when CI succeeds.
+## Phase 08 status
+- On branch `phase-08-service-requests`, guest verified assistance and bill requests with 60-second dedup, waiter mobile active request processing, owner/manager request workspace and genuine cashier Payment Requested state are implemented.
+- Full P08 acceptance script `phase8-ci.ts` exercises live PostgreSQL and guest PIN scope.
+- Accepted order rounds remain immutable. Monetary changes, refunds and void authorizations belong to P10. No unsafe silent edits.
+- Manual check required: phone/tablet layout, three languages RTL/LTR, older/expired guest session and service workflow.
 
 ## Next phase
-P08 service requests and P10 refund/void approval after P07/P09 dependency integration.
+P10 — authorized adjustments, voids, discounts and refunds.
 
 ## Local commands
 ```powershell

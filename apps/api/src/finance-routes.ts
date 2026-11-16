@@ -4,7 +4,7 @@ import {createHash,randomUUID} from "node:crypto";
 import {db} from "./db";
 import {auditEvent,cashierShift,checkActivity,checkPayment,checkReceipt,checkShare,
  checkShareLine,diningCheck,diningTable,diningVisit,financeSetting,guestSubmission,kitchenTicket,
- orderLine,orderRound,restaurantSetting,tenant,tenantMembership,user} from "./schema";
+ orderLine,orderRound,restaurantSetting,serviceRequest,tenant,tenantMembership,user} from "./schema";
 import {bodyObject,fail,field,int,route} from "./menu-helpers";
 import {bump} from "./floor-helpers";
 import {lockTable,currentOrders,calculate,currentPolicy,ensureCheck,financeScope,
@@ -65,12 +65,17 @@ financeRouter.get("/checks",route(async(req,res)=>{
    db.select().from(financeSetting).where(eq(financeSetting.tenantId,scope.tenantId)).limit(1)
  ]);
  const checked=visits.map(x=>x.visit.id);
- const [checks,rounds]=await Promise.all([
+ const [checks,rounds,requests]=await Promise.all([
    checked.length?db.select().from(diningCheck).where(and(eq(diningCheck.tenantId,scope.tenantId),
      inArray(diningCheck.visitId,checked))):Promise.resolve([]),
    checked.length?db.select({visitId:orderRound.visitId,totalMinor:orderRound.totalMinor})
       .from(orderRound).where(and(eq(orderRound.tenantId,scope.tenantId),
-        inArray(orderRound.visitId,checked))):Promise.resolve([])
+        inArray(orderRound.visitId,checked))):Promise.resolve([]),
+   checked.length?db.select({visitId:serviceRequest.visitId}).from(serviceRequest)
+     .where(and(eq(serviceRequest.tenantId,scope.tenantId),
+       eq(serviceRequest.locationId,scope.locationId),eq(serviceRequest.type,"bill"),
+       inArray(serviceRequest.status,["pending","acknowledged"]),
+       inArray(serviceRequest.visitId,checked))):Promise.resolve([])
  ]);
  const policy=setting[0]?{taxRateBps:setting[0].taxRateBps,taxInclusive:setting[0].taxInclusive,
   serviceRateBps:setting[0].serviceRateBps,serviceFixedMinor:setting[0].serviceFixedMinor,
@@ -84,14 +89,14 @@ financeRouter.get("/checks",route(async(req,res)=>{
    waiterId:visit.waiterId,openedAt:visit.openedAt,status:c?.status??"open",
    amountMinor:totals.totalMinor,paidMinor:c?.paidMinor??0,
    dueMinor:totals.totalMinor-(c?.paidMinor??0),partial:(c?.paidMinor??0)>0,
-   requested:false,version:c?.version??0,splitMode:c?.splitMode??"single"};
- }).filter(x=>(x.dueMinor>0||x.paidMinor>0)&&(tab==="all"||tab==="partial"&&x.partial&&x.dueMinor>0||
+   requested:requests.some(x=>x.visitId===visit.id),version:c?.version??0,splitMode:c?.splitMode??"single"};
+ }).filter(x=>(x.dueMinor>0||x.paidMinor>0||x.requested)&&(tab==="all"||tab==="partial"&&x.partial&&x.dueMinor>0||
     tab==="requested"&&x.requested)&&
     (!search||[x.tableLabel,x.visitId,x.id??""].some(y=>y.toLowerCase().includes(search.toLowerCase()))));
- // Requested state is only populated when P08 service requests exist; never invent a bill request.
+ // P08 requests are sourced from real persisted guest/staff requests.
  res.setHeader("Cache-Control","no-store");
  res.json({items:result.slice((page-1)*20,page*20),total:result.length,page,perPage:20,
-   requestedAvailable:false});
+   requestedAvailable:true});
 }));
 financeRouter.post("/visits/:id/check",route(async(req,res)=>{
  const scope=await financeScope(req),check=await getCheckForVisit(scope,id(req));
