@@ -1,7 +1,7 @@
 "use client";
 import {useCallback,useEffect,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
-import {BellRing,Check,ChefHat,Clock3,History,RefreshCw,Speaker,SpeakerOff,Truck,UtensilsCrossed,X} from "lucide-react";
+import {BellRing,Check,ChefHat,Clock3,History,RefreshCw,Volume2,VolumeX,Truck,UtensilsCrossed,X} from "lucide-react";
 import {useWorkspace} from "./workspace-provider";
 import {jsonRequest,Phase2Error} from "@/lib/phase2-api";
 import {API_URL} from "@/lib/auth-client";
@@ -217,7 +217,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
      <span>{k6(locale,"lastSync")}: {lastSync?formatDate(new Date(lastSync).toISOString(),locale):"—"}</span>
      <button className="button button-small" type="button" aria-pressed={sound}
        onClick={()=>void toggleSound()} title={k6(locale,"soundLabel")}>
-       {sound?<Speaker size={17}/>:<SpeakerOff size={17}/>}
+       {sound?<Volume2 size={17}/>:<VolumeX size={17}/>}
        {k6(locale,sound?"soundOn":"soundOff")}</button></div>
    {notice&&<p className="success-banner" role="status">{notice}</p>}
    {error&&<div role="alert" className="form-error">{error}
