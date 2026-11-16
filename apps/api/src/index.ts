@@ -11,6 +11,11 @@ import { auditEvent, tenantMembership, userPreference } from "./schema";
 import { contextFor, type IdentityContext } from "./context";
 import { canAccessTenant } from "./tenant-access";
 import { onboardingRouter, staffRouter, publicInvitationRouter, platformRestaurantRouter } from "./phase2";
+import { categoryRouter } from "./menu-categories";
+import { groupRouter } from "./menu-groups";
+import { itemRouter } from "./menu-items";
+import { imageRouter } from "./menu-images";
+import { catalogRouter } from "./menu-catalog";
 
 const app = express();
 app.disable("x-powered-by");
@@ -28,6 +33,11 @@ app.use("/api/onboarding", onboardingRouter);
 app.use("/api/tenant", staffRouter);
 app.use("/api/invitations", publicInvitationRouter);
 app.use("/api/platform/restaurants", platformRestaurantRouter);
+app.use("/api/menu/categories", categoryRouter);
+app.use("/api/menu/groups", groupRouter);
+app.use("/api/menu/items", itemRouter);
+app.use("/api/menu/images", imageRouter);
+app.use("/api/menu", catalogRouter);
 
 type AuthorizedRequest = Request & { identity?: IdentityContext };
 async function requireIdentity(req: AuthorizedRequest, res: Response, next: NextFunction) {

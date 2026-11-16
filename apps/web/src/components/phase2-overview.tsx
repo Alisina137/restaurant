@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, BadgeCheck, Building2, CheckCircle2, ClipboardList, MailPlus, Settings2, UsersRound } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, Building2, CheckCircle2, ClipboardList, MailPlus, Settings2, UsersRound, UtensilsCrossed } from "lucide-react";
 import { useWorkspace } from "@/components/workspace-provider";
 import { jsonRequest, type PageResult } from "@/lib/phase2-api";
 import { p2 } from "@/lib/phase2-copy";
@@ -38,8 +38,9 @@ export function RestaurantOverview(){
           <div><MailPlus size={23} color="var(--brand)"/><div><strong>{p2(locale,"invite")}</strong>
             <p className="muted">{p2(locale,"staffFirst")}</p></div>
             <Link className="button button-primary button-small" href="/app/staff/invitations">{p2(locale,"invite")} <ArrowUpRight size={16}/></Link></div>
-          <div className="planned-item"><Settings2 size={23}/><div><strong>{p2(locale,"menuLater")}</strong></div>
-            <span className="muted">P03</span></div>
+          <div><UtensilsCrossed size={23} color="var(--brand)"/><div><strong>{locale==="en"?"Build and publish menu":locale==="fa-AF"?"ایجاد و نشر منو":"مینو جوړ او خپور کړئ"}</strong>
+            <p className="muted">{locale==="en"?"Categories, meals, modifiers and stock":locale==="fa-AF"?"دسته‌ها، غذاها، انتخاب‌ها و موجودی":"کټګورۍ، خواړه، انتخابونه او شتون"}</p></div>
+            <Link className="button button-primary button-small" href="/app/menu/items">{locale==="en"?"Open menu":locale==="fa-AF"?"باز کردن منو":"مینو پرانیستل"} <ArrowUpRight size={16}/></Link></div>
           <div className="planned-item"><Building2 size={23}/><div><strong>{p2(locale,"tableLater")}</strong></div>
             <span className="muted">P04</span></div>
         </div>

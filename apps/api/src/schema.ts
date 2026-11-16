@@ -103,3 +103,78 @@ export const staffInvitation = pgTable("staff_invitations", {
   sendAttempts: integer("send_attempts").notNull().default(0)
 }, (table) => [index("invitation_tenant_created_idx").on(table.tenantId, table.createdAt),
   index("invitation_email_status_idx").on(table.tenantId, table.email, table.status)]);
+
+/** P03 — tenant and single-location scoped menu catalog. All archive operations preserve records. */
+export const catalogRevision = pgTable("catalog_revisions", {
+  locationId: text("location_id").primaryKey().references(() => location.id),
+  tenantId: text("tenant_id").notNull().references(() => tenant.id),
+  version: integer("version").notNull().default(1),
+  changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow()
+});
+export const menuCategory = pgTable("menu_categories", {
+  id: text("id").primaryKey(),
+  tenantId: text("tenant_id").notNull().references(() => tenant.id),
+  locationId: text("location_id").notNull().references(() => location.id),
+  nameFa: text("name_fa").notNull(), namePs: text("name_ps").notNull().default(""),
+  nameEn: text("name_en").notNull().default(""), description: text("description").notNull().default(""),
+  sortOrder: integer("sort_order").notNull().default(0), published: boolean("published").notNull().default(false),
+  version: integer("version").notNull().default(1),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+}, (t) => [index("menu_categories_tenant_order_idx").on(t.tenantId,t.locationId,t.sortOrder)]);
+export const menuImage = pgTable("menu_images", {
+  id: text("id").primaryKey(),
+  tenantId: text("tenant_id").notNull().references(() => tenant.id),
+  locationId: text("location_id").notNull().references(() => location.id),
+  storageKey: text("storage_key").notNull().unique(),
+  contentType: text("content_type").notNull(),
+  byteLength: integer("byte_length").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+export const menuItem = pgTable("menu_items", {
+  id: text("id").primaryKey(),
+  tenantId: text("tenant_id").notNull().references(() => tenant.id),
+  locationId: text("location_id").notNull().references(() => location.id),
+  categoryId: text("category_id").notNull().references(() => menuCategory.id),
+  nameFa: text("name_fa").notNull(), namePs: text("name_ps").notNull().default(""),
+  nameEn: text("name_en").notNull().default(""),
+  description: text("description").notNull().default(""),
+  sku: text("sku"), priceMinor: integer("price_minor").notNull(),
+  imageId: text("image_id").references(() => menuImage.id),
+  allergens: jsonb("allergens").$type<string[]>().notNull().default([]),
+  preparationMinutes: integer("preparation_minutes"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  published: boolean("published").notNull().default(false),
+  soldOut: boolean("sold_out").notNull().default(false), soldOutReason: text("sold_out_reason").notNull().default(""),
+  version: integer("version").notNull().default(1),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+}, (t) => [index("menu_items_tenant_cat_idx").on(t.tenantId,t.locationId,t.categoryId,t.sortOrder),
+  index("menu_items_tenant_published_idx").on(t.tenantId,t.published,t.soldOut)]);
+export const menuModifierGroup = pgTable("menu_modifier_groups", {
+  id: text("id").primaryKey(),
+  tenantId: text("tenant_id").notNull().references(() => tenant.id),
+  locationId: text("location_id").notNull().references(() => location.id),
+  nameFa: text("name_fa").notNull(), namePs: text("name_ps").notNull().default(""), nameEn: text("name_en").notNull().default(""),
+  selectionMode: text("selection_mode").notNull().default("single"),
+  minSelections: integer("min_selections").notNull().default(0),
+  maxSelections: integer("max_selections").notNull().default(1),
+  version: integer("version").notNull().default(1),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+}, (t) => [index("menu_groups_tenant_idx").on(t.tenantId,t.locationId)]);
+export const menuModifierOption = pgTable("menu_modifier_options", {
+  id: text("id").primaryKey(),
+  groupId: text("group_id").notNull().references(() => menuModifierGroup.id),
+  nameFa: text("name_fa").notNull(), namePs: text("name_ps").notNull().default(""), nameEn: text("name_en").notNull().default(""),
+  deltaMinor: integer("delta_minor").notNull().default(0),
+  active: boolean("active").notNull().default(true), sortOrder: integer("sort_order").notNull().default(0)
+}, (t) => [index("menu_options_group_idx").on(t.groupId,t.sortOrder)]);
+export const menuItemGroup = pgTable("menu_item_groups", {
+  itemId: text("item_id").notNull().references(() => menuItem.id),
+  groupId: text("group_id").notNull().references(() => menuModifierGroup.id)
+}, (t) => [uniqueIndex("menu_item_group_unique").on(t.itemId,t.groupId),
+  index("menu_item_group_group_idx").on(t.groupId)]);

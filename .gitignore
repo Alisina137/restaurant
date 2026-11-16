@@ -12,3 +12,5 @@ coverage/
 !.env.example
 !.env.local.example
 .DS_Store
+
+**/.data/

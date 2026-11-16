@@ -2,12 +2,13 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2 } from "lucide-react";
+import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText } from "lucide-react";
 import { direction, t, webAreaFor, type Locale, type WebArea } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
 import { ApiError, getContext, type WorkspaceContext } from "@/lib/context";
 import { WorkspaceProvider } from "./workspace-provider";
 import { p2 } from "@/lib/phase2-copy";
+import { m3 } from "@/lib/menu-copy";
 
 const rootPages: Record<WebArea, { route: string; label: "overview" | "live" | "openChecks"; icon: typeof LayoutDashboard }> = {
   app: { route: "/app/overview", label: "overview", icon: LayoutDashboard },
@@ -61,6 +62,10 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
           <Icon size={20} strokeWidth={1.9} /><span>{t(locale, page.label)}</span>
         </Link>
         {area==="app"&&<>
+          <Link href="/app/menu/items" title={m3(locale,"menu")}
+            className={"nav-link"+(pathname.startsWith("/app/menu/")?" selected":"")}
+            aria-current={pathname.startsWith("/app/menu/")?"page":undefined}>
+            <BookOpenText size={20} strokeWidth={1.9}/><span>{m3(locale,"menu")}</span></Link>
           <Link href="/app/staff/directory" title={p2(locale,"team")}
             className={"nav-link"+(pathname.startsWith("/app/staff/")?" selected":"")}
             aria-current={pathname.startsWith("/app/staff/")?"page":undefined}>

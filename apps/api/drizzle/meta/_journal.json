@@ -2,7 +2,26 @@
   "version": "7",
   "dialect": "postgresql",
   "entries": [
-    { "idx": 0, "version": "7", "when": 1794762000000, "tag": "0000_phase1_identity", "breakpoints": false },
-    { "idx": 1, "version": "7", "when": 1794773400000, "tag": "0001_phase2_tenants_staff", "breakpoints": false }
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1794762000000,
+      "tag": "0000_phase1_identity",
+      "breakpoints": false
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794773400000,
+      "tag": "0001_phase2_tenants_staff",
+      "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794826800000,
+      "tag": "0002_phase3_menu_catalog",
+      "breakpoints": false
+    }
   ]
 }
