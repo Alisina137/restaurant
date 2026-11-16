@@ -41,7 +41,8 @@ export function CashierChecks({area="cashier"}:{area?:"cashier"|"app"}){
    <nav className="finance-area-tabs" aria-label={f9(locale,"checkout")}>
      <Link href={prefix+(area==="cashier"?"/checks":"/checks")} className="selected"><ReceiptText size={17}/>{f9(locale,"checks")}</Link>
      <Link href={prefix+"/transactions"}><Wallet size={17}/>{f9(locale,"transactions")}</Link>
-     {area==="cashier"&&<Link href="/cashier/shifts"><Clock3 size={17}/>{f9(locale,"shifts")}</Link>}
+     {area==="cashier"?<Link href="/cashier/shifts"><Clock3 size={17}/>{f9(locale,"shifts")}</Link>:
+       <Link href="/app/billing/shifts"><Clock3 size={17}/>{f9(locale,"oversight")}</Link>}
      <Link href={prefix+"/receipts"}><ShieldCheck size={17}/>{f9(locale,"receipts")}</Link>
    </nav>
    <div className="finance-stats">

@@ -225,6 +225,36 @@ async function main(){
     await call("/api/finance/shifts/"+open1.shift.id+"/close","POST",{
       countMinor:current.expectedMinor},cashier),200);
  assert.equal(closeShift.shift.varianceMinor,0);
+ // Shift supervision must be tenant-guarded and threshold-configurable. A
+ // manager explicitly acknowledges the variance, not just taps Close Shift.
+ const revised=await expect<{version:number;shiftVarianceLimitMinor:number}>(
+   await call("/api/finance/policy","PATCH",{
+     version:changed.version,taxRateBps:0,taxInclusive:false,serviceRateBps:0,
+     serviceFixedMinor:1,receiptFooter:"Thank you. مرحبا",shiftVarianceLimitMinor:500},owner),200);
+ assert.equal(revised.shiftVarianceLimitMinor,500);
+ assert.equal((await call("/api/finance/shifts/oversight","GET",undefined,waiter)).status,403);
+ assert.equal((await call("/api/finance/shifts/oversight","GET",undefined,cashier)).status,403);
+ assert.equal((await call("/api/finance/shifts/oversight","GET",undefined,other)).status,200,
+   "Another tenant's manager may view ONLY their own shifts.");
+ const overview=await expect<{varianceThresholdMinor:number;
+    items:{shift:{id:string};cashierName:string;expectedMinor:number}[]}>(
+    await call("/api/finance/shifts/oversight","GET",undefined,owner),200);
+ assert.equal(overview.varianceThresholdMinor,500);
+ assert.ok(overview.items.some(x=>x.shift.id===open2.shift.id));
+ const ownerShift=await expect<{shift:{id:string};expectedMinor:number}>(
+    await call("/api/finance/shifts/current","GET",undefined,owner),200);
+ const abnormal=ownerShift.expectedMinor+501;
+ assert.equal((await call("/api/finance/shifts/"+open2.shift.id+"/close","POST",{
+   countMinor:abnormal},owner)).status,409,
+   "A manager must explicitly acknowledge variance beyond configured threshold.");
+ const approvedShift=await expect<{shift:{varianceMinor:number;supervisorId:string}}>(
+   await call("/api/finance/shifts/"+open2.shift.id+"/close","POST",{
+     countMinor:abnormal,acknowledgeVariance:true},owner),200);
+ assert.equal(approvedShift.shift.varianceMinor,501);
+ assert.ok(approvedShift.shift.supervisorId);
+ assert.equal((await call("/api/finance/shifts/"+open2.shift.id+"/close","POST",{
+   countMinor:abnormal,acknowledgeVariance:true},owner)).status,409,
+   "Shift closing is exactly once.");
  const listing=await expect<{items:{number:string}[]}>(
    await call("/api/finance/receipts","GET",undefined,owner),200);
  assert.ok(listing.items.some(x=>x.number===settled.receiptNumber));
@@ -264,6 +294,18 @@ async function main(){
    method:"cash",amountMinor:1,receivedMinor:1,externalReference:"",
    note:"Closed shift must reject",idempotencyKey:"p09-closed-"+randomUUID()
  },cashier)).status,409,"Posting cash to an already-closed shift is forbidden.");
+ const lateCashierShift=await expect<{shift:{id:string}}> (
+   await call("/api/finance/shifts/open","POST",{openingFloatMinor:0},cashier),201);
+ assert.equal((await call("/api/finance/shifts/"+lateCashierShift.shift.id+"/close","POST",{
+   countMinor:501},cashier)).status,403,"Cashier cannot approve own excessive cash variance.");
+ assert.equal((await call("/api/finance/shifts/"+lateCashierShift.shift.id+"/close","POST",{
+   countMinor:501,acknowledgeVariance:true},cashier)).status,403,
+   "A cashier cannot impersonate a manager with an acknowledgment flag.");
+ const supervised=await expect<{shift:{varianceMinor:number;supervisorId:string}}>(
+   await call("/api/finance/shifts/"+lateCashierShift.shift.id+"/close","POST",{
+     countMinor:501,acknowledgeVariance:true},owner),200);
+ assert.equal(supervised.shift.varianceMinor,501);
+ assert.ok(supervised.shift.supervisorId);
  console.info("PASS P09: split quantities, penny rounding, cash change, verified transfer, shift ledger, concurrent cashiers, receipts, closed table, guest guards and tenant isolation.");
 }
 main().then(async()=>{await pool.end();}).catch(async e=>{console.error(e);await pool.end();process.exitCode=1;});

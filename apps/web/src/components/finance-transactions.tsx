@@ -32,7 +32,8 @@ export function FinanceTransactions({area="cashier"}:{area?:"cashier"|"app"}){
    <nav className="finance-area-tabs">
      <Link href={base+"/checks"}>{f9(locale,"checks")}</Link>
      <Link className="selected" href={base+"/transactions"}>{f9(locale,"transactions")}</Link>
-     {area==="cashier"&&<Link href="/cashier/shifts">{f9(locale,"shifts")}</Link>}
+     {area==="cashier"?<Link href="/cashier/shifts">{f9(locale,"shifts")}</Link>:
+       <Link href="/app/billing/shifts">{f9(locale,"oversight")}</Link>}
      <Link href={base+"/receipts"}>{f9(locale,"receipts")}</Link>
    </nav>
    <form onSubmit={apply} className="settings-card finance-toolbar">

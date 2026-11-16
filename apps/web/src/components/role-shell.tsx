@@ -106,10 +106,10 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             className={"nav-link"+(pathname.startsWith("/app/tables/")?" selected":"")}
             aria-current={pathname.startsWith("/app/tables/")?"page":undefined}>
             <Armchair size={20} strokeWidth={1.9}/><span>{f4(locale,"tables")}</span></Link>
-          <Link href="/app/billing/checks" title={f9(locale,"checkout")}
+          <Link href="/app/billing/checks" title={f9(locale,"billing")}
             className={"nav-link"+(pathname.startsWith("/app/billing/")?" selected":"")}
             aria-current={pathname.startsWith("/app/billing/")?"page":undefined}>
-            <Wallet size={20}/><span>{f9(locale,"checkout")}</span></Link>
+            <Wallet size={20}/><span>{f9(locale,"billing")}</span></Link>
           <Link href="/app/staff/directory" title={p2(locale,"team")}
             className={"nav-link"+(pathname.startsWith("/app/staff/")?" selected":"")}
             aria-current={pathname.startsWith("/app/staff/")?"page":undefined}>

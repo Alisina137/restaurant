@@ -298,9 +298,11 @@ financeRouter.get("/shifts/history",route(async(req,res)=>{
    eq(cashierShift.status,"closed"),
    scope.role==="cashier"?eq(cashierShift.cashierId,scope.actorId):undefined);
  const [items,totals]=await Promise.all([
-   db.select().from(cashierShift).where(where).orderBy(desc(cashierShift.closedAt))
+   db.select({shift:cashierShift,cashierName:user.name}).from(cashierShift)
+     .innerJoin(user,eq(user.id,cashierShift.cashierId))
+     .where(where).orderBy(desc(cashierShift.closedAt))
      .limit(10).offset((page-1)*10),
    db.select({n:count()}).from(cashierShift).where(where)
  ]);
- res.json({items,total:totals[0]?.n??0,page,perPage:10});
+ res.json({items:items.map(x=>({...x.shift,cashierName:x.cashierName})),total:totals[0]?.n??0,page,perPage:10});
 }));

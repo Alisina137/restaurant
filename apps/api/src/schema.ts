@@ -427,6 +427,7 @@ export const financeSetting=pgTable("finance_settings",{
  taxInclusive:boolean("tax_inclusive").notNull().default(false),
  serviceRateBps:integer("service_rate_bps").notNull().default(0),
  serviceFixedMinor:integer("service_fixed_minor").notNull().default(0),
+ shiftVarianceLimitMinor:integer("shift_variance_limit_minor").notNull().default(5000),
  receiptFooter:text("receipt_footer").notNull().default(""),
  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
 });

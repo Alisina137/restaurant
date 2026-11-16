@@ -852,3 +852,17 @@ a { color:inherit; text-decoration:none; }
  .finance-receipt-columns,.finance-receipt-line{font-size:10px}
  @page{size:80mm auto;margin:3mm}
 }
+
+/* P09 shift manager oversight and variance acknowledgement. */
+.finance-shift-manager-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(305px,1fr));gap:17px}
+.finance-shift-manager-card{display:grid;gap:17px;align-content:start;min-width:0}
+.finance-shift-manager-card h2{margin:5px 0 0;font-size:21px;color:#214b34}
+.finance-shift-manager-card>.button{min-height:50px;display:flex;align-items:center;justify-content:center;gap:10px}
+.finance-shift-totals{display:grid;gap:12px}
+.finance-shift-totals>div{display:flex;align-items:center;justify-content:space-between;gap:14px;font-size:12px;color:#6f8878}
+.finance-shift-totals strong{font-size:14px;color:#285742}
+.finance-manager-expected{border-top:1px dashed #d5e4d6;padding-top:15px}
+.finance-shift-totals .finance-manager-expected strong{font-size:21px;color:#0c7652}
+.finance-manager-ack{padding:12px;border-radius:11px;border:1px solid #e6ba76;background:#fff7e6;color:#795725}
+.finance-shift-history .section-heading{margin-bottom:15px}
+@media(max-width:690px){.finance-shift-manager-grid{grid-template-columns:1fr}}

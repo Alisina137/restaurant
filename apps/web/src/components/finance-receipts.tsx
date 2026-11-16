@@ -27,7 +27,8 @@ export function FinanceReceipts({area="cashier"}:{area?:"cashier"|"app"}){
    <nav className="finance-area-tabs">
      <Link href={base+"/checks"}>{f9(locale,"checks")}</Link>
      <Link href={base+"/transactions"}>{f9(locale,"transactions")}</Link>
-     {area==="cashier"&&<Link href="/cashier/shifts">{f9(locale,"shifts")}</Link>}
+     {area==="cashier"?<Link href="/cashier/shifts">{f9(locale,"shifts")}</Link>:
+       <Link href="/app/billing/shifts">{f9(locale,"oversight")}</Link>}
      <Link href={base+"/receipts"} className="selected">{f9(locale,"receipts")}</Link>
    </nav>
    <label className="finance-search finance-receipt-search"><Search size={19}/>
