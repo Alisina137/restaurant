@@ -84,6 +84,20 @@ const gateLabels:Record<string,[string,string]>={
  backups:["بازیابی پایگاه داده و رسانه","د ډیټابېس او رسنیو بیا رغونه"],
  rollback:["بازگشت نسخه و تمرین حادثه","د نسخې بېرته ګرځول او پېښه"],
  shift:["شیفت کامل واقعی با نظارت","د واقعي څارل شوي شیفټ ازموینه"]};
+const gateHelp:Record<string,[string,string]>={
+ roles:["ورود هر نقش، لغو دسترسی و جلوگیری از مشاهده اطلاعات رستورانت دیگر را آزمایش کنید.","د هر رول ننوتل، لاسرسي لغوه کول او د بل رستورانت معلوماتو منع کول وازمویئ."],
+ qr:["کد چاپ‌شده، PIN اشتباه/منقضی، چرخش کد و سفارش بدون تکرار پس از قطع شبکه را بررسی کنید.","چاپ شوی QR، غلط یا پای ته رسېدلی PIN، بدل شوی کوډ او له بیا وصل وروسته بې تکراره فرمایش وازمویئ."],
+ orders:["از ثبت سفارش مهمان و گارسون تا آماده‌سازی، تحویل، سفارش اضافی و بازیابی ارتباط را بررسی کنید.","د مېلمه او ګارسون له فرمایش څخه تر چمتو کولو، رسولو، اضافي فرمایش او بیا وصل پورې ازموینه وکړئ."],
+ cash:["صندوق واقعی، پرداخت چندقسمتی، باقی‌پول، بازپرداخت با تأیید، رسید و CSV را تطبیق کنید.","واقعي صندوق، وېشل شوې پیسې، پاتې پیسې، تایید شوي بیرته ورکړې، رسید او CSV سره برابر کړئ."],
+ billing:["دو رستورانت جداگانه، پرداخت دستی تأییدشده، تعلیق اشتراک و بازگشت را بیازمایید.","دوه جلا رستورانتونه، تایید شوې لاسي پیسې، ځنډول شوی ګډون او بېرته فعالول وازمویئ."],
+ languages:["همه نقش‌ها، فورم‌ها، ناوبری، چاپ رسید و مبلغ را در دری/پشتو RTL و انگلیسی LTR بررسی کنید.","ټول رولونه، فورمې، نیویګېشن، رسید او پیسې په دري/پښتو RTL او انګلیسي LTR وازمویئ."],
+ devices:["گوشی اندروید واقعی، نمایشگر آشپزخانه، چاپگر رسید و اندازه‌های صفحه ۳۲۰ تا ۱۲۸۰ پیکسل را آزمایش کنید.","واقعي اندروید، د پخلنځي سکرین، رسید چاپوونکی او له ۳۲۰ تر ۱۲۸۰ پکسله سکرین وازمویئ."],
+ accessibility:["کار فقط با صفحه‌کلید، فوکوس واضح، خوانش صفحه، کنتراست و حرکت کم را بیازمایید.","یوازې په کیبورډ کار، څرګند فوکس، سکرین لوستونکی، رنګ توپیر او کم حرکت وازمویئ."],
+ reliability:["بار همزمان در دو رستورانت، قطع شبکه، بازیابی رویداد و نبود سفارش گم‌شده را اندازه بگیرید.","په دوو رستورانتونو کې هممهاله بار، شبکه پرې کېدل، د پېښو بیا رغونه او نه ورک شوي فرمایشونه اندازه کړئ."],
+ backups:["بازیابی جداگانه PostgreSQL و فایل‌ها، دوره نگهداری و زمان واقعی بازیابی را ثبت کنید.","په جلا چاپېریال کې PostgreSQL او فایلونه بېرته جوړ کړئ، د ساتنې او بیا رغونې وخت ثبت کړئ."],
+ rollback:["انتقال نسخه در محیط آزمایشی، بازگشت به نسخه قبلی، هشدار و تماس اضطراری را تمرین کنید.","په ازمایښتي چاپېریال کې نسخه پورته او بېرته کړه، خبرتیاوې او بیړنی تماس تمرین کړئ."],
+ shift:["یک شیفت کامل واقعی را با نماینده رستورانت انجام داده و صندوق، رسیدها و گزارش نهایی را تأیید کنید.","له رستورانت استازي سره یو بشپړ واقعي شیفټ ترسره او صندوق، رسیدونه او وروستی راپور تایید کړئ."]
+};
 function StateChip({status,locale}:{status:Pilot["status"];locale:Locale}){
  return <span className={"p14-chip p14-"+status}><ShieldCheck size={16}/>{t(locale,status)}</span>;
 }
@@ -136,7 +150,7 @@ export function PilotReview({tenantId}:{tenantId?:string}){
       <div className="p14-gate-top"><span className="p14-gate-num">{String(i+1).padStart(2,"0")}</span>
        <strong>{label}</strong><span className={"p14-badge "+(g.review?.result??"pending")}>
         {g.review?.result==="passed"?t(locale,"passed"):g.review?.result==="failed"?t(locale,"failed"):t(locale,"pending")}</span></div>
-      {locale==="en"&&<p className="p14-help">{g.help}</p>}
+      <p className="p14-help">{locale==="en"?g.help:gateHelp[g.key]?.[locale==="ps-AF"?1:0]??g.help}</p>
       {g.review&&<div className="p14-evidence"><span>{t(locale,"evidence")}</span><p>{g.review.evidence}</p>
        <small><Dt when={g.review.createdAt} locale={locale}/></small></div>}
       {canEdit&&<button type="button" className="button button-small" onClick={()=>{setSelected(g.key);setProblem("");document.getElementById("p14-gate-form")?.scrollIntoView({behavior:"smooth",block:"center"});}}>
@@ -187,7 +201,7 @@ export function PilotDirectory(){
     <div className="p14-directory">{data.items.map(row=><Link className="p14-directory-row"
      key={row.id} href={"/platform/pilots/"+encodeURIComponent(row.id)}>
      <Building2 size={22}/><span><strong>{row.name}</strong><small>{row.status} · {row.completed}/{row.total}</small></span>
-     <span className="p14-badge pending">{t(locale,"status")}: {row.pilotStatus}</span>
+     <span className="p14-badge pending">{t(locale,"status")}: {(["blocked","awaiting_owner","awaiting_platform","held","signed_off"] as string[]).includes(row.pilotStatus)?t(locale,row.pilotStatus as Pilot["status"]):row.pilotStatus}</span>
      {locale==="en"?<ArrowRight size={17}/>:<ArrowLeft size={17}/>}</Link>)}</div>}
    <div className="p14-buttons"><button className="button" disabled={page===1}
     onClick={()=>setPage(p=>p-1)}>{t(locale,"previous")}</button>
