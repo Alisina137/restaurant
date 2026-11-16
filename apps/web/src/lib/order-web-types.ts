@@ -1,9 +1,9 @@
 import type {Locale} from "@dineflow/shared";
-export type WebRow={id:string;roundNumber:number;visitId:string;tableId:string;tableLabel:string;totalMinor:number;orderNote:string;createdAt:string;status:"new"|"preparing"|"ready"|"picked_up"|"served";ticketId:string;ticketVersion:number;startedAt:string|null;readyAt:string|null;submittedBy:string};
+export type WebRow={id:string;roundNumber:number;visitId:string;tableId:string;tableLabel:string;totalMinor:number;orderNote:string;createdAt:string;status:"new"|"preparing"|"ready"|"picked_up"|"served"|"voided";ticketId:string;ticketVersion:number;startedAt:string|null;readyAt:string|null;submittedBy:string};
 export type WebPage={items:WebRow[];total:number;page:number;perPage:number};
 export type SnapshotOption={id:string;nameFa:string;namePs:string;nameEn:string;deltaMinor:number};
 export type SnapshotGroup={groupId:string;nameFa:string;namePs:string;nameEn:string;options:SnapshotOption[]};
-export type SnapshotLine={id:string;itemNameFa:string;itemNamePs:string;itemNameEn:string;quantity:number;note:string;kitchenStatus:"new"|"preparing"|"ready"|"picked_up"|"served";unitPriceMinor:number;lineTotalMinor:number;modifierSnapshot:SnapshotGroup[]};
+export type SnapshotLine={id:string;itemNameFa:string;itemNamePs:string;itemNameEn:string;quantity:number;note:string;kitchenStatus:"new"|"preparing"|"ready"|"picked_up"|"served"|"voided";unitPriceMinor:number;lineTotalMinor:number;modifierSnapshot:SnapshotGroup[]};
 export type WebDetail={round:{id:string;tableId:string;visitId:string;roundNumber:number;submittedBy:string;
  totalMinor:number;subtotalMinor:number;orderNote:string;createdAt:string};ticket:{id:string;version:number;status:string;tableLabel:string}|null;
  lines:SnapshotLine[];activity:{id:string;action:string;createdAt:string}[]};
