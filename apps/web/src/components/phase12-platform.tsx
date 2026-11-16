@@ -57,6 +57,7 @@ export function PlatformDashboard(){
  const {workspace}=useWorkspace(),locale=workspace.locale;
  const {data,loading,error,load}=useSaasData<{tenants:number;trials:number;suspended:number;
   overdueInvoices:number;paymentReviews:number;openTickets:number;pendingRestaurants:number}>("/api/platform/overview");
+ const ops=useSaasData<{status:string;pendingOutbox:number;oldestPendingAt:string|null;oldestPendingAgeSeconds:number|null}>("/api/health/operations");
  const cards=[["restaurants",data?.tenants,Building2,"/platform/restaurants"],
   ["trial",data?.trials,BadgeCheck,"/platform/restaurants?status=trial"],
   ["suspended",data?.suspended,ShieldCheck,"/platform/restaurants?status=suspended"],
