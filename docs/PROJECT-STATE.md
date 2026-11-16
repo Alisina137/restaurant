@@ -27,14 +27,14 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - `pnpm typecheck`, `pnpm test`, `pnpm build:web`, Postgres migrations, P01–P05 API regressions and P06 integration (100 safe replay requests, one ticket, mandatory modifiers, stale prices, kitchen state conflicts, tenant isolation and closure guard).
 - Browser/mobile visual QA is not performed by GitHub Actions; check 320–1280px, Dari/Pashto/English, mobile Expo Go and network retries locally.
 
-## Current phase dependency note (P09)
-- P07 guest QR/PIN verification and review flows have been merged into `main` (PR #7).
-- P08 assistance/order-correction phase has not yet been implemented. P09 Payment Requested is deliberately empty without real request data.
-- P09 implementation and PostgreSQL acceptance checks are in `phase-09-cashier-checks-ledger` based on merged P07. See `docs/PHASE-09-ACCEPTANCE.md` for scope, checkout/receipt verification, and known limitations.
-- P09 is not production-certified; manual real-browser, mobile and receipt printer QA are outstanding even when CI succeeds.
+## Current phase (P08)
+
+- P07 guest QR/PIN and P09 cash/ledger are merged to `main`, PR #7 and PR #8.
+- P08 guest assistance, Request Bill, waiter Home and table request queue, ACK/resolve, live cashier request filter, owner/manager change approvals, kitchen-safe cancellation and signed negative money adjustments implemented on `phase-08-assistance-service-recovery`. See `docs/PHASE-08-ACCEPTANCE.md`.
+- P08 is not marked production-certified without real guest + waiter + receipt physical QA and final pilot checks.
 
 ## Next phase
-P08 service requests and P10 refund/void approval after P07/P09 dependency integration.
+P10 — discounts, complete refunds and manager payment reversals; P11 — service and sales reports.
 
 ## Local commands
 ```powershell

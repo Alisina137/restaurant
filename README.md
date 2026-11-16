@@ -2,7 +2,7 @@
 
 A Dari-first, tenant-scoped restaurant SaaS for Afghanistan. Product source of truth: [Product Specification v1.0](docs/PRODUCT-SPECIFICATION-v1.md) and [Development Workflow V5](docs/SOFTWARE-DEVELOPMENT-WORKFLOW-v5.md).
 
-**Release status:** Phases 1–7 are merged to `main`; Phase 8 service requests remain unimplemented. Phase 9 cashier checks, shift ledger and receipts are implemented in `phase-09-cashier-checks-ledger`, built on the merged Phase 7 codebase, but not yet production-certified.
+**Release status:** Phases 1–7 and 9 are merged to `main`. Phase 8 guest assistance, service queue, safe order-correction approval and bill requests are implemented on `phase-08-assistance-service-recovery`, subject to GitHub verification and merge. Physical-device/pilot QA remains required.
 
 ## Workspace
 - `apps/api` — Express 4, Drizzle/PostgreSQL, Better Auth, roles, menu, floor and kitchen/notification APIs (port **4000**).
@@ -59,6 +59,13 @@ pnpm dev:mobile
 - Kitchen: `http://localhost:3000/kitchen/live`, `/kitchen/preparing`, `/kitchen/ready`, `/kitchen/history`.
 - Waiter mobile: Home, Tables, Orders, Menu, More, with ready alerts and Serve actions.
 
+## Phase 8 — guest assistance and service recovery
+
+- **Guests:** `/g/:visit/help` (Call Waiter: Need help / Water / Cutlery / Other, plus Request Bill with Together / Split), view real acknowledgment/resolution history.
+- **Waiter Expo:** Home Needs Attention, Table Details Requests, `/requests` inbox, Order Detail → Request Item Cancellation (preparing/unready lines).
+- **Owner/manager:** `/app/service` for guest requests and manager-approved order corrections; cashier's Requested tab now has real data.
+- **Ledger integrity:** corrections are separate negative adjustments, not edits to accepted order prices; unresolved changes block settlement. See [Phase 08 Acceptance](docs/PHASE-08-ACCEPTANCE.md).
+
 ## Phase 9 — cashier settlement
 
 ```powershell
@@ -71,7 +78,7 @@ pnpm db:migrate
 
 The development cashier routes are `/cashier/checks`, `/cashier/transactions`, `/cashier/shifts`, `/cashier/receipts`. Owners/managers use `/app/billing/checks`, `/app/billing/transactions`, `/app/billing/receipts`, and `/app/settings/charges`. A verified guest can read the current visit bill at `/g/:visit/bill`.
 
-Real cashier process: open shift → open check → optional split → record **cash** or **manually verified external transfer** → ensure all orders served and approvals resolved → settle → print immutable receipt → clean table. Payment Requested is not populated until Phase 8 service requests exist.
+Real cashier process: open shift → open check → optional split → record **cash** or **manually verified external transfer** → ensure all orders served and approvals resolved → settle → print immutable receipt → clean table. Payment Requested lists actual guest bill requests submitted from the Assistance screen.
 
 See [Phase 09 Acceptance](docs/PHASE-09-ACCEPTANCE.md) for security, test coverage and release dependencies.
 

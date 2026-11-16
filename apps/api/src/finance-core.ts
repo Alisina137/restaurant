@@ -5,7 +5,7 @@ import {db} from "./db";
 import {scopeFor,fail} from "./menu-helpers";
 import {effectiveSubtotal} from "./service-changes";
 import {auditEvent,cashierShift,checkActivity,checkPayment,checkReceipt,checkShare,
- checkShareLine,diningCheck,diningTable,diningVisit,financeSetting,guestSubmission,kitchenTicket,
+ checkShareLine,diningCheck,diningTable,diningVisit,financeSetting,guestSubmission,kitchenTicket,orderChangeRequest,
  orderLine,orderRound,restaurantSetting,tenant} from "./schema";
 export type Tx=Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type FinanceScope={tenantId:string;locationId:string;actorId:string;role:string};
@@ -153,6 +153,12 @@ export async function pendingGuard(tx:Tx,scope:FinanceScope,visitId:string){
     eq(guestSubmission.visitId,visitId),eq(guestSubmission.tenantId,scope.tenantId),
     eq(guestSubmission.status,"pending"))).limit(1);
  if(pending)fail(409,"PENDING_GUEST_ORDER","Resolve pending guest orders before settling.");
+ const [pendingChange]=await tx.select({id:orderChangeRequest.id}).from(orderChangeRequest)
+   .where(and(eq(orderChangeRequest.tenantId,scope.tenantId),
+     eq(orderChangeRequest.locationId,scope.locationId),
+     eq(orderChangeRequest.visitId,visitId),eq(orderChangeRequest.status,"pending"))).limit(1);
+ if(pendingChange)fail(409,"PENDING_ORDER_CHANGE",
+   "Manager must approve or reject outstanding order corrections before settlement.");
  const rounds=await currentOrders(tx,scope,visitId);
  if(!rounds.length)fail(409,"EMPTY_CHECK","Cannot settle a visit without ordered items.");
  const [unfinished]=await tx.select({id:kitchenTicket.id}).from(kitchenTicket)
