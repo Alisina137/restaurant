@@ -5,6 +5,8 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { isLocale, isStaffRole, type StaffRole } from "@dineflow/shared";
 import { auth } from "./auth";
 import { db } from "./db";
+import {enforceLimit} from "./phase12-core";
+import {saasPlan,saasPlatformSettings,saasSubscription} from "./phase12-schema";
 import { contextFor, type IdentityContext } from "./context";
 import { publicWebURL, sendEmail } from "./email";
 import { auditEvent, location, onboardingClaim, onboardingDraft, platformAdmin, restaurantSetting,
@@ -108,16 +110,23 @@ onboardingRouter.post("/complete", route(async (req, res) => {
   const draft = parseDraft(req.body); const error = validDraft(draft);
   if (error) { fail(res, 400, "INVALID_RESTAURANT", error); return; }
   const tenantId = randomUUID(), locationId = randomUUID();
-  const days = Math.max(1, Math.min(90, Number(process.env.TRIAL_DAYS) || 14));
+  let days = Math.max(1, Math.min(90, Number(process.env.TRIAL_DAYS) || 14));
   try {
     await db.transaction(async (tx) => {
+      const [config]=await tx.select({trialDays:saasPlatformSettings.trialDays}).from(saasPlatformSettings).limit(1);
+      days=config?.trialDays??days;
+      const [defaultPlan]=await tx.select({id:saasPlan.id}).from(saasPlan)
+        .where(eq(saasPlan.code,"starter")).orderBy(desc(saasPlan.version)).limit(1);
+      if(!defaultPlan)throw new Error("Default subscription plan required. Run database migrations.");
       await tx.insert(tenant).values({ id: tenantId, slug: draft.slug, name: draft.name, status: "trial" });
       await tx.insert(location).values({ id: locationId, tenantId, name: draft.locationName, city: draft.city });
       await tx.insert(restaurantSetting).values({ tenantId, phone: draft.phone || null, address: draft.address || null,
         timezone: draft.timezone, locale: draft.locale, orderingPolicy: draft.orderingPolicy, receiptFooter: draft.receiptFooter });
       await tx.insert(tenantMembership).values({ id: randomUUID(), tenantId, userId: person.id, role: "owner" });
       await tx.insert(onboardingClaim).values({ userId: person.id, tenantId });
-      await tx.insert(tenantTrial).values({ tenantId, expiresAt: dateAfterHours(days * 24) });
+      const trialExpiresAt=dateAfterHours(days * 24);
+      await tx.insert(tenantTrial).values({ tenantId, expiresAt: trialExpiresAt });
+      await tx.insert(saasSubscription).values({tenantId,planId:defaultPlan.id,status:"trial",trialEndsAt:trialExpiresAt});
       await tx.insert(userPreference).values({ userId: person.id, locale: draft.locale, activeTenantId: tenantId })
         .onConflictDoUpdate({ target: userPreference.userId, set: { locale: draft.locale, activeTenantId: tenantId, updatedAt: new Date() } });
       await tx.insert(auditEvent).values({ id: randomUUID(), userId: person.id, tenantId, action: "tenant.created",
@@ -287,6 +296,7 @@ staffRouter.post("/invitations", route(async (req, res) => {
   const token = randomBytes(32).toString("base64url"), id = randomUUID();
   await db.transaction(async (tx) => {
     for (const item of pending) await tx.update(staffInvitation).set({ status: "revoked" }).where(eq(staffInvitation.id, item.id));
+    await enforceLimit(tx,data.tenantId,"staff");
     await tx.insert(staffInvitation).values({ id, tenantId: data.tenantId, email, role,
       tokenHash: tokenHash(token), expiresAt: dateAfterHours(48), invitedBy: data.person.id, message });
     await tx.insert(auditEvent).values({ id: randomUUID(), userId: data.person.id, tenantId: data.tenantId,
@@ -351,6 +361,7 @@ publicInvitationRouter.post("/:token/accept", route(async (req, res) => {
     if (!entry) return null;
     const [existing] = await tx.select().from(tenantMembership)
       .where(and(eq(tenantMembership.tenantId, entry.tenantId), eq(tenantMembership.userId, person.id))).limit(1);
+    if(!existing||existing.status!=="active")await enforceLimit(tx,entry.tenantId,"staff");
     if (existing) {
       await tx.update(tenantMembership).set({ status: "active", role: entry.role })
         .where(eq(tenantMembership.id, existing.id));
