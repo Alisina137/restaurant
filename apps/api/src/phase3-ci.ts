@@ -11,7 +11,7 @@ async function call(path:string,options?:{method?:string;body?:unknown;cookie?:s
   return fetch(URL+path,{method:options?.method??"GET",
     headers:{Origin:"http://localhost:3000",...(options?.cookie?{Cookie:options.cookie}:{}),
       "Content-Type":options?.mime??"application/json"},
-    body:options?.raw??(options?.body===undefined?undefined:JSON.stringify(options.body))});
+    body:options?.raw?new Uint8Array(options.raw):(options?.body===undefined?undefined:JSON.stringify(options.body))});
 }
 async function signIn(email:string):Promise<string>{
   for(let tries=0;tries<5;tries++){
