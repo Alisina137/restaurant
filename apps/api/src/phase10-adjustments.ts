@@ -30,6 +30,10 @@ async function validRound(tx:Tx,scope:FinanceScope,check:typeof diningCheck.$inf
   eq(orderRound.visitId,check.visitId),eq(orderRound.tenantId,scope.tenantId),
   eq(orderRound.locationId,scope.locationId))).limit(1);
  if(!round||round.status==="voided")fail(409,"ROUND_UNAVAILABLE","This order round cannot be voided.");
+ // Kitchen and correction decisions must serialize on the same ticket row.
+ // A kitchen worker may have started preparation while a manager was reviewing.
+ await tx.execute(sql`SELECT id FROM kitchen_tickets WHERE round_id=${round.id}
+  AND tenant_id=${scope.tenantId} AND location_id=${scope.locationId} FOR UPDATE`);
  const [ticket]=await tx.select().from(kitchenTicket).where(and(eq(kitchenTicket.roundId,round.id),
   eq(kitchenTicket.tenantId,scope.tenantId),eq(kitchenTicket.locationId,scope.locationId))).limit(1);
  if(!ticket||ticket.status!=="new")fail(409,"KITCHEN_STARTED","Kitchen preparation has started; request a post-sale refund instead.");
