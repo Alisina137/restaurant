@@ -5,6 +5,7 @@ import {db} from "./db";
 import {diningTable,diningVisit,kitchenTicket,orderLine,orderRound,orderRevision,orderActivity} from "./schema";
 import {bodyObject,fail,int,route} from "./menu-helpers";
 import {orderScope,writeScope,kitchenScope,orderId,parseOrder,priceLines,orderChanged,readOrder} from "./order-core";
+import {orderGuard} from "./finance-core";
 import {createReadyAlert} from "./phase6-service";
 export const orderRouter=Router();
 
@@ -70,6 +71,7 @@ orderRouter.post("/visits/:id/rounds",route(async(req,res)=>{
    const [visit]=await tx.select().from(diningVisit).where(and(eq(diningVisit.id,visitId),
      eq(diningVisit.tenantId,scope.tenantId),eq(diningVisit.locationId,scope.locationId))).limit(1);
    if(!visit||visit.status!=="open")fail(409,"VISIT_LOCKED","Visit was closed. Reload the table.");
+   await orderGuard(tx,scope,visitId);
    if(scope.role==="waiter"&&visit.waiterId!==scope.actorId)
      fail(403,"NOT_ASSIGNED","Another waiter manages this visit.");
    const [table]=await tx.select().from(diningTable).where(and(eq(diningTable.id,visit.tableId),

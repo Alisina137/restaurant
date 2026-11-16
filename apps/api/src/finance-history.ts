@@ -3,7 +3,7 @@ import {and,asc,count,desc,eq,inArray,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
 import {auditEvent,checkPayment,checkReceipt,checkShare,diningCheck,diningTable,diningVisit,
- floorRevision,orderLine,orderRound,restaurantSetting,tenant} from "./schema";
+ floorRevision,orderLine,orderRound,restaurantSetting,financeSetting,tenant} from "./schema";
 import {bodyObject,fail,field,int,route} from "./menu-helpers";
 import {calculate,financeScope,lockedCheck,pendingGuard,writeAudit} from "./finance-core";
 import {guestAccess,invalidateVisitSessions} from "./guest-security";
@@ -142,17 +142,19 @@ financeHistoryRouter.post("/receipts/:id/reprint",route(async(req,res)=>{
 /** Guests see only line snapshots, due and bill split metadata, never tender or staff identities. */
 financeHistoryRouter.get("/guest/bill",route(async(req,res)=>{
  const scope=await guestAccess(req);
- const [check,rounds]=await Promise.all([
+ const [check,rounds,charges]=await Promise.all([
    db.select().from(diningCheck).where(and(eq(diningCheck.visitId,scope.visitId),
      eq(diningCheck.tenantId,scope.tenantId),eq(diningCheck.locationId,scope.locationId))).limit(1),
    db.select({id:orderRound.id,totalMinor:orderRound.totalMinor})
     .from(orderRound).where(and(eq(orderRound.visitId,scope.visitId),
-      eq(orderRound.tenantId,scope.tenantId)))
+      eq(orderRound.tenantId,scope.tenantId))),
+   db.select().from(financeSetting).where(eq(financeSetting.tenantId,scope.tenantId)).limit(1)
  ]);
  const subtotal=rounds.reduce((sum,r)=>sum+r.totalMinor,0);
  const c=check[0];
- const values=c??calculate(subtotal,{taxRateBps:0,taxInclusive:false,
-   serviceRateBps:0,serviceFixedMinor:0,receiptFooter:""});
+ const p=charges[0];
+ const values=c??calculate(subtotal,{taxRateBps:p?.taxRateBps??0,taxInclusive:p?.taxInclusive??false,
+   serviceRateBps:p?.serviceRateBps??0,serviceFixedMinor:p?.serviceFixedMinor??0,receiptFooter:""});
  const lines=rounds.length?await db.select({nameFa:orderLine.itemNameFa,namePs:orderLine.itemNamePs,
    nameEn:orderLine.itemNameEn,quantity:orderLine.quantity,lineTotalMinor:orderLine.lineTotalMinor})
     .from(orderLine).where(and(eq(orderLine.tenantId,scope.tenantId),

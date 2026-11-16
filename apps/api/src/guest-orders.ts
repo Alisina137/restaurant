@@ -7,6 +7,7 @@ import {diningTable,diningVisit,guestSubmission,guestVisitPin,guestVisitSession,
 import {bodyObject,fail,field,int,route} from "./menu-helpers";
 import {orderChanged,parseOrder,priceLines,type CartLine} from "./order-core";
 import {bumpGuest,guestAccess,type GuestScope,type Tx} from "./guest-security";
+import {orderGuard} from "./finance-core";
 
 export const guestOrdersRouter=Router();
 type Submission=typeof guestSubmission.$inferSelect;
@@ -17,6 +18,7 @@ export async function acceptGuest(tx:Tx,scope:Scope,order:Submission,approvedBy:
  const [visit]=await tx.select().from(diningVisit).where(and(eq(diningVisit.id,order.visitId),
    eq(diningVisit.tenantId,scope.tenantId),eq(diningVisit.locationId,scope.locationId))).limit(1);
  if(!visit||visit.status!=="open")fail(409,"VISIT_LOCKED","This table visit has closed.");
+ await orderGuard(tx,scope,order.visitId);
  const [session]=await tx.select().from(guestVisitSession)
    .where(and(eq(guestVisitSession.id,order.guestSessionId),
      eq(guestVisitSession.tenantId,scope.tenantId))).limit(1);
@@ -67,6 +69,7 @@ guestOrdersRouter.post("/orders",route(async(req,res)=>{
  const scope=await guestAccess(req),cart=parseOrder(bodyObject(req)),now=new Date();
  const created=await db.transaction(async tx=>{
    await lockedGuest(tx,scope);
+   await orderGuard(tx,scope,scope.visitId);
    const [existing]=await tx.select().from(guestSubmission).where(and(
      eq(guestSubmission.guestSessionId,scope.sessionId),
      eq(guestSubmission.idempotencyKey,cart.idempotencyKey))).limit(1);
