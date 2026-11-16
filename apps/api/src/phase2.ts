@@ -221,6 +221,7 @@ staffRouter.patch("/staff/:id", route(async (req, res) => {
           .where(and(eq(tenantMembership.tenantId, data.tenantId), eq(tenantMembership.role, "owner"), eq(tenantMembership.status, "active")));
         if ((owners[0]?.total ?? 0) <= 1) return "LAST_OWNER";
       }
+      if(target.status!=="active"&&status==="active")await enforceLimit(tx,data.tenantId,"staff");
       await tx.update(tenantMembership).set({ role, status })
         .where(and(eq(tenantMembership.id, target.id), eq(tenantMembership.tenantId, data.tenantId)));
       await tx.insert(auditEvent).values({ id: randomUUID(), userId: data.person.id, tenantId: data.tenantId,
