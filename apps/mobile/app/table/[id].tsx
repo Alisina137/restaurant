@@ -10,6 +10,7 @@ import {theme} from "../../src/theme";
 import {o5} from "../../src/order-copy";
 import {price} from "../../src/order-types";
 import {gm7} from "../../src/guest-copy";
+import {sr8,type ServiceList} from "../../src/service-copy";
 import {type GuestPin,type GuestApprovalPage} from "../../src/guest-types";
 export default function TableDetails(){
  const {id}=useLocalSearchParams<{id:string}>(),{locale}=useLocale(),rtl=direction(locale)==="rtl";
@@ -17,6 +18,7 @@ export default function TableDetails(){
  const [rounds,setRounds]=useState<{id:string;roundNumber:number;status:string;totalMinor:number;createdAt:string}[]>([]);
  const [estimate,setEstimate]=useState<number|null>(null);
  const [guestPin,setGuestPin]=useState<GuestPin|null>(null),[pendingGuest,setPendingGuest]=useState(0);
+ const [serviceRequests,setServiceRequests]=useState<ServiceList["items"]>([]);
  const [party,setParty]=useState("2"),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const load=useCallback(async(quiet=false)=>{
   if(!quiet)setLoading(true);setError("");
@@ -27,12 +29,13 @@ export default function TableDetails(){
    if(result.table.visitId){
     try{const pin=await floorRequest<GuestPin>("/api/guest/staff/visits/"+encodeURIComponent(result.table.visitId)+"/pin");setGuestPin(pin);}catch{setGuestPin(null);}
     try{const guest=await floorRequest<GuestApprovalPage>("/api/guest/staff/approvals?status=pending&tableId="+encodeURIComponent(result.table.id));setPendingGuest(guest.total);}catch{setPendingGuest(0);}
+    try{const x=await floorRequest<ServiceList>("/api/service/requests?status=active&tableId="+encodeURIComponent(result.table.id));setServiceRequests(x.items);}catch{setServiceRequests([]);}
     try{
       const orders=await floorRequest<{rounds:{id:string;roundNumber:number;status:string;totalMinor:number;createdAt:string}[];estimateMinor:number}>(
         "/api/orders/visits/"+encodeURIComponent(result.table.visitId)+"/rounds");
       setRounds(orders.rounds);setEstimate(orders.estimateMinor);
     }catch{setRounds([]);setEstimate(null);}
-   }else{setRounds([]);setEstimate(null);setGuestPin(null);setPendingGuest(0);}
+   }else{setRounds([]);setEstimate(null);setGuestPin(null);setPendingGuest(0);setServiceRequests([]);}
    if(!quiet)setParty(String(Math.min(2,result.table.seats)));
   }catch(e){
    if(e instanceof FloorRequestError&&e.status===401){router.replace("/sign-in");return;}
@@ -146,6 +149,18 @@ export default function TableDetails(){
       <Pressable style={styles.primary} onPress={()=>router.push({pathname:"/visit/[id]/new-order",params:{id:table.visitId!}})}>
         <Ionicons name="add-circle-outline" color="white" size={21}/>
         <Text style={styles.primaryText}>{o5(locale,"addRound")}</Text></Pressable>
+    </View>}
+    {table.status==="occupied"&&canOpen&&table.visitId&&<View style={styles.panel}>
+      <View style={[styles.row,{flexDirection:rtl?"row-reverse":"row"}]}>
+        <Ionicons name="notifications-outline" size={23} color={theme.brand}/>
+        <Text style={styles.sectionTitle}>{sr8(locale,"requests")} · {serviceRequests.length}</Text>
+      </View>
+      {serviceRequests.slice(0,3).map(r=><Text key={r.id} style={[styles.value,{textAlign:rtl?"right":"left"}]}>
+       {sr8(locale,r.type)} · {sr8(locale,r.status==="pending"?"pending":"acknowledged")}</Text>)}
+      {!serviceRequests.length&&<Text style={styles.muted}>{sr8(locale,"empty")}</Text>}
+      <Pressable style={styles.primary} onPress={()=>router.push("/requests")}>
+        <Ionicons name="notifications-outline" size={19} color="white"/>
+        <Text style={styles.primaryText}>{sr8(locale,"view")}</Text></Pressable>
     </View>}
     {table.status==="cleaning"&&canOpen&&<Pressable style={[styles.primary,busy&&styles.disabled]}
       disabled={busy} onPress={makeReady}><Ionicons name="checkmark-circle-outline" size={20} color="white"/>

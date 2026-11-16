@@ -889,3 +889,13 @@ a { color:inherit; text-decoration:none; }
 .guest-help-row small,.guest-help-row time{font-size:11px;color:#6a8274}
 .guest-help-row p{margin:0;font-size:12px;line-height:1.5;color:#607569;white-space:pre-wrap}
 @media(max-width:385px){.guest-help-grid{grid-template-columns:1fr}.guest-help-option{min-height:100px}}
+
+.service-console-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start}
+.service-console-card{display:grid;gap:14px}
+.service-console-card h2{font-size:20px;margin:6px 0 0}
+.service-console-top{display:flex;align-items:center;justify-content:space-between}
+.service-console-icon{width:45px;height:45px;display:grid;place-items:center;background:#e7f6ec;color:#16845e;border-radius:14px}
+.service-console-note{color:#516c5e;font-size:13px;line-height:1.6;white-space:pre-wrap}
+.service-console-actions{display:grid;gap:10px}
+.service-console-actions input{min-height:45px;border:1px solid #dae7dd;border-radius:10px;padding:11px;background:#fff;color:#254d3c}
+.service-console-actions button{min-height:44px;justify-content:center}

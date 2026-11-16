@@ -61,8 +61,8 @@ export function CashierChecks({area="cashier"}:{area?:"cashier"|"app"}){
        onChange={e=>{setQuery(e.target.value);setPage(1);}} placeholder={f9(locale,"search")}
        aria-label={f9(locale,"search")}/></label>
    </div>
-   {tab==="requested"&&<div className="finance-info"><ShieldCheck size={20}/>
-     <span>{f9(locale,"requestedComing")}</span></div>}
+   {tab==="requested"&&data?.total===0&&<div className="finance-info"><ShieldCheck size={20}/>
+     <span>{f9(locale,"noChecks")}</span></div>}
    {error&&<div className="form-error" role="alert">{error}
      <button className="text-link" onClick={()=>void load()}>{f9(locale,"retry")}</button></div>}
    {loading&&!data?<div className="list-skeleton settings-card"><span/><span/><span/></div>:

@@ -11,6 +11,7 @@ import { floorRequest } from "../../src/floor-api";
 import { f, type Board } from "../../src/floor";
 import { o5 } from "../../src/order-copy";
 import {gm7} from "../../src/guest-copy";
+import {sr8} from "../../src/service-copy";
 export default function Home() {
   const { locale, changeLocale } = useLocale();
   const [identity, setIdentity] = useState<Identity | null>(null);
@@ -19,6 +20,7 @@ export default function Home() {
   const [alerts,setAlerts]=useState<{id:string;roundId:string;tableLabel:string;lastNotifiedAt:string}[]|null>(null);
   const [unreadCount,setUnreadCount]=useState<number|null>(null);
   const [guestPending,setGuestPending]=useState<number|null>(null);
+  const [servicePending,setServicePending]=useState<number|null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const rtl = direction(locale) === "rtl";
@@ -33,13 +35,14 @@ export default function Home() {
        floorRequest<Board>("/api/floor/tables/board"),
        floorRequest<{active:number;ready:number}>("/api/orders/my/stats")]);
        setFloor(b);setOrdersStat(stats);
+       try{const requests=await floorRequest<{active:number}>("/api/service/requests/count");setServicePending(requests.active);}catch{setServicePending(null);}
        try{const x=await floorRequest<{pending:number}>("/api/guest/staff/approvals/count");setGuestPending(x.pending);}catch{setGuestPending(null);}
         try{
           const notices=await floorRequest<{items:{id:string;roundId:string;tableLabel:string;lastNotifiedAt:string}[];unread:number}>(
            "/api/orders/notifications?unread=1&page=1");
           setAlerts(notices.items.slice(0,3));setUnreadCount(notices.unread);
         }catch{setAlerts(null);setUnreadCount(null);}
-      } catch { setFloor(null);setOrdersStat(null);setAlerts(null);setUnreadCount(null); }
+      } catch { setFloor(null);setOrdersStat(null);setAlerts(null);setUnreadCount(null);setServicePending(null); }
     } catch (e) {
       const message = String(e);
       if (message.includes("401")) { router.replace("/sign-in"); return; }
@@ -77,6 +80,15 @@ export default function Home() {
           <Text style={styles.title}>{floor?floor.tables.filter(t=>t.visitId&&t.assignedWaiterId===floor.actorId).length:"—"}</Text>
           <Pressable accessibilityRole="button" onPress={()=>router.push("/(main)/tables")} style={styles.action}>
             <Text style={styles.actionText}>{f(locale,"openTables")}</Text></Pressable>
+        </View>
+        <View style={styles.panel}>
+          <View style={[styles.panelRow,{flexDirection:rtl?"row-reverse":"row"}]}>
+            <Ionicons name="notifications-outline" size={24} color={theme.brand}/>
+            <Text style={styles.sectionTitle}>{sr8(locale,"requests")}</Text></View>
+          <Text style={styles.title}>{servicePending??"—"}</Text>
+          <Text style={styles.muted}>{sr8(locale,"attention")}</Text>
+          <Pressable style={styles.action} onPress={()=>router.push("/requests")}>
+            <Text style={styles.actionText}>{sr8(locale,"view")}</Text></Pressable>
         </View>
         <View style={styles.panel}>
           <View style={[styles.panelRow,{flexDirection:rtl?"row-reverse":"row"}]}>
