@@ -104,7 +104,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
  const {workspace}=useWorkspace(),locale=workspace.locale;
  const [page,setPage]=useState(1),[data,setData]=useState<Page<TicketRow>|null>(null);
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
- const [selected,setSelected]=useState<string|null>(null),[status,setStatus]=useState("all"),
+ const [selected,setSelected]=useState<string|null>(null),[businessZone,setBusinessZone]=useState("Asia/Kabul"),[status,setStatus]=useState("all"),
   [table,setTable]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState(""),
   [applied,setApplied]=useState({status:"all",table:"",from:"",to:""});
  const [now,setNow]=useState(0),[connected,setConnected]=useState(false),[lastSync,setLastSync]=useState<number|null>(null);
@@ -128,8 +128,8 @@ export function KitchenOperations({tab}:{tab:Tab}){
    setError("");
    try{
      if(tab==="history"){
-       const result=await jsonRequest<Page<HistoryRow>>(path);
-       setData({items:result.items.map(x=>({...x,id:x.roundId,ticketId:x.id,ticketVersion:x.version,
+       const result=await jsonRequest<Page<HistoryRow>&{timezone:string}>(path);
+       setBusinessZone(result.timezone);setData({items:result.items.map(x=>({...x,id:x.roundId,ticketId:x.id,ticketVersion:x.version,
          submittedBy:"",orderNote:""})),total:result.total,page:result.page,perPage:result.perPage});
      }else{
        const result=await jsonRequest<WebPage>(path);
@@ -241,7 +241,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
      <label className="field"><span>{k6(locale,"toDate")}</span>
        <input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label>
      <button className="button button-primary" type="submit">{k6(locale,"query")}</button>
-     <p className="muted">{k6(locale,"filterHint")}</p>
+     <p className="muted">{k6(locale,"filterHint")} · {businessZone}</p>
    </form>}
    {loading&&!data?<div className="list-skeleton"><span/><span/><span/></div>:
      rows.length?tab==="history"?<div className="settings-card kitchen-history-list">

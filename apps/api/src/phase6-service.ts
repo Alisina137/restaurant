@@ -2,7 +2,7 @@ import {Router} from "express";
 import {and,asc,desc,eq,gt,gte,inArray,isNull,lt,lte,ne,count,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
-import {diningVisit,kitchenTicket,orderLine,orderOutbox,orderRound,staffNotification,orderActivity} from "./schema";
+import {diningVisit,kitchenTicket,orderLine,orderOutbox,orderRound,staffNotification,orderActivity,restaurantSetting} from "./schema";
 import {bodyObject,fail,int,route,field} from "./menu-helpers";
 import {kitchenScope,orderChanged,orderId,orderScope,type OrderScope} from "./order-core";
 
@@ -249,22 +249,27 @@ serviceRouter.get("/kitchen/history",route(async(req,res)=>{
  const table=typeof req.query.table==="string"?field(req.query.table,100,"Table",1):"";
  const start=typeof req.query.from==="string"?req.query.from:"";
  const end=typeof req.query.to==="string"?req.query.to:"";
- const parseDate=(value:string,finish:boolean)=>{
+ const parseDate=(value:string)=>{
    if(!/^\d{4}-\d{2}-\d{2}$/.test(value))fail(400,"INVALID_DATE","Use YYYY-MM-DD format.");
    const date=new Date(value+"T00:00:00.000Z");
    if(Number.isNaN(date.getTime())||date.toISOString().slice(0,10)!==value)
      fail(400,"INVALID_DATE","Invalid calendar date.");
-   if(finish)date.setUTCDate(date.getUTCDate()+1);
-   return date;
+   return value;
  };
- const after=start?parseDate(start,false):undefined;
- const before=end?parseDate(end,true):undefined;
- if(after&&before&&after>=before)fail(400,"INVALID_RANGE","End must not precede start date.");
+ const after=start?parseDate(start):undefined;
+ const before=end?parseDate(end):undefined;
+ if(after&&before&&after>before)fail(400,"INVALID_RANGE","End must not precede start date.");
+ const [setting]=await db.select({timezone:restaurantSetting.timezone}).from(restaurantSetting)
+   .where(eq(restaurantSetting.tenantId,scope.tenantId)).limit(1);
+ const timezone=setting?.timezone??"Asia/Kabul";
+ // The physical business day follows the restaurant's configured IANA time zone.
+ // UTC timestamps are never reinterpreted by the client's device locale.
+ const businessDate=sql`(${kitchenTicket.createdAt} AT TIME ZONE ${timezone})::date`;
  const where=and(eq(kitchenTicket.tenantId,scope.tenantId),eq(kitchenTicket.locationId,scope.locationId),
    status!=="all"?eq(kitchenTicket.status,status):undefined,
    table?eq(kitchenTicket.tableId,table):undefined,
-   after?gte(kitchenTicket.createdAt,after):undefined,
-   before?lt(kitchenTicket.createdAt,before):undefined);
+   after?sql`${businessDate} >= ${after}::date`:undefined,
+   before?sql`${businessDate} <= ${before}::date`:undefined);
  const [items,totals]=await Promise.all([
    db.select({id:kitchenTicket.id,roundId:kitchenTicket.roundId,visitId:kitchenTicket.visitId,
      tableId:kitchenTicket.tableId,tableLabel:kitchenTicket.tableLabel,
@@ -277,5 +282,5 @@ serviceRouter.get("/kitchen/history",route(async(req,res)=>{
    db.select({total:count()}).from(kitchenTicket).where(where)
  ]);
  res.setHeader("Cache-Control","no-store");
- res.json({items,total:totals[0]?.total??0,page,perPage:20});
+ res.json({items,total:totals[0]?.total??0,page,perPage:20,timezone});
 }));

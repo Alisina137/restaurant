@@ -112,6 +112,16 @@ async function main(){
    await req("/api/orders/kitchen/history?status=served",undefined,undefined,kitchen),200);
  assert.ok(history.items.some(x=>x.id===initial.id));
  assert.ok(history.items.some(x=>x.id===secondTicket.id));
+ const segments=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Kabul",year:"numeric",
+   month:"2-digit",day:"2-digit"}).formatToParts(initial.createdAt);
+ const part=(type:string)=>segments.find(x=>x.type===type)?.value??"";
+ const businessDay=part("year")+"-"+part("month")+"-"+part("day");
+ const localHistory=await json<{timezone:string;items:{id:string}[]}>(await req(
+   "/api/orders/kitchen/history?status=served&from="+businessDay+"&to="+businessDay,
+   "GET",undefined,kitchen),200);
+ assert.equal(localHistory.timezone,"Asia/Kabul");
+ assert.ok(localHistory.items.some(x=>x.id===initial.id),
+   "business-date filters follow the restaurant's timezone");
  assert.equal((await req("/api/orders/kitchen/history?from=2026-99-99","GET",undefined,kitchen)).status,400);
  assert.equal((await req("/api/orders/kitchen/history?status=bogus","GET",undefined,kitchen)).status,400);
  const outside=await json<{items:{id:string}[]}>(
