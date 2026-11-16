@@ -1,30 +1,36 @@
-# DineFlow Project State
-**Product Specification:** v1.0 (2026-11-15). **Workflow:** Software Development Workflow V5.
-**Repository:** Alisina137/restaurant. **Delivery branch:** phase-02-onboarding-staff.
+# DineFlow — Current Project State
+**Product specification:** v1.0. **Development workflow:** V5. Repository: `Alisina137/restaurant`.
 
-## Phase 2 — Tenant onboarding, staff invitations, platform bootstrap
-**Implementation status:** IMPLEMENTED — LIVE BROWSER/DEVICE VERIFICATION PENDING. GitHub Actions CI passed for commit 177a184: run 43727729440 (types, tests, Next build, PostgreSQL migrations, P01 and P02 API integration).
+## Implementation
+- **P01**: identity, role-aware workspaces, API/DB, localization. Earlier CI passed; physical-device QA outstanding.
+- **P02**: verified owner onboarding, invitations, staff roles, restaurant settings, platform bootstrap. Earlier CI passed; live browser and production email deliverability QA outstanding.
+- **P03**: menu catalog implementation in `phase-03-menu-catalog`; require passing GitHub CI and merge into main. Physical browser/device QA pending.
 
-### Scoped delivered features (P02 F01/F02/F15/F16)
-- Public owner account registration through Better Auth (verified email required for tenant creation). No role granted merely by account signup.
-- Four-step owner setup: Account → Restaurant → Service Defaults → Review, with server-persisted drafts, unique slug, one location, tenant owner membership, initial settings and trial in a single database transaction; duplicate completion safe.
-- Permissioned owner/manager staff Directory / Invitations / Permissions tabs. Edit/disable roles and memberships, protect last owner, immediately deny new API access for deactivated staff. Invitations: 48-hour expiry, one-time hash token, matching verified email, revoke, resend with rotating token.
-- Production mail uses Resend API if configured. Clearly development-only console delivery available through DEV_EMAIL_DELIVERY=console; production cannot use it. Failed delivery is explicit with retry, never displays secrets in the UI.
-- Owner settings: Restaurant / Localization / Security; manager read-only; validated server-saved values, audit trail, configurable manager invitation right. Locale Dari/Pashto/English; AFN default; customer ordering policy captured but ordering does not ship in this phase.
-- Initial platform administrator oversight: restaurant metadata list/detail. No automatic admin access to a tenant's private orders.
-- Restaurant setup Overview checklist; live staff count/pending invite count/location info. Menu and table stages deliberately not active until P03 and P04.
-- Shared role-sensitive navigation extends only implemented destinations; persists through loading and RTL/LTR.
+### P03 scope (F03, PG-30, AT-003)
+- Owner/manager menu navigation has four functional tabs: **Items, Categories, Modifier Groups, Availability**. Uses stable app shell, responsive RTL/LTR layout, loading/empty/error/retry and server-backed pagination.
+- Categories: localizable names, publishing, sorting, versioned edits, safe non-destructive archive; active meals block archive, published meals block unpublish.
+- Items: localized fields, optional SKU (case-insensitive unique per location), integer-minor-unit AFN pricing, allergens, prep estimate, photo, modifier attachments, publish/draft, safe duplication and archive.
+- Modifier groups: single/multi choice, required min/max constraints, priced localized options and archived dependencies; version-aware mutations.
+- Availability: per-item and page-batch sold-out status with reason, optimistic versions and transaction rollback. Authenticated staff-readable catalog plus authenticated catalog version stream and polling fallback.
+- Media: image type/size/pixel verification, automatic resize and WebP optimization with private per-tenant access. Persistent `MEDIA_LOCAL_DIR` is required in production. Current storage is local filesystem (suitable for a single instance or shared mounted volume); S3/CDN is not claimed.
+- UI menu preview is read-only; **no fake order submission** until P05 and no guest QR until P07.
+- All edits derive restaurant and branch IDs from active authenticated membership, enforce DB constraints, are audited, and advance catalog revision.
 
-### Verification and known limits
-- P01 GitHub Actions run 43722995802 previously passed PostgreSQL migration/seed, web build, typechecks, API smoke.
-- GitHub Actions CI run 43727729440 passed, including P02 live API integration. P02 adds an isolated integration test for owner registration, draft resume, slug collision, idempotent creation, invitations and revocation, role permissions, tenant isolation, platform overview. CI config runs on phase branches, then production-build, PostgreSQL migration and real API integration.
-- No local browser or Expo Go device test was performed by this execution environment. Confirm web responsive/RTL screen results on Windows and phone before calling P02 fully verified.
-- External email provider/verified sender domain required for actual invite and email verification in production. No invented fallback or secret published. Trial is a configurable 14-day **proposed** pilot default; paid plans/billing remain P12.
-- Production signup must be tested with configured email delivery before launch; keep secrets out of Git.
+### Automated verification
+- CI runs TypeScript checks, unit tests, Next production build, PostgreSQL migrations, seed and P01/P02/P03 integration.
+- P03 scenario validates category/option validation, SKU collision, optimistic version failure, tenant isolation, image decode, publish/sold-out propagation, duplication as unpublished draft, archives and catalog data.
+- Live responsive/browser/Expo Go QA still required. Historical price snapshots will be introduced alongside accepted orders in P05; P03 does not yet record orders.
+- The **initial 14-day trial is a pilot configuration** rather than implemented billing; subscriptions come in P12.
 
-### Next approved phase
-P03 — menu categories/items, modifiers, publication and availability. Preserve all P02 role/tenant security and navigation patterns.
+## Next
+P04 — sections, restaurant tables, active visits, assigned waiters and safe collision handling.
 
-### Commands
-- From C:\\projects\\restaurant: git pull --ff-only origin main; pnpm install; pnpm db:migrate.
-- pnpm dev:api, pnpm dev:web, pnpm dev:mobile in separate terminals; set environment per examples.
+## Local commands
+```powershell
+cd C:\projects\restaurant
+git pull --ff-only origin main
+pnpm install
+pnpm db:migrate
+pnpm dev:api
+pnpm dev:web
+```
