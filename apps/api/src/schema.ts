@@ -532,3 +532,28 @@ export const checkReceipt=pgTable("check_receipts",{
  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
  reprintCount:integer("reprint_count").notNull().default(0)
 },t=>[index("check_receipt_history_idx").on(t.tenantId,t.locationId,t.createdAt)]);
+
+/** P08 visit-scoped service calls, bill requests and staff resolution timeline. */
+export const serviceRequest=pgTable("service_requests",{
+ id:text("id").primaryKey(),
+ tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ visitId:text("visit_id").notNull().references(()=>diningVisit.id),
+ tableId:text("table_id").notNull().references(()=>diningTable.id),
+ guestSessionId:text("guest_session_id").references(()=>guestVisitSession.id),
+ createdBy:text("created_by").references(()=>user.id),
+ type:text("type").notNull(),
+ note:text("note").notNull().default(""),
+ status:text("status").notNull().default("pending"),
+ version:integer("version").notNull().default(1),
+ acknowledgedBy:text("acknowledged_by").references(()=>user.id),
+ acknowledgedAt:timestamp("acknowledged_at",{withTimezone:true}),
+ resolvedBy:text("resolved_by").references(()=>user.id),
+ resolvedAt:timestamp("resolved_at",{withTimezone:true}),
+ resolutionNote:text("resolution_note").notNull().default(""),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+ updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[
+ index("service_requests_inbox_idx").on(t.tenantId,t.locationId,t.status,t.createdAt),
+ index("service_requests_visit_idx").on(t.visitId,t.createdAt)
+]);
