@@ -86,6 +86,6 @@ catalogRouter.get("/events",route(async(req,res)=>{
     finally{busy=false;}
   };
   const timer=setInterval(()=>{void send();},4000);
-  req.on("close",()=>{closed=true;clearInterval(timer);});
+  res.on("close",()=>{closed=true;clearInterval(timer);});
   await send();
 }));

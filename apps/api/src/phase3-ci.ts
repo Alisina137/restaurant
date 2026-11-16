@@ -47,6 +47,19 @@ async function main(){
   assert.equal((await call("/api/menu/editor",{cookie:kitchen})).status,403,"kitchen cannot edit menu");
   assert.equal((await call("/api/menu/catalog",{cookie:platform})).status,403,"platform cannot read private menu");
   const revisionBefore=await expect<{version:number}>(await call("/api/menu/revision",{cookie:owner}),200);
+  const streamController=new AbortController();
+  try{
+    const stream=await fetch(URL+"/api/menu/events",{headers:{Origin:"http://localhost:3000",Cookie:owner},
+      signal:streamController.signal});
+    assert.equal(stream.status,200,"authenticated catalog revision stream");
+    assert.match(stream.headers.get("content-type")??"",/text\\/event-stream/);
+    const first=await Promise.race([
+      stream.body!.getReader().read(),
+      new Promise<never>((_resolve,reject)=>setTimeout(()=>reject(new Error("SSE first revision timed out")),6000))
+    ]);
+    assert.match(new TextDecoder().decode(first.value),/event: catalog/,"SSE emits initial revision");
+  } finally {streamController.abort();}
+
   const c1=await expect<{id:string}>(await call("/api/menu/categories",{cookie:owner,method:"POST",body:cat("غذاهای گرم")}),201);
   const c2=await expect<{id:string}>(await call("/api/menu/categories",{cookie:owner,method:"POST",body:cat("نوشابه‌ها",true)}),201);
   assert.equal((await call("/api/menu/categories",{cookie:owner,method:"POST",body:cat("غذاهای گرم")})).status,409,"duplicate active name rejected");
