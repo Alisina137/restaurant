@@ -1,7 +1,7 @@
-import {useCallback,useState} from "react";
+import {useCallback,useEffect,useState} from "react";
 import {ActivityIndicator,Pressable,RefreshControl,ScrollView,StyleSheet,Text,View} from "react-native";
 import {Ionicons} from "@expo/vector-icons";
-import {router,useFocusEffect} from "expo-router";
+import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {direction} from "@dineflow/shared";
 import {useLocale} from "../../src/locale";
 import {theme} from "../../src/theme";
@@ -11,7 +11,9 @@ import {price,type OrderSummary,type Page} from "../../src/order-types";
 type Status="active"|"ready"|"completed";
 export default function Orders(){
  const {locale}=useLocale(),rtl=direction(locale)==="rtl";
- const [tab,setTab]=useState<Status>("active"),[page,setPage]=useState(1);
+ const params=useLocalSearchParams<{tab?:string}>();
+ const [tab,setTab]=useState<Status>(params.tab==="ready"?"ready":params.tab==="completed"?"completed":"active"),[page,setPage]=useState(1);
+ useEffect(()=>{if(params.tab==="ready"||params.tab==="completed"||params.tab==="active"){setTab(params.tab);setPage(1);setData(null);}},[params.tab]);
  const [data,setData]=useState<Page<OrderSummary>|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState("");
  const load=useCallback(async(silent=false)=>{
   if(!silent)setLoading(true);

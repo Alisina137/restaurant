@@ -7,17 +7,26 @@ import {floorRequest,FloorRequestError} from "../../src/floor-api";
 import {f,type Board,type Status,type Table} from "../../src/floor";
 import {useLocale} from "../../src/locale";
 import {theme} from "../../src/theme";
+import {o5} from "../../src/order-copy";
+import {type Page,type OrderSummary,price} from "../../src/order-types";
 type Tab="all"|"mine"|"attention";
 const allStates:Status[]=["available","occupied","cleaning","disabled"];
 export default function Tables(){
  const {locale}=useLocale(),rtl=direction(locale)==="rtl";
- const [data,setData]=useState<Board|null>(null),[tab,setTab]=useState<Tab>("all");
+ const [data,setData]=useState<Board|null>(null),[ready,setReady]=useState<OrderSummary[]>([]),[tab,setTab]=useState<Tab>("all");
  const [filter,setFilter]=useState<Status|null>(null),[query,setQuery]=useState("");
  const [busy,setBusy]=useState(true),[error,setError]=useState("");
  const load=useCallback(async(quiet=false)=>{
   if(!quiet)setBusy(true);
   setError("");
-  try{setData(await floorRequest<Board>("/api/floor/tables/board"));}
+  try{
+   const board=await floorRequest<Board>("/api/floor/tables/board");
+   setData(board);
+   try{
+    const orders=await floorRequest<Page<OrderSummary>>("/api/orders/my?status=ready&page=1");
+    setReady(orders.items);
+   }catch{setReady([]);}
+  }
   catch(e){
    if(e instanceof FloorRequestError&&e.status===401){router.replace("/sign-in");return;}
    setError(e instanceof Error?e.message:f(locale,"offline"));
@@ -64,13 +73,32 @@ export default function Tables(){
     <Text style={styles.errorText}>{error}</Text>
     <Pressable accessibilityRole="button" onPress={()=>void load()}><Text style={styles.retry}>{f(locale,"retry")}</Text></Pressable></View>}
   {!data&&busy?<View style={styles.center}><ActivityIndicator size="large" color={theme.brand}/><Text style={styles.subtle}>{f(locale,"loading")}</Text></View>:
-   tab==="attention"?<View style={styles.empty}><Ionicons name="notifications-off-outline" size={38} color={theme.muted}/>
-     <Text style={[styles.subtle,{textAlign:"center"}]}>{f(locale,"attentionEmpty")}</Text></View>:
+   tab==="attention"?<View style={styles.list}>
+      {ready.length?ready.map(r=><Pressable key={r.id} style={styles.attentionCard}
+       onPress={()=>router.push({pathname:"/order/[id]",params:{id:r.id}})}
+       accessibilityRole="button">
+        <View style={[styles.cardHead,{flexDirection:rtl?"row-reverse":"row"}]}>
+          <View style={styles.alertIcon}><Ionicons name="notifications-outline" size={22} color={theme.brand}/></View>
+          <View style={styles.cardInfo}>
+           <Text style={[styles.cardName,{textAlign:rtl?"right":"left"}]}>{o5(locale,"readyAlert")} · {o5(locale,"table")} {r.tableLabel}</Text>
+           <Text style={[styles.meta,{textAlign:rtl?"right":"left"}]}>
+             {o5(locale,"round")} #{r.roundNumber} · {o5(locale,r.status)}</Text>
+           <Text style={[styles.meta,{textAlign:rtl?"right":"left"}]}>{price(r.totalMinor,locale)}</Text>
+          </View>
+          <Ionicons name={rtl?"chevron-back":"chevron-forward"} size={20} color={theme.brand}/>
+        </View>
+       </Pressable>):<View style={styles.empty}>
+         <Ionicons name="checkmark-circle-outline" size={40} color={theme.brand}/>
+         <Text style={[styles.subtle,{textAlign:"center"}]}>{o5(locale,"noAttention")}</Text></View>}
+      {!!ready.length&&<Pressable style={styles.openOrders}
+       onPress={()=>router.push({pathname:"/(main)/orders",params:{tab:"ready"}})}>
+       <Text style={styles.openOrdersText}>{o5(locale,"showActive")}</Text></Pressable>}
+    </View>:
    visible.length===0?<View style={styles.empty}><Ionicons name="grid-outline" size={40} color={theme.muted}/>
      <Text style={[styles.subtle,{textAlign:"center"}]}>{f(locale,tab==="mine"?"noneMine":"empty")}</Text></View>:
    <View style={styles.list}>{visible.map(table=><TableRow key={table.id} table={table} rtl={rtl} locale={locale}
      onOpen={()=>router.push({pathname:"/table/[id]",params:{id:table.id}})}/>)}</View>}
-  {data&&<Text style={[styles.footer,{textAlign:rtl?"right":"left"}]}>{f(locale,"pilot")}</Text>}
+  {data&&tab==="attention"&&<Text style={[styles.footer,{textAlign:rtl?"right":"left"}]}>{o5(locale,"readyInstructions")}</Text>}
  </ScrollView>;
 }
 function TableRow({table,locale,rtl,onOpen}:{table:Table;locale:import("@dineflow/shared").Locale;rtl:boolean;onOpen:()=>void}){
@@ -93,6 +121,11 @@ function TableRow({table,locale,rtl,onOpen}:{table:Table;locale:import("@dineflo
  </Pressable>;
 }
 const styles=StyleSheet.create({
+ attentionCard:{backgroundColor:"#F8FEFA",borderColor:"#A9D8C1",borderWidth:1,borderRadius:15,padding:16,gap:10},
+ alertIcon:{width:43,height:43,backgroundColor:theme.brandSoft,borderRadius:12,alignItems:"center",justifyContent:"center"},
+ openOrders:{backgroundColor:theme.brand,borderRadius:12,minHeight:49,alignItems:"center",justifyContent:"center"},
+ openOrdersText:{color:"white",fontSize:14,fontWeight:"800"},
+
  screen:{flex:1,backgroundColor:theme.background},
  content:{paddingHorizontal:17,paddingTop:60,paddingBottom:115,gap:16},
  top:{alignItems:"center",justifyContent:"space-between"},

@@ -1,17 +1,17 @@
 import {useCallback,useState} from "react";
-import {ActivityIndicator,Pressable,ScrollView,StyleSheet,Text,View} from "react-native";
+import {ActivityIndicator,Alert,Pressable,ScrollView,StyleSheet,Text,View} from "react-native";
 import {Ionicons} from "@expo/vector-icons";
 import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {direction} from "@dineflow/shared";
 import {useLocale} from "../../src/locale";
 import {theme} from "../../src/theme";
-import {floorRequest} from "../../src/floor-api";
+import {floorRequest,FloorRequestError} from "../../src/floor-api";
 import {o5} from "../../src/order-copy";
 import {type OrderDetail,nameOf,price} from "../../src/order-types";
 export default function OrderDetailScreen(){
  const {id}=useLocalSearchParams<{id:string}>(),{locale}=useLocale(),rtl=direction(locale)==="rtl";
  const [detail,setDetail]=useState<OrderDetail|null>(null),[tab,setTab]=useState<"items"|"activity">("items"),
-  [error,setError]=useState(""),[loading,setLoading]=useState(true);
+  [error,setError]=useState(""),[loading,setLoading]=useState(true),[serving,setServing]=useState(false);
  const load=useCallback(async()=>{
   setLoading(true);setError("");
   try{
@@ -22,6 +22,26 @@ export default function OrderDetailScreen(){
  },[id,locale]);
  useFocusEffect(useCallback(()=>{void load();const interval=setInterval(()=>{void load();},15000);
   return()=>clearInterval(interval);},[load]));
+ async function serve(lineId?:string){
+  if(!id||!detail?.ticket||serving)return;
+  const question=o5(locale,lineId?"confirmServeLine":"confirmServed");
+  Alert.alert(o5(locale,"markServed"),question,[
+   {text:o5(locale,"cancel"),style:"cancel"},
+   {text:o5(locale,"confirm"),onPress:()=>{void executeServe(lineId);}}
+  ]);
+ }
+ async function executeServe(lineId?:string){
+  if(!id||!detail?.ticket)return;
+  setServing(true);setError("");
+  try{
+   const path="/api/orders/rounds/"+encodeURIComponent(id)+(lineId?"/lines/"+encodeURIComponent(lineId):"")+"/serve";
+   await floorRequest(path,{method:"POST",body:{version:detail.ticket.version}});
+   await load();
+  }catch(e){setError(e instanceof FloorRequestError&&e.code==="VERSION_CONFLICT"?
+    o5(locale,"versionConflict"):e instanceof Error?e.message:o5(locale,"failed"));
+    await load();
+  }finally{setServing(false);}
+ }
  const order=detail?.round;
  return <ScrollView style={styles.root} contentContainerStyle={styles.content}>
   <View style={[styles.head,{flexDirection:rtl?"row-reverse":"row"}]}>
@@ -49,9 +69,17 @@ export default function OrderDetailScreen(){
        {nameFa:line.itemNameFa,nameEn:line.itemNameEn,namePs:line.itemNamePs},locale)}</Text>
        <Text style={styles.price}>{price(line.lineTotalMinor,locale)}</Text></View>
       <Text style={styles.muted}>{line.quantity} × {price(line.unitPriceMinor,locale)}</Text>
+      <View style={styles.stateRow}><Ionicons name="time-outline" size={16} color={theme.brand}/>
+       <Text style={styles.stateText}>{o5(locale,line.kitchenStatus)}</Text></View>
       {line.modifierSnapshot.flatMap(g=>g.options.map(opt=>nameOf(opt,locale))).length>0&&
        <Text style={styles.muted}>{line.modifierSnapshot.flatMap(g=>g.options.map(opt=>nameOf(opt,locale))).join(" · ")}</Text>}
       {!!line.note&&<Text style={styles.note}>{o5(locale,"note")}: {line.note}</Text>}
+      {detail.ticket&&["ready","picked_up"].includes(detail.ticket.status)&&
+        ["ready","picked_up"].includes(line.kitchenStatus)&&
+        <Pressable disabled={serving} style={styles.lineAction} onPress={()=>void serve(line.id)}>
+         <Ionicons name="checkmark-circle-outline" size={20} color={theme.brand}/>
+         <Text style={styles.lineActionText}>{o5(locale,"serveLine")}</Text></Pressable>}
+
     </View>)}
     {!!order.orderNote&&<View style={styles.card}><Text style={styles.name}>{o5(locale,"orderNote")}</Text>
        <Text style={styles.muted}>{order.orderNote}</Text></View>}
@@ -64,8 +92,16 @@ export default function OrderDetailScreen(){
     <Ionicons name="checkmark-circle-outline" size={19} color={theme.brand}/>
     <View><Text style={styles.name}>{a.action.replaceAll("_"," ").replaceAll("."," · ")}</Text>
       <Text style={styles.muted}>{new Date(a.createdAt).toLocaleString(locale)}</Text></View></View>)}</View>}
-   <View style={styles.hint}><Text style={styles.muted}>{detail.ticket?.status==="ready"?o5(locale,"readyHint"):
+   <View style={styles.hint}><Text style={styles.muted}>{detail.ticket?.status==="served"?o5(locale,"servedStatus"):
+      detail.ticket?.status==="picked_up"?o5(locale,"handoffStatus"):
+      detail.ticket?.status==="ready"?o5(locale,"readyHint"):
       detail.ticket?.status==="preparing"?o5(locale,"preparingHint"):o5(locale,"newHint")}</Text></View>
+   {detail.ticket&&["ready","picked_up"].includes(detail.ticket.status)&&
+     detail.lines.some(l=>l.kitchenStatus!=="served")&&
+     <Pressable disabled={serving} onPress={()=>void serve()} style={[styles.primary,serving&&{opacity:.6}]}>
+      {serving?<ActivityIndicator color="white"/>:<Ionicons name="checkmark-done-outline" size={20} color="white"/>}
+      <Text style={styles.primaryText}>{o5(locale,"markServed")}</Text></Pressable>}
+
    <Pressable onPress={()=>router.push({pathname:"/visit/[id]/new-order",params:{id:order.visitId}})} style={styles.primary}>
     <Ionicons name="add-outline" size={20} color="white"/><Text style={styles.primaryText}>{o5(locale,"addRound")}</Text></Pressable>
    <Pressable style={styles.secondary} onPress={()=>router.push({pathname:"/table/[id]",params:{id:order.tableId}})}>
@@ -74,6 +110,11 @@ export default function OrderDetailScreen(){
  </ScrollView>;
 }
 const styles=StyleSheet.create({
+ stateRow:{flexDirection:"row",alignItems:"center",gap:7},
+ stateText:{color:theme.brand,fontSize:12,fontWeight:"800"},
+ lineAction:{backgroundColor:"#E8F5ED",padding:12,borderRadius:11,alignItems:"center",justifyContent:"center",flexDirection:"row",gap:9},
+ lineActionText:{fontSize:13,fontWeight:"800",color:theme.brand},
+
  root:{flex:1,backgroundColor:theme.background},content:{paddingHorizontal:18,paddingTop:55,paddingBottom:60,gap:14},
  head:{alignItems:"center",justifyContent:"space-between",gap:10},title:{color:theme.ink,fontSize:20,fontWeight:"800"},
  icon:{width:42,height:42,borderRadius:12,backgroundColor:theme.brandSoft,alignItems:"center",justifyContent:"center"},
