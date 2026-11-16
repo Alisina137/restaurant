@@ -178,7 +178,7 @@ async function main(){
  assert.equal(rejection.status,"rejected");
  assert.equal((await call("/api/service/changes","POST",{
      lineId:secondLine.id,reason:"Too late",idempotencyKey:"p08-change-"+randomUUID()},waiter)).status,409);
- const page=await expect<{items:{id:string;status:string}[]}>(
+ const page=await expect<{items:{id:string;status:string;version:number}[]}>(
     await call("/api/service/requests?status=active","GET",undefined,owner),200);
  const billRequest=page.items.find(x=>x.id===bill.id);assert.ok(billRequest);
  await expect<{status:string}>(await call("/api/service/requests/"+bill.id+"/resolve",
