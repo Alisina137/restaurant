@@ -4,6 +4,7 @@ import {randomUUID} from "node:crypto";
 import {db} from "./db";
 import {diningTable,diningVisit,orderRound} from "./schema";
 import {activeVisitFor} from "./floor-tables";
+import {subscriptionGate} from "./phase12-entitlements";
 import {bodyObject,bump,ensureAssigned,fail,field,floorRoute,floorScope,int,recordId} from "./floor-helpers";
 
 export const visitRouter=Router();
@@ -20,6 +21,9 @@ visitRouter.post("/tables/:id/open",floorRoute(async(req,res)=>{
     if(!table.active)fail(409,"TABLE_DISABLED","Disabled tables cannot seat guests.");
     const existing=await activeVisitFor(tx,id);
     if(existing)return {visit:existing,created:false};
+    // A shared tenant row lock orders new visits against platform suspension.
+    await tx.execute(sql`SELECT id FROM tenants WHERE id=${scope.tenantId} FOR SHARE`);
+    await subscriptionGate(tx,scope.tenantId);
     if(table.cleaning)fail(409,"CLEANING","Mark the table available after cleaning.");
     if(!table.assignedWaiterId)
       fail(409,"ASSIGN_WAITER_FIRST","Assign an active waiter before opening a visit.");

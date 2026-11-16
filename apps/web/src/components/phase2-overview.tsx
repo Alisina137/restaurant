@@ -7,6 +7,7 @@ import { jsonRequest, type PageResult } from "@/lib/phase2-api";
 import { p2 } from "@/lib/phase2-copy";
 import {r11} from "@/lib/report-copy";
 import {money} from "@/lib/finance-types";
+import {PlatformDashboard} from "./phase12-platform";
 import type {OverviewReport} from "@/lib/report-types";
 type Setup={restaurant:string;location:{name:string;city:string}|null;teamCount:number;pendingInvites:number;trialExpiresAt:string|null};
 type Org={id:string;name:string;slug:string;status:string;createdAt:string};
@@ -82,23 +83,4 @@ export function RestaurantOverview(){
     </>}
   </div>;
 }
-export function PlatformOverview(){
-  const {workspace}=useWorkspace(),locale=workspace.locale;
-  const [data,setData]=useState<PageResult<Org>|null>(null),[error,setError]=useState("");
-  useEffect(()=>{void jsonRequest<PageResult<Org>>("/api/platform/restaurants?page=1").then(setData)
-    .catch(e=>setError(e instanceof Error?e.message:p2(locale,"error")));},[locale]);
-  return <div className="content-stack"><div className="page-heading"><div><div className="eyebrow">DINEFLOW PLATFORM</div>
-      <h1>{p2(locale,"platformOverview")}</h1><p>{p2(locale,"operationalDataPrivate")}</p></div>
-      <span className="status-pill"><BadgeCheck size={16}/>{p2(locale,"active")}</span></div>
-    <div className="overview-hero"><span className="hero-icon"><Building2 size={30}/></span>
-      <div><h2>{p2(locale,"recentRestaurants")}</h2><p>{p2(locale,"planLater")}</p></div></div>
-    {error&&<p className="form-error" role="alert">{error}</p>}
-    <div className="stat-grid"><div className="stat-card"><span><Building2 size={20}/>{p2(locale,"businesses")}</span>
-      <strong>{data?.total??"—"}</strong></div></div>
-    <section className="settings-card"><div className="section-heading"><h2>{p2(locale,"recentRestaurants")}</h2>
-      <Link className="button button-primary" href="/platform/restaurants">{p2(locale,"open")}</Link></div>
-      {data?.items.length?data.items.slice(0,5).map(item=><Link key={item.id} className="recent-link" href={"/platform/restaurants/"+item.id}>
-        <Building2 size={19}/><strong>{item.name}</strong><span className="data-badge trial">{item.status}</span><ArrowUpRight size={17}/></Link>):
-        <p className="muted">{data?p2(locale,"noRestaurants"):p2(locale,"loading")}</p>}
-    </section></div>;
-}
+export function PlatformOverview(){return <PlatformDashboard/>;}

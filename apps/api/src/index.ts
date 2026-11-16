@@ -31,6 +31,7 @@ import {guestAssistanceRouter,staffAssistanceRouter} from "./phase8-requests";
 import {adjustmentsRouter} from "./phase10-adjustments";
 import {waiterCorrectionRouter} from "./phase10-waiter";
 import {reportingRouter} from "./phase11-reporting";
+import {tenantSaasRouter,platformSaasRouter} from "./phase12-platform";
 
 const app = express();
 app.disable("x-powered-by");
@@ -67,6 +68,8 @@ app.use("/api/finance",financeRouter);
 app.use("/api/finance",financeHistoryRouter);
 app.use("/api/finance",adjustmentsRouter);
 app.use("/api/reports",reportingRouter);
+app.use("/api/subscription",tenantSaasRouter);
+app.use("/api/platform",platformSaasRouter);
 app.use("/api/guest",guestFinanceRouter);
 app.use("/api/guest",guestAssistanceRouter);
 app.use("/api/service",staffAssistanceRouter);

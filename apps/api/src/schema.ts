@@ -597,3 +597,79 @@ export const financeRefund=pgTable("finance_refunds",{
  index("finance_refunds_check_idx").on(t.checkId,t.postedAt),
  index("finance_refunds_shift_idx").on(t.shiftId,t.postedAt)
 ]);
+
+/** P12 — versioned SaaS plans, manual billing and bounded support. Operational ledgers remain tenant-private. */
+export const subscriptionPlan=pgTable("subscription_plans",{
+ id:text("id").primaryKey(),planKey:text("plan_key").notNull(),version:integer("version").notNull(),
+ name:text("name").notNull(),priceMinor:integer("price_minor").notNull(),
+ currency:text("currency").notNull().default("AFN"),periodDays:integer("period_days").notNull().default(30),
+ maxTables:integer("max_tables").notNull(),maxStaff:integer("max_staff").notNull(),
+ maxLocations:integer("max_locations").notNull().default(1),
+ features:jsonb("features").$type<string[]>().notNull().default([]),
+ active:boolean("active").notNull().default(true),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[uniqueIndex("subscription_plan_version_unique").on(t.planKey,t.version)]);
+export const tenantSubscription=pgTable("tenant_subscriptions",{
+ tenantId:text("tenant_id").primaryKey().references(()=>tenant.id),
+ planId:text("plan_id").references(()=>subscriptionPlan.id),
+ status:text("status").notNull().default("trial"),
+ trialEndsAt:timestamp("trial_ends_at",{withTimezone:true}),
+ periodEnd:timestamp("period_end",{withTimezone:true}),
+ graceEndsAt:timestamp("grace_ends_at",{withTimezone:true}),
+ suspensionReason:text("suspension_reason"),
+ updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
+});
+export const subscriptionInvoice=pgTable("subscription_invoices",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ planId:text("plan_id").notNull().references(()=>subscriptionPlan.id),
+ number:text("number").notNull().unique(),status:text("status").notNull().default("issued"),
+ planSnapshot:jsonb("plan_snapshot").$type<{name:string;planKey:string;version:number;periodDays:number;priceMinor:number;maxTables:number;maxStaff:number;maxLocations:number}>().notNull(),
+ amountMinor:integer("amount_minor").notNull(),currency:text("currency").notNull().default("AFN"),
+ periodStart:timestamp("period_start",{withTimezone:true}).notNull(),
+ periodEnd:timestamp("period_end",{withTimezone:true}).notNull(),
+ dueAt:timestamp("due_at",{withTimezone:true}).notNull(),
+ issuedAt:timestamp("issued_at",{withTimezone:true}).notNull().defaultNow(),
+ paidAt:timestamp("paid_at",{withTimezone:true}),
+ createdBy:text("created_by").notNull().references(()=>user.id)
+},t=>[index("subscription_invoice_tenant_date_idx").on(t.tenantId,t.issuedAt)]);
+export const invoiceProof=pgTable("invoice_proofs",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ invoiceId:text("invoice_id").notNull().references(()=>subscriptionInvoice.id),
+ reference:text("reference").notNull(),method:text("method").notNull(),
+ amountMinor:integer("amount_minor").notNull(),note:text("note").notNull().default(""),
+ status:text("status").notNull().default("pending"),
+ submittedBy:text("submitted_by").notNull().references(()=>user.id),
+ reviewedBy:text("reviewed_by").references(()=>user.id),
+ reviewedAt:timestamp("reviewed_at",{withTimezone:true}),reviewReason:text("review_reason"),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("invoice_proof_invoice_idx").on(t.tenantId,t.invoiceId,t.createdAt)]);
+export const supportTicket=pgTable("support_tickets",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ subject:text("subject").notNull(),kind:text("kind").notNull(),priority:text("priority").notNull().default("normal"),
+ status:text("status").notNull().default("open"),createdBy:text("created_by").notNull().references(()=>user.id),
+ assignedTo:text("assigned_to").references(()=>user.id),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+ updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("support_ticket_tenant_idx").on(t.tenantId,t.createdAt)]);
+export const supportMessage=pgTable("support_messages",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ ticketId:text("ticket_id").notNull().references(()=>supportTicket.id),
+ actorId:text("actor_id").notNull().references(()=>user.id),body:text("body").notNull(),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("support_message_ticket_idx").on(t.tenantId,t.ticketId,t.createdAt)]);
+export const supportGrant=pgTable("support_grants",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ scope:text("scope").notNull(),reason:text("reason").notNull(),
+ createdBy:text("created_by").notNull().references(()=>user.id),
+ expiresAt:timestamp("expires_at",{withTimezone:true}).notNull(),
+ revokedAt:timestamp("revoked_at",{withTimezone:true}),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("support_grant_tenant_idx").on(t.tenantId,t.expiresAt)]);
+export const platformSetting=pgTable("platform_settings",{
+ id:text("id").primaryKey(),trialDays:integer("trial_days").notNull().default(14),
+ graceDays:integer("grace_days").notNull().default(7),
+ defaultPlanId:text("default_plan_id").references(()=>subscriptionPlan.id),
+ incidentBanner:text("incident_banner").notNull().default(""),
+ supportEmail:text("support_email").notNull().default(""),
+ updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
+});

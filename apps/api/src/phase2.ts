@@ -4,16 +4,19 @@ import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { isLocale, isStaffRole, type StaffRole } from "@dineflow/shared";
 import { auth } from "./auth";
+import {MenuError} from "./menu-helpers";
+import {assertCapacity} from "./phase12-entitlements";
 import { db } from "./db";
 import { contextFor, type IdentityContext } from "./context";
 import { publicWebURL, sendEmail } from "./email";
 import { auditEvent, location, onboardingClaim, onboardingDraft, platformAdmin, restaurantSetting,
-  staffInvitation, tenant, tenantMembership, tenantTrial, user, userPreference } from "./schema";
+  staffInvitation, tenant, tenantMembership, tenantTrial, tenantSubscription, user, userPreference } from "./schema";
 
 type SessionUser = { id: string; name: string; email: string; verified: boolean };
 type Handler = (req: Request, res: Response) => Promise<void>;
 function route(handler: Handler) {
   return (req: Request, res: Response) => { void handler(req, res).catch((error: unknown) => {
+    if(error instanceof MenuError){res.status(error.status).json({code:error.code,message:error.message});return;}
     console.error("P02 operation failed", error);
     if (!res.headersSent) res.status(503).json({ code: "SERVICE_UNAVAILABLE", message: "Please retry the action." });
   }); };
@@ -117,7 +120,9 @@ onboardingRouter.post("/complete", route(async (req, res) => {
         timezone: draft.timezone, locale: draft.locale, orderingPolicy: draft.orderingPolicy, receiptFooter: draft.receiptFooter });
       await tx.insert(tenantMembership).values({ id: randomUUID(), tenantId, userId: person.id, role: "owner" });
       await tx.insert(onboardingClaim).values({ userId: person.id, tenantId });
-      await tx.insert(tenantTrial).values({ tenantId, expiresAt: dateAfterHours(days * 24) });
+      const ends=dateAfterHours(days*24);
+      await tx.insert(tenantTrial).values({ tenantId, expiresAt: ends });
+      await tx.insert(tenantSubscription).values({tenantId,planId:"starter-v1",status:"trial",trialEndsAt:ends});
       await tx.insert(userPreference).values({ userId: person.id, locale: draft.locale, activeTenantId: tenantId })
         .onConflictDoUpdate({ target: userPreference.userId, set: { locale: draft.locale, activeTenantId: tenantId, updatedAt: new Date() } });
       await tx.insert(auditEvent).values({ id: randomUUID(), userId: person.id, tenantId, action: "tenant.created",
@@ -286,6 +291,8 @@ staffRouter.post("/invitations", route(async (req, res) => {
   }
   const token = randomBytes(32).toString("base64url"), id = randomUUID();
   await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT id FROM tenants WHERE id=${data.tenantId} FOR UPDATE`);
+    await assertCapacity(tx,data.tenantId,"staff");
     for (const item of pending) await tx.update(staffInvitation).set({ status: "revoked" }).where(eq(staffInvitation.id, item.id));
     await tx.insert(staffInvitation).values({ id, tenantId: data.tenantId, email, role,
       tokenHash: tokenHash(token), expiresAt: dateAfterHours(48), invitedBy: data.person.id, message });

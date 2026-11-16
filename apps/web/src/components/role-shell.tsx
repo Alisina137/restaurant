@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2, History, Wallet, Clock3, Percent, Bell, RotateCcw, BarChart3 } from "lucide-react";
+import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2, History, Wallet, Clock3, Percent, Bell, RotateCcw, BarChart3, CreditCard, Headphones, FileSearch } from "lucide-react";
 import { direction, t, webAreaFor, type Locale, type WebArea } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
 import { ApiError, getContext, type WorkspaceContext } from "@/lib/context";
@@ -14,6 +14,7 @@ import { ow } from "@/lib/order-web-copy";
 import { k6 } from "@/lib/kitchen-copy";
 import {f9} from "@/lib/finance-copy";
 import {sr8} from "@/lib/staff-service-copy";
+import {p12} from "@/lib/phase12-copy";
 
 const rootPages: Record<WebArea, { route: string; label: "overview" | "live" | "openChecks"; icon: typeof LayoutDashboard }> = {
   app: { route: "/app/overview", label: "overview", icon: LayoutDashboard },
@@ -97,6 +98,10 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             <ReceiptText size={20}/><span>{f9(locale,"receipts")}</span></Link>
         </>}
         {area==="app"&&<>
+          <Link href="/app/subscription" className={"nav-link"+(pathname.startsWith("/app/subscription")?" selected":"")}>
+            <CreditCard size={20}/><span>{p12(locale,"subscription")}</span></Link>
+          <Link href="/app/support" className={"nav-link"+(pathname.startsWith("/app/support")?" selected":"")}>
+            <Headphones size={20}/><span>{p12(locale,"support")}</span></Link>
           <Link href="/app/reports" className={"nav-link"+(pathname.startsWith("/app/reports")?" selected":"")}
             aria-current={pathname.startsWith("/app/reports")?"page":undefined}>
             <BarChart3 size={20} strokeWidth={1.9}/>
@@ -133,10 +138,19 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             aria-current={pathname.startsWith("/app/settings/")?"page":undefined}>
             <Settings2 size={20} strokeWidth={1.9}/><span>{p2(locale,"settings")}</span></Link>
         </>}
-        {area==="platform"&&<Link href="/platform/restaurants" title={p2(locale,"businesses")}
+        {area==="platform"&&<>
+          <Link href="/platform/subscriptions" className={"nav-link"+(pathname.startsWith("/platform/subscriptions")?" selected":"")}>
+            <CreditCard size={20}/><span>{p12(locale,"subscription")}</span></Link>
+          <Link href="/platform/support" className={"nav-link"+(pathname.startsWith("/platform/support")?" selected":"")}>
+            <Headphones size={20}/><span>{p12(locale,"support")}</span></Link>
+          <Link href="/platform/audit" className={"nav-link"+(pathname.startsWith("/platform/audit")?" selected":"")}>
+            <FileSearch size={20}/><span>{p12(locale,"audit")}</span></Link>
+          <Link href="/platform/settings" className={"nav-link"+(pathname.startsWith("/platform/settings")?" selected":"")}>
+            <Settings2 size={20}/><span>{p12(locale,"settings")}</span></Link>
+          <Link href="/platform/restaurants" title={p2(locale,"businesses")}
           className={"nav-link"+(pathname.startsWith("/platform/restaurants")?" selected":"")}
           aria-current={pathname.startsWith("/platform/restaurants")?"page":undefined}>
-          <Building2 size={20} strokeWidth={1.9}/><span>{p2(locale,"businesses")}</span></Link>}
+          <Building2 size={20} strokeWidth={1.9}/><span>{p2(locale,"businesses")}</span></Link></>}
       </nav>
       <div className="sidebar-bottom">
         <Link className={"nav-link" + (pathname.endsWith("/account") ? " selected" : "")} href={"/" + area + "/account"}>
