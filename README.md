@@ -2,7 +2,7 @@
 
 A Dari-first, tenant-scoped restaurant SaaS for Afghanistan. Product source of truth: [Product Specification v1.0](docs/PRODUCT-SPECIFICATION-v1.md) and [Development Workflow V5](docs/SOFTWARE-DEVELOPMENT-WORKFLOW-v5.md).
 
-**Release status:** Phases 1–14 are implemented on the Phase 14 release-candidate branch; Phases 1–13 are verified and merged to main. Phase 14 adds supervised pilot evidence and independent approval records. **Actual real-restaurant shift and physical/financial/recovery certification are NOT performed or approved.**
+**Release status:** Phases 1–14 source code is merged into `main` (Phase 14 via PR #15). The Phase 14 acceptance suite passed in a disposable CI database. **The real restaurant pilot, device and cash testing, and final commercial release approval have NOT been performed.**
 
 ## Phase 12 — Restaurant subscriptions, manual payment verification and platform operations
 
