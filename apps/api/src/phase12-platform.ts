@@ -129,7 +129,7 @@ saasPlatformRouter.post("/tenants/:id/plan",route(async(req,res)=>{
  res.json({assigned:true});
 }));
 saasPlatformRouter.post("/tenants/:id/:action",route(async(req,res)=>{
- const a=await platformScope(req),id=tenantId(paramId(req)),action=req.params.action;
+ const a=await platformScope(req),id=tenantId(paramId(req)),action=req.params.action??"";
  if(!["approve","reject","suspend","restore"].includes(action))fail(404,"NOT_FOUND","Action unavailable.");
  const b=record(req),reason=value(b.reason,300,"Reason",5);
  await db.transaction(async tx=>{
@@ -187,7 +187,7 @@ saasPlatformRouter.post("/invoices",route(async(req,res)=>{
  res.status(201).json({invoice:created});
 }));
 saasPlatformRouter.post("/invoices/:id/:action",route(async(req,res)=>{
- const a=await platformScope(req),id=paramId(req),act=req.params.action;
+ const a=await platformScope(req),id=paramId(req),act=req.params.action??"";
  if(!["issue","void"].includes(act))fail(404,"NOT_FOUND","Action unavailable.");
  const reason=act==="void"?value(record(req).reason,200,"Void reason",5):"";
  await db.transaction(async tx=>{
