@@ -119,17 +119,20 @@ saasSupportRouter.post("/grants/:id/review",route(async(req,res)=>{
 saasSupportRouter.get("/grants/:id/metadata",route(async(req,res)=>{
  const a=await actor(req),id=paramId(req);
  if(!a.isPlatform)fail(403,"ACCESS_DENIED","Platform staff only.");
- const [grant]=await db.select().from(saasSupportGrant).where(eq(saasSupportGrant.id,id));
- if(!grant||grant.requestedBy!==a.userId||grant.status!=="approved"||
-  !grant.expiresAt||grant.expiresAt<=new Date())fail(403,"ACCESS_EXPIRED","Grant missing, expired or revoked.");
- const [org,locs]=await Promise.all([
-  db.select({name:tenant.name,status:tenant.status,slug:tenant.slug}).from(tenant)
-   .where(eq(tenant.id,grant.tenantId)).limit(1),
-  db.select({n:count()}).from(location).where(eq(location.tenantId,grant.tenantId))]);
- await db.transaction(async tx=>{
-  // Every metadata read is separately auditable; this endpoint never queries orders/receipts/guests.
+ // Serializable security decision: revoke and metadata retrieval lock the same grant row.
+ const data=await db.transaction(async tx=>{
+  await tx.execute(sql`SELECT id FROM saas_support_grants WHERE id=${id} FOR UPDATE`);
+  const [grant]=await tx.select().from(saasSupportGrant).where(eq(saasSupportGrant.id,id));
+  if(!grant||grant.requestedBy!==a.userId||grant.status!=="approved"||
+   !grant.expiresAt||grant.expiresAt<=new Date())
+   fail(403,"ACCESS_EXPIRED","Grant missing, expired or revoked.");
+  const [org,locs]=await Promise.all([
+   tx.select({name:tenant.name,status:tenant.status,slug:tenant.slug}).from(tenant)
+    .where(eq(tenant.id,grant.tenantId)).limit(1),
+   tx.select({n:count()}).from(location).where(eq(location.tenantId,grant.tenantId))]);
   await audit(tx,a.userId,grant.tenantId,"saas.support_metadata_accessed",{grantId:id,scope:"metadata"});
+  return {restaurant:org[0]??null,locations:locs[0]?.n??0,expiresAt:grant.expiresAt};
  });
  res.setHeader("Cache-Control","no-store");
- res.json({restaurant:org[0]??null,locations:locs[0]?.n??0,expiresAt:grant.expiresAt});
+ res.json(data);
 }));
