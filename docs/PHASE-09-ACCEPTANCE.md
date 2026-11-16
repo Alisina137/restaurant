@@ -25,7 +25,7 @@ P09 acceptance tests cover new check/charge snapshot, 1-minor-unit rounding, ite
 
 ## Explicit constraints
 
-- **Dependency:** P09 branch currently builds on *unmerged P07 guest-order code*, and P08 request-bill/service requests are not implemented. Do not merge P09 independently to `main` until dependencies and regression tests are reconciled.
+- **Dependency:** P07 guest-order code is merged into `main` as PR #7. P08 request-bill/service requests are still not implemented; cashier's Requested tab therefore does not invent data. P09 CI covers the cashier flow with real P07 guest sessions and pending approvals.
 - Cashier **Payment Requested** tab truthfully shows an empty P08-dependent state. Other check tabs are functional.
 - No refund/reversal/discount adjustment workflow until P10; posted entries cannot be deleted or edited. Transaction history currently includes only posted tenders, not reversals.
 - No emailed receipts without a configured verified delivery provider.

@@ -2,7 +2,7 @@
 
 A Dari-first, tenant-scoped restaurant SaaS for Afghanistan. Product source of truth: [Product Specification v1.0](docs/PRODUCT-SPECIFICATION-v1.md) and [Development Workflow V5](docs/SOFTWARE-DEVELOPMENT-WORKFLOW-v5.md).
 
-**Release status:** Phases 1–6 are merged to `main`; Phase 7 QR guest ordering is in an unmerged development branch; Phase 8 service requests are not implemented. Phase 9 cashier checks, shift ledger and receipts are implemented in `phase-09-cashier-checks-ledger` (based on Phase 7), but not merged into `main` and not production-certified.
+**Release status:** Phases 1–7 are merged to `main`; Phase 8 service requests remain unimplemented. Phase 9 cashier checks, shift ledger and receipts are implemented in `phase-09-cashier-checks-ledger`, built on the merged Phase 7 codebase, but not yet production-certified.
 
 ## Workspace
 - `apps/api` — Express 4, Drizzle/PostgreSQL, Better Auth, roles, menu, floor and kitchen/notification APIs (port **4000**).
@@ -19,7 +19,7 @@ cd C:\projects\restaurant
 git pull --ff-only origin main
 ```
 
-Do **not** rerun `pnpm install` on each pull unless a missing dependency or a changed package manifest requires it. For initial setup, run `pnpm install` once. Phase 9 adds no npm packages, but its Phase 7 base adds the QR renderer `qrcode.react`; run `pnpm install` once when switching from `main`.
+Do **not** rerun `pnpm install` on each pull unless a missing dependency or a changed package manifest requires it. For initial setup, run `pnpm install` once. Phase 9 adds no npm packages, but Phase 7 introduced the QR renderer `qrcode.react`; run `pnpm install` once after pulling updates to a working copy last installed before Phase 7.
 
 If the local environment files do not exist, **create them from the committed examples**:
 
@@ -59,7 +59,7 @@ pnpm dev:mobile
 - Kitchen: `http://localhost:3000/kitchen/live`, `/kitchen/preparing`, `/kitchen/ready`, `/kitchen/history`.
 - Waiter mobile: Home, Tables, Orders, Menu, More, with ready alerts and Serve actions.
 
-## Phase 9 — test the development branch (not main)
+## Phase 9 — cashier settlement
 
 ```powershell
 cd C:\projects\restaurant
@@ -81,7 +81,7 @@ See [Phase 09 Acceptance](docs/PHASE-09-ACCEPTANCE.md) for security, test covera
 3. Kitchen marks New → Preparing, optionally individual items Ready; all items Ready gives one notification to the assigned waiter.
 4. Kitchen optionally marks Handed Off; waiter **confirms Served** from the Ready tab or order details. Serving does not post a payment.
 5. Kitchen History and order activity keep status timestamps, audit events and original line/price snapshots.
-6. A visit with accepted orders **cannot be pilot-closed without settlement**; cashier/check/receipt functionality is implemented on the unmerged Phase 9 branch.
+6. A visit with accepted orders **cannot be pilot-closed without settlement**; use the actual cashier/check/receipt workflow delivered in Phase 9.
 
 ## Verification
 ```powershell
