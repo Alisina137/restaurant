@@ -239,7 +239,7 @@ saasPlatformRouter.post("/payments/:id/review",route(async(req,res)=>{
    await tx.update(saasInvoice).set({status:"paid",paidAt:now()}).where(eq(saasInvoice.id,invoice.id));
    await tx.update(saasSubscription).set({status:"active",paidUntil:invoice.periodEnd,
     graceEndsAt:null,updatedAt:now()}).where(eq(saasSubscription.tenantId,invoice.tenantId));
-   await tx.update(tenant).set({status:"active"}).where(eq(tenant.id,invoice.tenantId));
+   await tx.update(tenant).set({status:"active"}).where(and(eq(tenant.id,invoice.tenantId),inArray(tenant.status,["active","trial"])));
   }
   await tx.update(saasPaymentClaim).set({status:decision==="verify"?"verified":"rejected",
    reviewedBy:a.actorId,reviewedAt:now(),reviewReason:reason||null}).where(eq(saasPaymentClaim.id,id));
