@@ -36,6 +36,13 @@
       "when": 1794873600000,
       "tag": "0004_phase5_orders_kitchen",
       "breakpoints": false
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794884400000,
+      "tag": "0005_phase6_kitchen_handoff",
+      "breakpoints": false
     }
   ]
 }

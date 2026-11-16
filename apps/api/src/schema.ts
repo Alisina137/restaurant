@@ -1,4 +1,4 @@
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(), name: text("name").notNull(), email: text("email").notNull().unique(),
@@ -269,6 +269,11 @@ export const orderLine=pgTable("order_lines",{
  allergens:jsonb("allergens").$type<string[]>().notNull().default([]),
  modifierSnapshot:jsonb("modifier_snapshot").$type<Array<{groupId:string;nameFa:string;namePs:string;nameEn:string;options:Array<{id:string;nameFa:string;namePs:string;nameEn:string;deltaMinor:number}>}>>().notNull().default([]),
  note:text("note").notNull().default(""),
+ kitchenStatus:text("kitchen_status").notNull().default("new"),
+ readyAt:timestamp("ready_at",{withTimezone:true}),
+ pickedUpAt:timestamp("picked_up_at",{withTimezone:true}),
+ servedAt:timestamp("served_at",{withTimezone:true}),
+ servedBy:text("served_by").references(()=>user.id),
  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
 },t=>[index("order_line_round_idx").on(t.roundId,t.lineIndex)]);
 export const kitchenTicket=pgTable("kitchen_tickets",{
@@ -281,6 +286,12 @@ export const kitchenTicket=pgTable("kitchen_tickets",{
  version:integer("version").notNull().default(1),
  startedAt:timestamp("started_at",{withTimezone:true}),
  readyAt:timestamp("ready_at",{withTimezone:true}),
+ pickedUpAt:timestamp("picked_up_at",{withTimezone:true}),
+ pickedUpBy:text("picked_up_by").references(()=>user.id),
+ servedAt:timestamp("served_at",{withTimezone:true}),
+ servedBy:text("served_by").references(()=>user.id),
+ lastNotifiedAt:timestamp("last_notified_at",{withTimezone:true}),
+ notifyCount:integer("notify_count").notNull().default(0),
  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
 },t=>[index("kitchen_ticket_queue_idx").on(t.tenantId,t.locationId,t.status,t.createdAt),
@@ -294,7 +305,7 @@ export const orderActivity=pgTable("order_activities",{
  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
 },t=>[index("order_activity_round_idx").on(t.roundId,t.createdAt)]);
 export const orderOutbox=pgTable("order_outbox",{
- id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ id:text("id").primaryKey(),seq:bigint("seq",{mode:"number"}),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
  locationId:text("location_id").notNull().references(()=>location.id),
  roundId:text("round_id").notNull().references(()=>orderRound.id),
  eventType:text("event_type").notNull(),
@@ -308,3 +319,22 @@ export const orderRevision=pgTable("order_revisions",{
  version:integer("version").notNull().default(1),
  changedAt:timestamp("changed_at",{withTimezone:true}).notNull().defaultNow()
 });
+
+/** P06 durable role-scoped ready alerts; no customer data or raw PII. */
+export const staffNotification=pgTable("staff_notifications",{
+ id:text("id").primaryKey(),
+ tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ recipientId:text("recipient_id").notNull().references(()=>user.id),
+ visitId:text("visit_id").notNull().references(()=>diningVisit.id),
+ roundId:text("round_id").notNull().references(()=>orderRound.id),
+ ticketId:text("ticket_id").notNull().references(()=>kitchenTicket.id),
+ type:text("type").notNull().default("ticket_ready"),
+ readAt:timestamp("read_at",{withTimezone:true}),
+ lastNotifiedAt:timestamp("last_notified_at",{withTimezone:true}).notNull().defaultNow(),
+ notifyCount:integer("notify_count").notNull().default(1),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[
+ uniqueIndex("staff_notification_recipient_round_type_unique").on(t.recipientId,t.roundId,t.type),
+ index("staff_notification_inbox_idx").on(t.tenantId,t.locationId,t.recipientId,t.createdAt)
+]);

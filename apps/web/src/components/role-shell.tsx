@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2 } from "lucide-react";
+import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2, History } from "lucide-react";
 import { direction, t, webAreaFor, type Locale, type WebArea } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
 import { ApiError, getContext, type WorkspaceContext } from "@/lib/context";
@@ -11,6 +11,7 @@ import { p2 } from "@/lib/phase2-copy";
 import { m3 } from "@/lib/menu-copy";
 import { f4 } from "@/lib/floor-copy";
 import { ow } from "@/lib/order-web-copy";
+import { k6 } from "@/lib/kitchen-copy";
 
 const rootPages: Record<WebArea, { route: string; label: "overview" | "live" | "openChecks"; icon: typeof LayoutDashboard }> = {
   app: { route: "/app/overview", label: "overview", icon: LayoutDashboard },
@@ -72,6 +73,10 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             className={"nav-link"+(pathname==="/kitchen/ready"?" selected":"")}
             aria-current={pathname==="/kitchen/ready"?"page":undefined}>
             <CheckCircle2 size={20}/><span>{ow(locale,"ready")}</span></Link>
+          <Link href="/kitchen/history" title={k6(locale,"history")}
+            className={"nav-link"+(pathname==="/kitchen/history"?" selected":"")}
+            aria-current={pathname==="/kitchen/history"?"page":undefined}>
+            <History size={20}/><span>{k6(locale,"history")}</span></Link>
         </>}
         {area==="app"&&<>
           <Link href="/app/orders/live" title={ow(locale,"orders")}

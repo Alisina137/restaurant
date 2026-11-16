@@ -5,6 +5,7 @@ import {db} from "./db";
 import {diningTable,diningVisit,kitchenTicket,orderLine,orderRound,orderRevision,orderActivity} from "./schema";
 import {bodyObject,fail,int,route} from "./menu-helpers";
 import {orderScope,writeScope,kitchenScope,orderId,parseOrder,priceLines,orderChanged,readOrder} from "./order-core";
+import {createReadyAlert} from "./phase6-service";
 export const orderRouter=Router();
 
 // Put static routes before /rounds/:id to avoid ambiguous routing.
@@ -120,9 +121,9 @@ async function list(req:import("express").Request,mode:"mine"|"management"|"kitc
  const rawPage=typeof req.query.page==="string"?Number(req.query.page):1;
  const page=Number.isSafeInteger(rawPage)&&rawPage>0?Math.min(rawPage,100000):1;
  const st=typeof req.query.status==="string"?req.query.status:"active";
- const statuses=mode==="kitchen"?st==="preparing"?["preparing"]:st==="ready"?["ready"]:["new"]:
-   mode==="mine"?st==="ready"?["ready"]:st==="completed"?[]:["new","preparing"]:
-   st==="history"?["new","preparing","ready"]:["new","preparing","ready"];
+ const statuses=mode==="kitchen"?st==="preparing"?["preparing"]:st==="ready"?["ready","picked_up"]:["new"]:
+   mode==="mine"?st==="ready"?["ready","picked_up"]:st==="completed"?["served"]:["new","preparing"]:
+   st==="history"?["new","preparing","ready","picked_up","served"]:["new","preparing","ready","picked_up"];
  if(!statuses.length)return {items:[],total:0,page,perPage:10};
  const where=and(eq(orderRound.tenantId,scope.tenantId),eq(orderRound.locationId,scope.locationId),
    inArray(kitchenTicket.status,statuses),
@@ -153,7 +154,8 @@ orderRouter.get("/my/stats",route(async(req,res)=>{
    .where(and(eq(kitchenTicket.tenantId,scope.tenantId),eq(kitchenTicket.locationId,scope.locationId),
      eq(diningVisit.waiterId,scope.actorId))).limit(1000)]);
  res.json({active:rows.filter(r=>r.status==="new"||r.status==="preparing").length,
-   ready:rows.filter(r=>r.status==="ready").length});
+   ready:rows.filter(r=>r.status==="ready"||r.status==="picked_up").length,
+   served:rows.filter(r=>r.status==="served").length});
 }));
 orderRouter.get("/rounds/:id",route(async(req,res)=>{
  const scope=await orderScope(req);
@@ -179,6 +181,13 @@ orderRouter.post("/tickets/:id/transition",route(async(req,res)=>{
      .where(and(eq(kitchenTicket.id,id),eq(kitchenTicket.tenantId,scope.tenantId),
        eq(kitchenTicket.locationId,scope.locationId),eq(kitchenTicket.version,v))).returning({id:kitchenTicket.id});
    if(!done)fail(409,"VERSION_CONFLICT","Ticket was updated. Refresh.");
+   // Item states and ticket states move atomically. Partial line readiness can
+   // be recorded through the dedicated P06 kitchen endpoint.
+   await tx.update(orderLine).set(next==="preparing"?{kitchenStatus:"preparing"}:
+     {kitchenStatus:"ready",readyAt:new Date()})
+     .where(and(eq(orderLine.roundId,ticket.roundId),eq(orderLine.tenantId,scope.tenantId),
+       inArray(orderLine.kitchenStatus,["new","preparing"])));
+   if(next==="ready")await createReadyAlert(tx,scope,ticket);
    await orderChanged(tx,scope,ticket.roundId,next==="ready"?"kitchen.ready":"kitchen.preparing",
      {ticketId:id,from:ticket.status,to:next});
  });
