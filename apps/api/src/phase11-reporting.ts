@@ -3,7 +3,7 @@ import {sql,eq,and,desc,count,like} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
 import {financeScope,type FinanceScope} from "./finance-core";
-import {auditEvent,restaurantSetting,diningVisit,diningCheck,orderRound} from "./schema";
+import {auditEvent,restaurantSetting,diningVisit,diningCheck,menuCategory} from "./schema";
 import {fail,route} from "./menu-helpers";
 
 export const reportingRouter=Router();
@@ -119,8 +119,8 @@ async function itemsData(scope:FinanceScope,range:Range,category:string){
    SELECT ln.id,ln.item_id,ln.item_name_fa,ln.item_name_ps,ln.item_name_en,
       ln.quantity,ln.line_total_minor,mi.category_id,
       c.id AS check_id,c.subtotal_minor,c.discount_minor,
-      FLOOR(ln.line_total_minor::numeric*c.discount_minor/NULLIF(c.subtotal_minor,0))::bigint AS share,
-      ln.line_total_minor::numeric*c.discount_minor/NULLIF(c.subtotal_minor,0) AS exact_share
+      COALESCE(FLOOR(ln.line_total_minor::numeric*c.discount_minor/NULLIF(c.subtotal_minor,0)),0)::bigint AS share,
+      COALESCE(ln.line_total_minor::numeric*c.discount_minor/NULLIF(c.subtotal_minor,0),0) AS exact_share
    FROM order_lines ln
    INNER JOIN order_rounds o ON o.id=ln.round_id AND o.tenant_id=${t} AND o.location_id=${l}
    INNER JOIN dining_checks c ON c.visit_id=o.visit_id AND c.tenant_id=${t}
@@ -149,7 +149,8 @@ async function itemsData(scope:FinanceScope,range:Range,category:string){
  WHERE ${category}='' OR category_id=${category}
  GROUP BY item_id,item_name_fa,item_name_ps,item_name_en,category_id
  ORDER BY "netMinor" DESC,quantity DESC,item_id
- LIMIT 1000`);
+ LIMIT 5001`);
+ if(result.length>5000)fail(413,"REPORT_LIMIT","More than 5000 product rows. Narrow the date range.");
  return {...range,currency:"AFN",items:result.map(x=>({
   itemId:String(x.itemId),nameFa:String(x.nameFa),namePs:String(x.namePs),nameEn:String(x.nameEn),
   categoryId:String(x.categoryId),quantity:n(x,"quantity"),grossMinor:n(x,"grossMinor"),
@@ -233,7 +234,7 @@ async function auditData(scope:FinanceScope,range:Range,page:number,action:strin
 function csvCell(value:unknown):string{
  const raw=String(value??"");
  // Defend against spreadsheet formula injection even if a user-controlled name starts with whitespace.
- const safe=/^\s*[=+@\-\t\r]/.test(raw)?"'"+raw:raw;
+ const safe=/^-?\d+(\.\d+)?$/.test(raw)?raw:/^\s*[=+@\-\t\r]/.test(raw)?"'"+raw:raw;
  return '"'+safe.replaceAll('"','""')+'"';
 }
 function csv(header:string[],data:unknown[][]){
@@ -249,12 +250,22 @@ function download(res:import("express").Response,kind:string,range:Range,content
  res.setHeader("Content-Type","text/csv; charset=utf-8");
  res.setHeader("Content-Disposition",'attachment; filename="dineflow-'+kind+'-'+range.from+'_'+range.to+'.csv"');
  res.setHeader("X-Content-Type-Options","nosniff");
+ res.setHeader("Access-Control-Expose-Headers","Content-Disposition");
  res.send(content);
 }
 reportingRouter.get("/sales",route(async(req,res)=>{
  const scope=await financeScope(req,true),range=await reportRange(req,scope);
  res.setHeader("Cache-Control","no-store");
  res.json(await salesData(scope,range));
+}));
+reportingRouter.get("/categories",route(async(req,res)=>{
+ const scope=await financeScope(req,true);
+ const items=await db.select({id:menuCategory.id,nameFa:menuCategory.nameFa,
+   namePs:menuCategory.namePs,nameEn:menuCategory.nameEn})
+  .from(menuCategory).where(and(eq(menuCategory.tenantId,scope.tenantId),
+   eq(menuCategory.locationId,scope.locationId)))
+  .orderBy(menuCategory.sortOrder,menuCategory.id).limit(200);
+ res.setHeader("Cache-Control","no-store");res.json({items});
 }));
 reportingRouter.get("/items",route(async(req,res)=>{
  const scope=await financeScope(req,true),range=await reportRange(req,scope);
