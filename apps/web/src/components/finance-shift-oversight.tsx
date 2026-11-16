@@ -5,9 +5,10 @@ import {ArrowRight,Banknote,Check,Clock3,RefreshCw,ShieldCheck,UserRoundCheck} f
 import {useWorkspace} from "./workspace-provider";
 import {jsonRequest} from "@/lib/phase2-api";
 import {f9} from "@/lib/finance-copy";
+import {p10} from "@/lib/phase10-copy";
 import {isoTime,money,parseAFN,type Shift} from "@/lib/finance-types";
 type StaffShift={shift:Shift;cashierName:string;cashMinor:number;transferMinor:number;
- transactions:number;expectedMinor:number};
+ transactions:number;expectedMinor:number;refundedCashMinor:number};
 type Overview={varianceThresholdMinor:number;items:StaffShift[]};
 type History={items:Array<Shift&{cashierName:string}>;total:number;page:number;perPage:number};
 export function FinanceShiftOversight(){
@@ -78,6 +79,7 @@ export function FinanceShiftOversight(){
              <div className="finance-shift-totals">
                <div><span>{f9(locale,"float")}</span><strong>{money(row.shift.openingFloatMinor,locale)}</strong></div>
                <div><span>{f9(locale,"cashSales")}</span><strong>{money(row.cashMinor,locale)}</strong></div>
+               <div><span>{p10(locale,"refund")} · {f9(locale,"cash")}</span><strong>−{money(row.refundedCashMinor,locale)}</strong></div>
                <div><span>{f9(locale,"transfers")}</span><strong>{money(row.transferMinor,locale)}</strong></div>
                <div className="finance-manager-expected"><span>{f9(locale,"expectedDrawer")}</span>
                  <strong>{money(row.expectedMinor,locale)}</strong></div>
