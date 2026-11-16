@@ -15,7 +15,7 @@ export async function reconcileOutboxBatch(limit=200):Promise<number>{
    SELECT id,tenant_id,location_id FROM order_outbox
    WHERE delivered_at IS NULL ORDER BY created_at,id
    LIMIT ${limit} FOR UPDATE SKIP LOCKED`);
-  const rows=result.rows;
+  const rows=result.rows as Array<{id:string;tenant_id:string;location_id:string}>;
   if(!rows.length)return 0;
   const byLocation=new Map<string,string>();
   for(const row of rows)byLocation.set(row.location_id,row.tenant_id);

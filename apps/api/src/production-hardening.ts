@@ -11,7 +11,7 @@ export function validateProductionEnvironment(env:NodeJS.ProcessEnv=process.env)
  if((env.BETTER_AUTH_SECRET??"").length<32)throw new Error("Production auth secret is too short.");
  if(env.DEV_EMAIL_DELIVERY==="console")throw new Error("Development email delivery cannot run in production.");
  for(const [label,value] of [["BETTER_AUTH_URL",env.BETTER_AUTH_URL!],["PUBLIC_WEB_URL",env.PUBLIC_WEB_URL!],
-  ...env.TRUSTED_ORIGINS!.split(",").map(origin=>["TRUSTED_ORIGINS",origin.trim()])]){
+  ...env.TRUSTED_ORIGINS!.split(",").map(origin=>["TRUSTED_ORIGINS",origin.trim()]) ] as [string,string][]){
   let parsed:URL;
   try{parsed=new URL(value);}catch{throw new Error(label+" must be a valid HTTPS URL.");}
   if(parsed.protocol!=="https:"||parsed.username||parsed.password||parsed.hostname==="localhost"||
