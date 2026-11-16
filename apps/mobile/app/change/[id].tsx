@@ -50,7 +50,7 @@ export default function ChangeRequest(){
       {["new","preparing"].includes(line.kitchenStatus)&&!success?<>
         <Text style={styles.label}>{s8(locale,"changeReason")}</Text>
         <TextInput multiline maxLength={250} value={reason} onChangeText={text=>{
-          if(text!==reason){key.current=fresh();setReason(text);}} placeholder={s8(locale,"changeReason")}
+          if(text!==reason){key.current=fresh();setReason(text);}}} placeholder={s8(locale,"changeReason")}
           style={[styles.input,{textAlign:rtl?"right":"left"}]}/>
         <Text style={styles.muted}>{reason.trim().length}/250</Text>
         <Pressable disabled={busy||reason.trim().length<8} onPress={()=>void submit()}

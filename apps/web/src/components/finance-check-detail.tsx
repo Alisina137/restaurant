@@ -63,11 +63,11 @@ export function CashierCheckDetails({id,area="cashier"}:{id:string;area?:"cashie
  }
  async function splitSave(e:FormEvent){
    e.preventDefault();if(!data||!canSplit)return;
-   const allocations=mode==="items"?data.lines.flatMap(line=>Array.from({length:parts},(_,i)=>{
+   const allocations=mode==="items"?data.lines.filter(line=>line.kitchenStatus!=="cancelled").flatMap(line=>Array.from({length:parts},(_,i)=>{
      const qty=displayedAllocation(line.id,i+1);
      return qty>0?{lineId:line.id,shareIndex:i+1,quantity:qty}:null;
    }).filter((x):x is {lineId:string;shareIndex:number;quantity:number}=>!!x)):[];
-   if(mode==="items"&&(data.lines.some(l=>allocations.filter(a=>a.lineId===l.id)
+   if(mode==="items"&&(data.lines.filter(l=>l.kitchenStatus!=="cancelled").some(l=>allocations.filter(a=>a.lineId===l.id)
       .reduce((s,a)=>s+a.quantity,0)!==l.quantity)
       ||Array.from({length:parts},(_,i)=>i+1).some(i=>!allocations.some(a=>a.shareIndex===i)))){
      setError(f9(locale,"emptyShare"));return;
@@ -181,7 +181,7 @@ export function CashierCheckDetails({id,area="cashier"}:{id:string;area?:"cashie
           </select></label>}
         {mode==="items"&&<div className="finance-allocation-list">
            <p>{f9(locale,"emptyShare")}</p>
-           {data.lines.map(line=><div className="finance-allocation" key={line.id}>
+           {data.lines.filter(line=>line.kitchenStatus!=="cancelled").map(line=><div className="finance-allocation" key={line.id}>
              <strong>{line.quantity} × {titleName(line,locale)} · {money(line.lineTotalMinor,locale)}</strong>
              <div className="finance-alloc-inputs">{Array.from({length:parts},(_,i)=>i+1).map(i=>
               <label key={i}><span>{f9(locale,"share")} {i}</span><input type="number" min={0} max={line.quantity}
@@ -196,7 +196,7 @@ export function CashierCheckDetails({id,area="cashier"}:{id:string;area?:"cashie
                const basic=Math.floor(data.check.totalMinor/parts);
                return i===parts-1?data.check.totalMinor-basic*(parts-1):basic;
             }):Array.from({length:parts},(_,i)=>i+1).map(i=>
-               data.lines.reduce((sum,l)=>sum+Math.round(l.unitPriceMinor*displayedAllocation(l.id,i)),0))
+               data.lines.filter(l=>l.kitchenStatus!=="cancelled").reduce((sum,l)=>sum+Math.round(l.unitPriceMinor*displayedAllocation(l.id,i)),0))
             ).map((val,i)=><div className="finance-share-card" key={i}>
               <span>{f9(locale,"share")} {i+1}</span><strong>{money(val,locale)}</strong></div>)}
         </div>
