@@ -6,6 +6,8 @@ import {useWorkspace} from "./workspace-provider";
 import {jsonRequest} from "@/lib/phase2-api";
 import {f9} from "@/lib/finance-copy";
 import {p10} from "@/lib/phase10-copy";
+import {downloadReport} from "@/lib/report-export";
+import {r11} from "@/lib/report-copy";
 import {isoTime,money,type TransactionPage} from "@/lib/finance-types";
 export function FinanceTransactions({area="cashier"}:{area?:"cashier"|"app"}){
  const {workspace}=useWorkspace(),locale=workspace.locale;
@@ -14,6 +16,7 @@ export function FinanceTransactions({area="cashier"}:{area?:"cashier"|"app"}){
  const [page,setPage]=useState(1),[method,setMethod]=useState("all"),[from,setFrom]=useState(""),
    [to,setTo]=useState(""),[filter,setFilter]=useState({method:"all",from:"",to:""});
  const [data,setData]=useState<TransactionPage|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState("");
+ const [exporting,setExporting]=useState(false);
  const load=useCallback(async(silent=false)=>{
   if(!silent)setLoading(true);setError("");
   try{
@@ -26,11 +29,24 @@ export function FinanceTransactions({area="cashier"}:{area?:"cashier"|"app"}){
  },[filter,page,locale,view]);
  useEffect(()=>{void load();const t=setInterval(()=>void load(true),18000);return()=>clearInterval(t);},[load]);
  function apply(e:FormEvent){e.preventDefault();setPage(1);setFilter({method,from,to});}
+ async function exportTransactions(){
+  if(exporting)return;setExporting(true);setError("");
+  try{const query=new URLSearchParams();if(filter.from)query.set("from",filter.from);
+   if(filter.to)query.set("to",filter.to);
+   if(filter.method!=="all")query.set("method",filter.method);
+   await downloadReport("transactions",query.toString()?"&"+query.toString():"");}
+  catch(e){setError(e instanceof Error?e.message:r11(locale,"exportError"));}
+  finally{setExporting(false);}
+ }
  return <div className="content-stack finance-console">
    <div className="page-heading"><div><div className="eyebrow">DINEFLOW / {f9(locale,"checkout")}</div>
      <h1>{f9(locale,"transactions")}</h1><p>{view==="refunds"?p10(locale,"subtitle"):f9(locale,"receiptSnapshot")}</p></div>
-    <button type="button" className="button" onClick={()=>void load()}>
-      <RefreshCw size={17}/>{f9(locale,"refresh")}</button></div>
+    <div className="p11-top-actions">
+     {area==="app"&&<button type="button" className="button button-primary"
+      onClick={()=>void exportTransactions()} disabled={exporting}>
+      {r11(locale,"export")} {exporting?"…":""}</button>}
+     <button type="button" className="button" onClick={()=>void load()}>
+      <RefreshCw size={17}/>{f9(locale,"refresh")}</button></div></div>
    <nav className="finance-area-tabs">
      <Link href={base+"/checks"}>{f9(locale,"checks")}</Link>
      <Link className="selected" href={base+"/transactions"}>{f9(locale,"transactions")}</Link>

@@ -1,15 +1,26 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, BadgeCheck, Building2, CheckCircle2, ClipboardList, MailPlus, Settings2, UsersRound, UtensilsCrossed } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, Building2, CheckCircle2, ClipboardList, MailPlus, Settings2, UsersRound, UtensilsCrossed, BarChart3, Wallet, Armchair, ReceiptText } from "lucide-react";
 import { useWorkspace } from "@/components/workspace-provider";
 import { jsonRequest, type PageResult } from "@/lib/phase2-api";
 import { p2 } from "@/lib/phase2-copy";
+import {r11} from "@/lib/report-copy";
+import {money} from "@/lib/finance-types";
+import type {OverviewReport} from "@/lib/report-types";
 type Setup={restaurant:string;location:{name:string;city:string}|null;teamCount:number;pendingInvites:number;trialExpiresAt:string|null};
 type Org={id:string;name:string;slug:string;status:string;createdAt:string};
 export function RestaurantOverview(){
   const {workspace}=useWorkspace(),locale=workspace.locale;
   const [setup,setSetup]=useState<Setup|null>(null),[error,setError]=useState(""),[loading,setLoading]=useState(true);
+  const [pulse,setPulse]=useState<OverviewReport|null>(null),[pulseError,setPulseError]=useState(""),[pulseLoading,setPulseLoading]=useState(true);
+  const refreshPulse=useCallback(async()=>{
+   try{setPulse(await jsonRequest<OverviewReport>("/api/reports/overview"));setPulseError("");}
+   catch(e){setPulseError(e instanceof Error?e.message:r11(locale,"failure"));}
+   finally{setPulseLoading(false);}
+  },[locale]);
+  useEffect(()=>{void refreshPulse();const interval=setInterval(()=>{if(document.visibilityState==="visible")void refreshPulse();},30000);
+    return()=>clearInterval(interval);},[refreshPulse]);
   const load=useCallback(async()=>{setLoading(true);setError("");
     try{setSetup(await jsonRequest<Setup>("/api/tenant/setup"));}
     catch(e){setError(e instanceof Error?e.message:p2(locale,"error"));}finally{setLoading(false);}
@@ -22,6 +33,26 @@ export function RestaurantOverview(){
     <div className="overview-hero"><span className="hero-icon"><CheckCircle2 size={30}/></span>
       <div><div className="eyebrow">DINEFLOW SETUP</div><h2>{p2(locale,"finishSetup")}</h2>
         <p>{setup?.location?setup.location.name+", "+setup.location.city:p2(locale,"setup")}</p></div></div>
+
+    <section className="settings-card p11-overview-pulse">
+     <div className="section-heading"><div><h2>{r11(locale,"businessToday")}</h2>
+      <p>{r11(locale,"overviewHint")}</p></div>
+      <Link className="button button-primary button-small" href="/app/reports">
+       <BarChart3 size={16}/>{r11(locale,"view")}<ArrowUpRight size={15}/></Link></div>
+     {pulseError&&<div className="form-error" role="alert">{r11(locale,"dataPending")}
+       <button className="text-link" onClick={()=>void refreshPulse()}>{r11(locale,"refresh")}</button></div>}
+     {pulseLoading&&!pulse?<div className="list-skeleton"><span/><span/></div>:pulse&&
+      <><div className="p11-kpi-grid">
+       <article className="p11-kpi"><span className="p11-kpi-label"><Armchair size={17}/>{r11(locale,"activeTables")}</span>
+        <strong>{pulse.activeTables}</strong></article>
+       <article className="p11-kpi"><span className="p11-kpi-label"><ReceiptText size={17}/>{r11(locale,"ordersToday")}</span>
+        <strong>{pulse.ordersToday}</strong></article>
+       <article className="p11-kpi"><span className="p11-kpi-label"><Wallet size={17}/>{r11(locale,"unpaidChecks")}</span>
+        <strong>{pulse.unpaidChecks}</strong></article>
+       <article className="p11-kpi"><span className="p11-kpi-label"><BarChart3 size={17}/>{r11(locale,"todayRevenue")}</span>
+        <strong>{money(pulse.netCollectedTodayMinor,locale)}</strong></article>
+      </div><p className="muted p11-tz">{pulse.businessDate} · {pulse.timezone}</p></>}
+    </section>
     {error&&<p className="form-error" role="alert">{error}<button className="text-link" onClick={()=>void load()}>{p2(locale,"retry")}</button></p>}
     {loading?<div className="list-skeleton"><span/><span/></div>:setup&&<>
       <div className="stat-grid">

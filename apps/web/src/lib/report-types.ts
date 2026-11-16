@@ -1,0 +1,22 @@
+export type ReportRange={from:string;to:string;timezone:string;days:string[];currency:"AFN"};
+export type SalesDay={
+ day:string;settledChecks:number;grossMinor:number;discountsMinor:number;taxMinor:number;
+ serviceMinor:number;soldMinor:number;cashMinor:number;transferMinor:number;tenders:number;
+ refundedCashMinor:number;refundedTransferMinor:number;refunds:number;paidMinor:number;
+ refundedMinor:number;netCollectedMinor:number;
+};
+export type SalesReport=ReportRange&{daily:SalesDay[];totals:Omit<SalesDay,"day">;
+ accountingBasis:{sales:string;collections:string;note:string}};
+export type ItemRow={itemId:string;nameFa:string;namePs:string;nameEn:string;categoryId:string;
+ quantity:number;grossMinor:number;discountMinor:number;netMinor:number;lines:number};
+export type ItemsReport=ReportRange&{items:ItemRow[];note:string};
+export type ServiceMetrics={tickets:number;cancelledTickets:number;prepared:number;served:number;
+ reviewed:number;prepMedianSeconds:number|null;prepP95Seconds:number|null;
+ handoffMedianSeconds:number|null;approvalMedianSeconds:number|null;
+ approvalP95Seconds:number|null;items:number;cancelledItems:number;cancelRatePercent:number|null};
+export type ServiceReport=ReportRange&{metrics:ServiceMetrics;note:string};
+export type AuditRecord={id:string;actorId:string|null;action:string;createdAt:string;checkId:string|null};
+export type AuditReport=ReportRange&{items:AuditRecord[];total:number;page:number;perPage:number};
+export type OverviewReport={businessDate:string;timezone:string;activeTables:number;ordersToday:number;
+ unpaidChecks:number;netCollectedTodayMinor:number;cashTodayMinor:number;refundsTodayMinor:number};
+export type ReportTab="sales"|"items"|"service"|"audit";
