@@ -43,7 +43,7 @@ async function main(){
  const pin=await expect<{pin:string}>(await request(
   "/api/guest/staff/visits/"+visitId+"/pin","GET",undefined,waiter),200);
  const guest=await expect<{token:string}>(await request(
-  "/api/guest/entry/"+segments[2]+"/"+segments[3]+"/"+segments[4]+"/verify","POST",
+  "/api/guest/entry/"+segments[2]+"/"+segments[4]+"/verify","POST",
   {pin:pin.pin}),200);
  assert.equal((await request("/api/guest/requests")).status,401,"PIN session mandatory");
  const first=await expect<{created:boolean;request:{id:string;version:number;status:string}}>(
@@ -83,8 +83,9 @@ async function main(){
   type:"other",note:"x"},undefined,guest.token)).status,400);
  assert.equal((await request("/api/guest/requests","POST",{
   type:"unsupported",note:"hello"},undefined,guest.token)).status,400);
- const bill=await expect<{request:{id:string}}>(await request("/api/guest/requests","POST",{
-  type:"bill",note:"Ready to pay"},undefined,guest.token),201);
+ const bill=await expect<{request:{id:string;billPreference:string}}>(await request("/api/guest/requests","POST",{
+  type:"bill",note:"Ready to pay",billPreference:"split"},undefined,guest.token),201);
+ assert.equal(bill.request.billPreference,"split");
  const requested=await expect<{items:{visitId:string;requested:boolean}[]}>(
   await request("/api/finance/checks?tab=requested","GET",undefined,cashier),200);
  assert.ok(requested.items.some(x=>x.visitId===visitId&&x.requested));
