@@ -253,7 +253,7 @@ export function ReportsConsole({initialTab="sales"}:{initialTab?:ReportTab}){
   {!!notice&&<div className="success-banner" role="status">{notice}</div>}
   {loading&&!active?<div className="settings-card list-skeleton"><span/><span/><span/></div>:
   active&&("daily" in active)?<Sales report={active} locale={locale}/>:
-  active&&("items" in active)?<Items report={active} locale={locale}/>:
+  active&&("items" in active)&&("note" in active)?<Items report={active} locale={locale}/>:
   active&&("metrics" in active)?<Service report={active} locale={locale}/>:
   active&&("total" in active)?<Audit report={active} locale={locale} page={page} onPage={setPage}/>:
   !loading?<div className="settings-card empty-panel">{r11(locale,"dataPending")}</div>:null}
