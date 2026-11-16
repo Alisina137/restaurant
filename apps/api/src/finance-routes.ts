@@ -8,7 +8,7 @@ import {auditEvent,cashierShift,checkActivity,checkPayment,checkReceipt,checkSha
 import {bodyObject,fail,field,int,route} from "./menu-helpers";
 import {bump} from "./floor-helpers";
 import {lockTable,currentOrders,calculate,currentPolicy,ensureCheck,financeScope,
- getCheckForVisit,fullCheck,lockedCheck,orderGuard,pendingGuard,splitValues,writeAudit,
+ getCheckForVisit,fullCheck,lockedCheck,orderGuard,pendingGuard,pendingCorrectionGuard,splitValues,writeAudit,
  amountMax,type Tx,type FinanceScope} from "./finance-core";
 import {guestAccess} from "./guest-security";
 export const financeRouter=Router();
@@ -116,6 +116,7 @@ financeRouter.post("/checks/:id/split",route(async(req,res)=>{
  const response=await db.transaction(async tx=>{
    const check=await lockedCheck(tx,scope,checkId);
    if(check.status!=="open"||check.paidMinor>0)fail(409,"SPLIT_LOCKED","Cannot change split after tender.");
+    await pendingCorrectionGuard(tx,scope,check.id);
    if(check.version!==version)fail(409,"VERSION_CONFLICT","Another cashier updated this check.");
    // Allow reconfiguration after a first split, but no new orders after a split has been created.
    const current=await currentOrders(tx,scope,check.visitId);
@@ -209,6 +210,7 @@ financeRouter.post("/checks/:id/payments",route(async(req,res)=>{
      return {created:false,payment:prior,check};
    }
    if(check.status!=="open")fail(409,"CHECK_SETTLED","Check already settled.");
+    await pendingCorrectionGuard(tx,scope,check.id);
    if(check.version!==version)fail(409,"VERSION_CONFLICT","Check changed on another device.");
    const [share]=await tx.select().from(checkShare).where(and(eq(checkShare.id,shareId),
      eq(checkShare.checkId,check.id),eq(checkShare.tenantId,scope.tenantId))).limit(1);
