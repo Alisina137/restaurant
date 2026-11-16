@@ -27,8 +27,14 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - `pnpm typecheck`, `pnpm test`, `pnpm build:web`, Postgres migrations, P01–P05 API regressions and P06 integration (100 safe replay requests, one ticket, mandatory modifiers, stale prices, kitchen state conflicts, tenant isolation and closure guard).
 - Browser/mobile visual QA is not performed by GitHub Actions; check 320–1280px, Dari/Pashto/English, mobile Expo Go and network retries locally.
 
+## Current phase dependency note (P09)
+- P07 branch `phase-07-guest-qr-approval` has source/CI but has not yet been merged to `main`.
+- P08 assistance/order-correction phase has not yet been implemented. P09 Payment Requested is deliberately empty without real request data.
+- P09 work-in-progress implementation exists on branch `phase-09-cashier-checks-ledger` based on P07. See `docs/PHASE-09-ACCEPTANCE.md` for scope, checkout/receipt verification, and known limitations.
+- P09 must not be treated as a merged/proven production release until its new integration suite and upstream dependencies are verified.
+
 ## Next phase
-P07 — guest table QR/PIN verification, waiter approval and customer self-ordering.
+P08 service requests and P10 refund/void approval after P07/P09 dependency integration.
 
 ## Local commands
 ```powershell
