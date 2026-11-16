@@ -161,6 +161,10 @@ async function main(){
    await call("/api/finance/checks/"+check.id+"/payments","POST",
     {...transfer,verifiedExternally:true},owner),201);
  assert.equal(transferPosted.check.paidMinor,totalMinor);
+ const fullPaidOpen=await expect<{items:{visitId:string;dueMinor:number}[]}>(
+   await call("/api/finance/checks?tab=all","GET",undefined,cashier),200);
+ assert.ok(fullPaidOpen.items.some(x=>x.visitId===visit.visit.id&&x.dueMinor===0),
+   "A paid-but-not-yet-settled visit must remain accessible for final settlement.");
  const partial=await expect<{items:{visitId:string}[]}>(
    await call("/api/finance/checks?tab=partial","GET",undefined,cashier),200);
  assert.ok(!partial.items.some(x=>x.visitId===visit.visit.id),"fully paid check absent from unpaid partial view");

@@ -69,7 +69,7 @@ export function CashierChecks({area="cashier"}:{area?:"cashier"|"app"}){
       {data.items.map(row=><article className="finance-check-card" key={row.visitId}>
         <div className="finance-check-head"><div><span className="eyebrow">{f9(locale,"table")}</span>
           <h2>{row.tableLabel}</h2></div><span className={"finance-badge "+(row.partial?"partial":"open")}>
-           {row.partial?f9(locale,"partial"):f9(locale,"open")}</span></div>
+           {row.dueMinor===0?f9(locale,"readyToClose"):row.partial?f9(locale,"partial"):f9(locale,"open")}</span></div>
         <div className="finance-check-time"><Clock3 size={16}/><span>{isoTime(row.openedAt,locale)}</span></div>
         <div className="finance-check-numbers">
           <div><span>{f9(locale,"total")}</span><strong>{money(row.amountMinor,locale)}</strong></div>

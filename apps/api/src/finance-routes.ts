@@ -81,7 +81,7 @@ financeRouter.get("/checks",route(async(req,res)=>{
    amountMinor:totals.totalMinor,paidMinor:c?.paidMinor??0,
    dueMinor:totals.totalMinor-(c?.paidMinor??0),partial:(c?.paidMinor??0)>0,
    requested:false,version:c?.version??0,splitMode:c?.splitMode??"single"};
- }).filter(x=>x.dueMinor>0&&(tab==="all"||tab==="partial"&&x.partial||
+ }).filter(x=>(x.dueMinor>0||x.paidMinor>0)&&(tab==="all"||tab==="partial"&&x.partial&&x.dueMinor>0||
     tab==="requested"&&x.requested)&&
     (!search||[x.tableLabel,x.visitId,x.id??""].some(y=>y.toLowerCase().includes(search.toLowerCase()))));
  // Requested state is only populated when P08 service requests exist; never invent a bill request.
