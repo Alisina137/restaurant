@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2, History, Wallet, Clock3, Percent, Bell, RotateCcw, BarChart3, CreditCard, Headphones, FileSearch } from "lucide-react";
+import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2, History, Wallet, Clock3, Percent, Bell, RotateCcw, BarChart3, CreditCard, Headphones, FileSearch, ClipboardCheck } from "lucide-react";
 import { direction, t, webAreaFor, type Locale, type WebArea } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
 import { ApiError, getContext, type WorkspaceContext } from "@/lib/context";
@@ -105,6 +105,8 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             <ReceiptText size={20}/><span>{f9(locale,"receipts")}</span></Link>
         </>}
         {area==="app"&&<>
+          <Link href="/app/pilot" className={"nav-link"+(pathname.startsWith("/app/pilot")?" selected":"")} aria-current={pathname.startsWith("/app/pilot")?"page":undefined}>
+            <ClipboardCheck size={20}/><span>{locale==="en"?"Pilot readiness":locale==="ps-AF"?"د ازمایښتي پړاو چمتووالی":"آمادگی آزمایش عملی"}</span></Link>
           <Link href="/app/subscription" className={"nav-link"+(pathname.startsWith("/app/subscription")?" selected":"")}>
             <CreditCard size={20}/><span>{p12(locale,"subscription")}</span></Link>
           <Link href="/app/support" className={"nav-link"+(pathname.startsWith("/app/support")?" selected":"")}>
@@ -146,6 +148,8 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             <Settings2 size={20} strokeWidth={1.9}/><span>{p2(locale,"settings")}</span></Link>
         </>}
         {area==="platform"&&<>
+          <Link href="/platform/pilots" className={"nav-link"+(pathname.startsWith("/platform/pilots")?" selected":"")} aria-current={pathname.startsWith("/platform/pilots")?"page":undefined}>
+            <ClipboardCheck size={20}/><span>{locale==="en"?"Pilot approvals":locale==="ps-AF"?"ازمایښتي تاییدونه":"تأیید آزمایش عملی"}</span></Link>
           <Link href="/platform/subscriptions" className={"nav-link"+(pathname.startsWith("/platform/subscriptions")?" selected":"")}>
             <CreditCard size={20}/><span>{p12(locale,"subscription")}</span></Link>
           <Link href="/platform/support" className={"nav-link"+(pathname.startsWith("/platform/support")?" selected":"")}>

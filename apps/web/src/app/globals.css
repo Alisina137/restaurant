@@ -1118,3 +1118,56 @@ button.p12-list-row{width:100%;cursor:pointer}
 .skip-content-link{position:fixed;z-index:1000;inset-block-start:10px;inset-inline-start:10px;transform:translateY(-180%);background:#fff;color:#123d34;border:2px solid #147e68;border-radius:10px;padding:9px 15px;font-weight:700}
 .skip-content-link:focus{transform:translateY(0)}
 .workspace-offline{padding:10px 18px;background:#fff2d5;border-block-end:1px solid #c89e46;color:#684616;font-weight:650;font-size:.91rem;line-height:1.6}
+
+/* Phase 14 — pilot evidence is intentionally presented as accountable manual review. */
+.p14-console{max-width:1250px;margin-inline:auto}
+.p14-notice{display:flex;align-items:flex-start;gap:.7rem;padding:1rem 1.2rem;
+ background:#fff9e7;border:1px solid #ecd69f;border-radius:13px;color:#754b10;
+ line-height:1.6}.p14-notice svg{flex:none;margin-top:.15rem}.p14-notice p{margin:0}
+.p14-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.85rem}
+.p14-summary-card{padding:1.2rem;display:flex;flex-direction:column;gap:.65rem;min-width:0}
+.p14-summary-card>span:first-child{font-size:.82rem;color:var(--muted,#63758b)}
+.p14-summary-card>strong{font-size:1.7rem;font-variant-numeric:tabular-nums}
+.p14-meter{height:8px;border-radius:8px;background:#ddeaf1;overflow:hidden}
+.p14-meter>div{height:100%;background:#288575;transition:width .15s}
+.p14-chip{display:inline-flex;align-items:center;gap:.4rem;font-size:.83rem;font-weight:750;
+ border:1px solid #d4e3ec;padding:.45rem .7rem;border-radius:99px;width:max-content;max-width:100%;white-space:normal}
+.p14-signed_off{background:#e1f7ec;border-color:#86c9a5;color:#166341}
+.p14-blocked,.p14-held{background:#fff2ee;border-color:#e6ad9e;color:#9a372f}
+.p14-panel{padding:clamp(1rem,3vw,1.5rem);display:grid;gap:1rem}
+.p14-panel h2{margin:0;font-size:1.2rem}.p14-panel>p{margin:0;color:var(--muted,#697d8b);line-height:1.55}
+.p14-gate-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem}
+.p14-gate{display:flex;flex-direction:column;align-items:start;gap:.7rem;padding:1rem;min-width:0;
+ border:1px solid #dce6ef;border-radius:13px;background:#fff}
+.p14-gate.p14-failed{border-color:#df9285;background:#fff9f7}
+.p14-gate-top{display:flex;gap:.65rem;align-items:center;flex-wrap:wrap;width:100%}
+.p14-gate-top strong{flex:1;min-width:130px;font-size:.93rem;line-height:1.4}
+.p14-gate-num{color:#6f8799;font-weight:800;font-size:.83rem}
+.p14-badge{font-size:.73rem;font-weight:750;border-radius:99px;padding:.32rem .55rem;
+ background:#edf4f8;color:#557184;max-width:100%;overflow-wrap:anywhere}
+.p14-badge.passed{background:#e1f8ed;color:#126742}
+.p14-badge.failed{background:#feeae5;color:#9c332c}
+.p14-help{font-size:.84rem;line-height:1.55;color:#526b7d;margin:0}
+.p14-evidence{padding:.75rem .85rem;border-radius:10px;background:#f5f8fb;width:100%;
+ border:1px solid #e3edf3;overflow-wrap:anywhere}
+.p14-evidence span{font-size:.77rem;font-weight:800}.p14-evidence p{white-space:pre-wrap;
+ line-height:1.55;font-size:.85rem;margin:.4rem 0}.p14-evidence small{color:#64798c}
+.p14-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem;align-items:end}
+.p14-form label,.p14-note-label{display:grid;gap:.4rem;font-size:.85rem;font-weight:700}
+.p14-form select,.p14-form textarea,.p14-note-label textarea{background:#fff;border:1px solid #cad9e4;
+ border-radius:10px;padding:.75rem;min-height:44px;color:#18374d;width:100%;font:inherit}
+.p14-form textarea,.p14-note-label textarea{min-height:110px;resize:vertical;line-height:1.55}
+.p14-full{grid-column:1/-1}.p14-buttons{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap}
+.p14-signoff{display:flex;align-items:start;gap:.5rem;padding:.8rem;
+ border:1px solid #dce7ee;border-radius:10px;overflow-wrap:anywhere;font-size:.88rem}
+.p14-signoff svg{flex:none}.p14-directory{display:grid;gap:.6rem}
+.p14-directory-row{display:flex;align-items:center;gap:.8rem;padding:1rem;border:1px solid #dfebf2;
+ border-radius:12px;text-decoration:none;color:inherit;min-width:0}
+.p14-directory-row:hover{background:#f4f9fc}.p14-directory-row>span:nth-child(2){
+ flex:1;min-width:100px;display:grid;gap:.25rem}
+.p14-directory-row strong{overflow-wrap:anywhere}.p14-directory-row small{color:#63798b}
+@media(max-width:950px){.p14-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.p14-gate-grid,.p14-form{grid-template-columns:1fr}
+ .p14-summary{gap:.55rem}.p14-summary-card{padding:.85rem}.p14-form label{grid-column:1/-1}
+ .p14-directory-row{flex-wrap:wrap}.p14-directory-row .p14-badge{margin-inline-start:auto}}
+@media(prefers-reduced-motion:reduce){.p14-meter>div{transition:none}}
