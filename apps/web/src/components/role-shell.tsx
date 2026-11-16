@@ -150,7 +150,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
           <Link href="/platform/restaurants" title={p2(locale,"businesses")}
           className={"nav-link"+(pathname.startsWith("/platform/restaurants")?" selected":"")}
           aria-current={pathname.startsWith("/platform/restaurants")?"page":undefined}>
-          <Building2 size={20} strokeWidth={1.9}/><span>{p2(locale,"businesses")}</span></Link>}
+          <Building2 size={20} strokeWidth={1.9}/><span>{p2(locale,"businesses")}</span></Link></>}
       </nav>
       <div className="sidebar-bottom">
         <Link className={"nav-link" + (pathname.endsWith("/account") ? " selected" : "")} href={"/" + area + "/account"}>
