@@ -4,6 +4,7 @@ import {randomUUID} from "node:crypto";
 import {db} from "./db";
 import {diningTable,diningVisit,orderRound} from "./schema";
 import {activeVisitFor} from "./floor-tables";
+import {assertMayOpenVisit} from "./phase12-core";
 import {bodyObject,bump,ensureAssigned,fail,field,floorRoute,floorScope,int,recordId} from "./floor-helpers";
 
 export const visitRouter=Router();
@@ -13,6 +14,7 @@ visitRouter.post("/tables/:id/open",floorRoute(async(req,res)=>{
   const result=await db.transaction(async tx=>{
     // Single writer per table. Two simultaneous open requests converge on one open visit.
     await tx.execute(sql`SELECT id FROM dining_tables WHERE id=${id} AND tenant_id=${scope.tenantId} FOR UPDATE`);
+    await assertMayOpenVisit(tx,scope.tenantId);
     const [table]=await tx.select().from(diningTable).where(and(eq(diningTable.id,id),
       eq(diningTable.tenantId,scope.tenantId),eq(diningTable.locationId,scope.locationId))).limit(1);
     if(!table || table.archivedAt)fail(404,"NOT_FOUND","Table is unavailable.");
