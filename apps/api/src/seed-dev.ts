@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { auth } from "./auth";
 import { db, pool } from "./db";
+import {saasSubscription} from "./phase12-schema";
 import { location, platformAdmin, restaurantSetting, tenant, tenantMembership, user, userPreference } from "./schema";
 import type { StaffRole } from "@dineflow/shared";
 
@@ -22,6 +23,8 @@ async function main() {
   await db.insert(tenant).values({ id: demoTenantId, slug: "demo-restaurant", name: "Demo Restaurant" }).onConflictDoNothing();
   await db.insert(location).values({ id: "dev-location", tenantId: demoTenantId, name: "Main branch", city: "Kabul" }).onConflictDoNothing();
   await db.insert(restaurantSetting).values({ tenantId: demoTenantId }).onConflictDoNothing();
+  await db.insert(saasSubscription).values({tenantId:demoTenantId,planId:"starter-v1",status:"active",
+    paidUntil:new Date(Date.now()+90*86400000)}).onConflictDoNothing();
   const users: { env: string; name: string; role: StaffRole | "platform_admin" }[] = [
     { env: "DEMO_OWNER_EMAIL", name: "Demo Owner", role: "owner" },
     { env: "DEMO_WAITER_EMAIL", name: "Demo Waiter", role: "waiter" },
