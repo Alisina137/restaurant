@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2, History, Wallet, Clock3, Percent, Bell, RotateCcw, BarChart3 } from "lucide-react";
+import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2, History, Wallet, Clock3, Percent, Bell, RotateCcw, BarChart3, CreditCard, LifeBuoy, Activity } from "lucide-react";
 import { direction, t, webAreaFor, type Locale, type WebArea } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
 import { ApiError, getContext, type WorkspaceContext } from "@/lib/context";
@@ -97,6 +97,10 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             <ReceiptText size={20}/><span>{f9(locale,"receipts")}</span></Link>
         </>}
         {area==="app"&&<>
+          <Link href="/app/subscription/plan" className={"nav-link"+(pathname.startsWith("/app/subscription")?" selected":"")}>
+            <CreditCard size={20}/><span>{locale==="en"?"Subscription":locale==="ps-AF"?"ګډون":"اشتراک"}</span></Link>
+          <Link href="/app/support/tickets" className={"nav-link"+(pathname.startsWith("/app/support")?" selected":"")}>
+            <LifeBuoy size={20}/><span>{locale==="en"?"Support":locale==="ps-AF"?"ملاتړ":"پشتیبانی"}</span></Link>
           <Link href="/app/reports" className={"nav-link"+(pathname.startsWith("/app/reports")?" selected":"")}
             aria-current={pathname.startsWith("/app/reports")?"page":undefined}>
             <BarChart3 size={20} strokeWidth={1.9}/>
@@ -133,10 +137,18 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             aria-current={pathname.startsWith("/app/settings/")?"page":undefined}>
             <Settings2 size={20} strokeWidth={1.9}/><span>{p2(locale,"settings")}</span></Link>
         </>}
-        {area==="platform"&&<Link href="/platform/restaurants" title={p2(locale,"businesses")}
-          className={"nav-link"+(pathname.startsWith("/platform/restaurants")?" selected":"")}
-          aria-current={pathname.startsWith("/platform/restaurants")?"page":undefined}>
-          <Building2 size={20} strokeWidth={1.9}/><span>{p2(locale,"businesses")}</span></Link>}
+        {area==="platform"&&<>
+          <Link href="/platform/restaurants" className={"nav-link"+(pathname.startsWith("/platform/restaurants")?" selected":"")}>
+            <Building2 size={20}/><span>{p2(locale,"businesses")}</span></Link>
+          <Link href="/platform/subscriptions/plans" className={"nav-link"+(pathname.startsWith("/platform/subscriptions")?" selected":"")}>
+            <CreditCard size={20}/><span>{locale==="en"?"Subscriptions":locale==="ps-AF"?"ګډونونه":"اشتراک‌ها"}</span></Link>
+          <Link href="/platform/support/tickets" className={"nav-link"+(pathname.startsWith("/platform/support")?" selected":"")}>
+            <LifeBuoy size={20}/><span>{locale==="en"?"Support":locale==="ps-AF"?"ملاتړ":"پشتیبانی"}</span></Link>
+          <Link href="/platform/audit" className={"nav-link"+(pathname==="/platform/audit"?" selected":"")}>
+            <Activity size={20}/><span>{locale==="en"?"Platform audit":locale==="ps-AF"?"د فعالیت تاریخ":"تاریخچه پلتفرم"}</span></Link>
+          <Link href="/platform/settings" className={"nav-link"+(pathname==="/platform/settings"?" selected":"")}>
+            <Settings2 size={20}/><span>{p2(locale,"settings")}</span></Link>
+        </>}
       </nav>
       <div className="sidebar-bottom">
         <Link className={"nav-link" + (pathname.endsWith("/account") ? " selected" : "")} href={"/" + area + "/account"}>
