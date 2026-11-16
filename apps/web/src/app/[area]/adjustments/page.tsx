@@ -1,2 +1,5 @@
 import {AdjustmentConsole} from "@/components/finance-adjustments";
-export default function Adjustments(){return <AdjustmentConsole area="cashier"/>;}
+export default async function Adjustments({searchParams}:{searchParams:Promise<{checkId?:string}>}){
+ const {checkId}=await searchParams;
+ return <AdjustmentConsole area="cashier" initialCheckId={checkId??""}/>;
+}
