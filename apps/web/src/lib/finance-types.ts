@@ -27,7 +27,7 @@ export type CheckDetails={check:FinanceCheck;visit:{id:string;status:string;wait
 export type Shift={id:string;status:"open"|"closed";cashierId:string;openingFloatMinor:number;
  closingCountMinor:number|null;expectedMinor:number|null;varianceMinor:number|null;
  supervisorId:string|null;openedAt:string;closedAt:string|null};
-export type ShiftCurrent={shift:Shift|null;transactions:number;cashMinor:number;transferMinor:number;expectedMinor:number};
+export type ShiftCurrent={shift:Shift|null;transactions:number;cashMinor:number;refundedCashMinor:number;transferMinor:number;expectedMinor:number};
 export type FinanceTransaction={id:string;checkId:string;checkNumber:number;tableLabel:string;
  amountMinor:number;receivedMinor:number;changeMinor:number;method:string;
  externalReference:string|null;status:string;cashierId:string;createdAt:string};
