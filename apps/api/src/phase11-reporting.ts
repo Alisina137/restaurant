@@ -333,10 +333,13 @@ reportingRouter.get("/export",route(async(req,res)=>{
  }else if(kind==="audit"){
   // Cap exports and fail instead of silently delivering incomplete auditing evidence.
   const {tenantId:t}=scope,{from,to,timezone:tz}=range;
+  const action=typeof req.query.action==="string"?req.query.action.trim():"";
+  if(action.length>70)fail(400,"INVALID_FILTER","Action filter is too long.");
   const data=await rows(sql`SELECT id,user_id AS "actorId",action,created_at AS "createdAt"
     FROM audit_events WHERE tenant_id=${t}
      AND created_at >= (${from}::date::timestamp AT TIME ZONE ${tz})
      AND created_at < ((${to}::date+1)::timestamp AT TIME ZONE ${tz})
+     AND (${action}='' OR action ILIKE ${"%"+action+"%"})
     ORDER BY created_at DESC,id DESC LIMIT 5001`);
   if(data.length>5000)fail(413,"EXPORT_LIMIT","More than 5000 rows. Narrow the date range.");
   rowCount=data.length;
@@ -344,6 +347,8 @@ reportingRouter.get("/export",route(async(req,res)=>{
    new Date(String(d.createdAt)).toISOString()]));
  }else{
   const {tenantId:t,locationId:l}=scope,{from,to,timezone:tz}=range;
+  const method=typeof req.query.method==="string"?req.query.method:"all";
+  if(!["all","cash","manual_transfer"].includes(method))fail(400,"INVALID_FILTER","Invalid payment method.");
   const entries=await rows(sql`
    SELECT x.id,x.check_id AS "checkId",x.cashier_id AS "cashierId",
      x.method,x.amount_minor AS "amountMinor",x.posted_at AS "postedAt",x.type
@@ -351,12 +356,14 @@ reportingRouter.get("/export",route(async(req,res)=>{
     SELECT id,check_id,cashier_id,method,amount_minor,created_at AS posted_at,'payment' AS type
      FROM check_payments
      WHERE tenant_id=${t} AND location_id=${l} AND status='posted'
+      AND (${method}='all' OR method=${method})
       AND created_at >= (${from}::date::timestamp AT TIME ZONE ${tz})
       AND created_at < ((${to}::date+1)::timestamp AT TIME ZONE ${tz})
     UNION ALL
     SELECT id,check_id,cashier_id,method,-amount_minor AS amount_minor,posted_at,'refund' AS type
      FROM finance_refunds
      WHERE tenant_id=${t} AND location_id=${l}
+      AND (${method}='all' OR method=${method})
       AND posted_at >= (${from}::date::timestamp AT TIME ZONE ${tz})
       AND posted_at < ((${to}::date+1)::timestamp AT TIME ZONE ${tz})
    ) x ORDER BY x.posted_at DESC,x.id DESC LIMIT 5001`);
