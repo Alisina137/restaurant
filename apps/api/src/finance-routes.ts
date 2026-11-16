@@ -35,15 +35,18 @@ financeRouter.patch("/policy",route(async(req,res)=>{
  const serviceFixedMinor=cashInt(data.serviceFixedMinor,"Service amount",0,100_000_000);
  if(typeof data.taxInclusive!=="boolean")fail(400,"INVALID_POLICY","Tax inclusion must be boolean.");
  const receiptFooter=field(data.receiptFooter??"",250,"Receipt footer",0);
+ const shiftVarianceLimitMinor=data.shiftVarianceLimitMinor===undefined?undefined:
+   cashInt(data.shiftVarianceLimitMinor,"Supervisor variance threshold",0,100_000_000);
  const updated=await db.transaction(async tx=>{
    const [saved]=await tx.update(financeSetting).set({taxRateBps,serviceRateBps,
      serviceFixedMinor,taxInclusive:data.taxInclusive as boolean,receiptFooter,
+     ...(shiftVarianceLimitMinor===undefined?{}:{shiftVarianceLimitMinor}),
      version:version+1,updatedAt:new Date()})
      .where(and(eq(financeSetting.tenantId,scope.tenantId),eq(financeSetting.version,version))).returning();
    if(!saved)fail(409,"VERSION_CONFLICT","Finance settings have changed. Reload.");
    await tx.insert(auditEvent).values({id:randomUUID(),tenantId:scope.tenantId,userId:scope.actorId,
      action:"finance.policy_changed",details:{taxRateBps,serviceRateBps,
-       serviceFixedMinor,taxInclusive:data.taxInclusive,version:version+1}});
+       serviceFixedMinor,taxInclusive:data.taxInclusive,shiftVarianceLimitMinor,version:version+1}});
    return saved;
  });
  res.json(updated);
@@ -233,6 +236,30 @@ financeRouter.post("/checks/:id/payments",route(async(req,res)=>{
  });
  res.status(result.created?201:200).json(result);
 }));
+financeRouter.get("/shifts/oversight",route(async(req,res)=>{
+ const scope=await financeScope(req,true);
+ const rows=await db.select({shift:cashierShift,cashierName:user.name})
+   .from(cashierShift).innerJoin(user,eq(user.id,cashierShift.cashierId))
+   .where(and(eq(cashierShift.tenantId,scope.tenantId),
+     eq(cashierShift.locationId,scope.locationId),eq(cashierShift.status,"open")))
+   .orderBy(asc(cashierShift.openedAt)).limit(150);
+ const shiftIds=rows.map(x=>x.shift.id);
+ const tenders=shiftIds.length?await db.select({shiftId:checkPayment.shiftId,
+   method:checkPayment.method,amountMinor:checkPayment.amountMinor})
+   .from(checkPayment).where(and(eq(checkPayment.tenantId,scope.tenantId),
+     inArray(checkPayment.shiftId,shiftIds))):[];
+ const [policy]=await db.select({shiftVarianceLimitMinor:financeSetting.shiftVarianceLimitMinor})
+   .from(financeSetting).where(eq(financeSetting.tenantId,scope.tenantId)).limit(1);
+ res.setHeader("Cache-Control","no-store");
+ res.json({varianceThresholdMinor:policy?.shiftVarianceLimitMinor??5000,
+   items:rows.map(({shift,cashierName})=>{
+     const items=tenders.filter(x=>x.shiftId===shift.id);
+     const cashMinor=items.filter(x=>x.method==="cash").reduce((n,x)=>n+x.amountMinor,0);
+     const transferMinor=items.filter(x=>x.method==="manual_transfer").reduce((n,x)=>n+x.amountMinor,0);
+     return {shift,cashierName,cashMinor,transferMinor,transactions:items.length,
+       expectedMinor:shift.openingFloatMinor+cashMinor};
+   })});
+}));
 financeRouter.get("/shifts/current",route(async(req,res)=>{
  const scope=await financeScope(req);
  const shift=await db.transaction(tx=>currentShift(tx,scope));
@@ -280,14 +307,19 @@ financeRouter.post("/shifts/:id/close",route(async(req,res)=>{
    const items=await tx.select().from(checkPayment).where(eq(checkPayment.shiftId,shiftId));
    const expected=shift.openingFloatMinor+items.filter(x=>x.method==="cash").reduce((n,x)=>n+x.amountMinor,0);
    const variance=countMinor-expected;
-   if(Math.abs(variance)>5_000&&scope.role!=="owner"&&scope.role!=="manager")
-     fail(403,"MANAGER_ACK_REQUIRED","Large cash variance requires a manager to close this shift.");
+   const [policy]=await tx.select({limit:financeSetting.shiftVarianceLimitMinor})
+     .from(financeSetting).where(eq(financeSetting.tenantId,scope.tenantId)).limit(1);
+   const needsReview=Math.abs(variance)>(policy?.limit??5000);
+   if(needsReview&&(scope.role!=="owner"&&scope.role!=="manager"))
+     fail(403,"MANAGER_ACK_REQUIRED","Cash variance requires a manager to close this shift.");
+   if(needsReview&&body.acknowledgeVariance!==true)
+     fail(409,"ACKNOWLEDGMENT_REQUIRED","Manager must explicitly acknowledge this cash variance.");
    const [closed]=await tx.update(cashierShift).set({status:"closed",closingCountMinor:countMinor,
-     expectedMinor:expected,varianceMinor:variance,supervisorId:Math.abs(variance)>5_000?scope.actorId:null,
+     expectedMinor:expected,varianceMinor:variance,supervisorId:needsReview?scope.actorId:null,
      closedAt:new Date()}).where(eq(cashierShift.id,shiftId)).returning();
    await tx.insert(auditEvent).values({id:randomUUID(),tenantId:scope.tenantId,userId:scope.actorId,
      action:"finance.shift_closed",details:{shiftId,expected,countMinor,variance,
-       acknowledged:Math.abs(variance)>5_000}});
+       acknowledged:needsReview,varianceLimitMinor:policy?.limit??5000}});
    return closed!;
  });
  res.json({shift:response});
