@@ -2,12 +2,12 @@ import "dotenv/config";
 import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
 import { fromNodeHeaders, toNodeHandler } from "better-auth/node";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, count, min, isNull } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { isLocale } from "@dineflow/shared";
 import { auth } from "./auth";
-import { db } from "./db";
-import { auditEvent, tenantMembership, userPreference } from "./schema";
+import { db, pool } from "./db";
+import { auditEvent, tenantMembership, userPreference, orderOutbox } from "./schema";
 import { contextFor, type IdentityContext } from "./context";
 import { canAccessTenant } from "./tenant-access";
 import { onboardingRouter, staffRouter, publicInvitationRouter, platformRestaurantRouter } from "./phase2";
@@ -32,11 +32,20 @@ import {adjustmentsRouter} from "./phase10-adjustments";
 import {waiterCorrectionRouter} from "./phase10-waiter";
 import {reportingRouter} from "./phase11-reporting";
 import {tenantSaasRouter,platformSaasRouter} from "./phase12-platform";
+import {validateProductionEnvironment,hardenedHeadersAndLogs,createIpRateLimiter} from "./production-hardening";
+import {startOutboxReconciliation} from "./outbox-reconciler";
 
+validateProductionEnvironment();
 const app = express();
+if(process.env.TRUST_PROXY_HOPS)app.set("trust proxy",Number(process.env.TRUST_PROXY_HOPS));
+app.use(hardenedHeadersAndLogs);
 app.disable("x-powered-by");
 const origins = (process.env.TRUSTED_ORIGINS ?? "http://localhost:3000").split(",").map((x) => x.trim()).filter(Boolean);
 app.use(cors({ origin(origin, callback) { callback(null, !origin || origins.includes(origin)); }, credentials: true }));
+// Public QR lookup protection is additive to the durable per-visit PIN lockout.
+app.use("/api/guest/entry",createIpRateLimiter(180));
+app.use("/api/guest",createIpRateLimiter(800));
+app.use("/api/invitations",createIpRateLimiter(240));
 app.all("/api/auth/*", toNodeHandler(auth));
 app.use(express.json({ limit: "32kb" }));
 
@@ -88,6 +97,21 @@ async function requireIdentity(req: AuthorizedRequest, res: Response, next: Next
     res.status(503).json({ code: "SERVICE_UNAVAILABLE", message: "Please try again" });
   }
 }
+app.get("/api/health/operations",requireIdentity,async(req:AuthorizedRequest,res)=>{
+ if(req.identity?.role!=="platform_admin"){
+  res.status(403).json({code:"ACCESS_DENIED",message:"Platform operator required"});return;
+ }
+ try{
+  const [state]=await db.select({pending:count(),oldest:min(orderOutbox.createdAt)})
+   .from(orderOutbox).where(isNull(orderOutbox.deliveredAt));
+  const pending=state?.pending??0;
+  res.setHeader("Cache-Control","no-store");
+  res.json({status:pending>5000?"attention":"ok",pendingOutbox:pending,
+   oldestPendingAt:state?.oldest??null,polling:"database_revision"});
+ }catch{
+  res.status(503).json({code:"SERVICE_UNAVAILABLE",message:"Operations summary unavailable"});
+ }
+});
 app.get("/api/context", requireIdentity, (req: AuthorizedRequest, res) => res.json(req.identity));
 app.get("/api/tenants/:tenantId/access", requireIdentity, (req: AuthorizedRequest, res) => {
   const tenantId = req.params.tenantId;
@@ -132,4 +156,15 @@ app.put("/api/context/tenant", requireIdentity, async (req: AuthorizedRequest, r
 app.use((_req, res) => res.status(404).json({ code: "NOT_FOUND", message: "Route unavailable" }));
 app.use((_error: unknown, _req: Request, res: Response, _next: NextFunction) => res.status(400).json({ code: "BAD_REQUEST", message: "Invalid request" }));
 const port = Number(process.env.PORT ?? "4000");
-app.listen(port, () => console.info("DineFlow API listening on port " + port));
+const server=app.listen(port,()=>console.info("DineFlow API listening on port "+port));
+const stopOutbox=startOutboxReconciliation();
+let draining=false;
+function shutdown(signal:string){
+ if(draining)return;draining=true;
+ console.info(JSON.stringify({kind:"shutdown",signal}));
+ stopOutbox();
+ server.close(()=>{void pool.end().finally(()=>{process.exitCode=0;});});
+ setTimeout(()=>{console.error("API shutdown timed out");process.exit(1);},10_000).unref();
+}
+process.once("SIGINT",()=>shutdown("SIGINT"));
+process.once("SIGTERM",()=>shutdown("SIGTERM"));
