@@ -232,3 +232,79 @@ export const floorRevision=pgTable("floor_revisions",{
   version:integer("version").notNull().default(1),
   changedAt:timestamp("changed_at",{withTimezone:true}).notNull().defaultNow()
 });
+
+/** P05: immutable accepted rounds and kitchen tickets. No billing ledger before P09. */
+export const orderRound=pgTable("order_rounds",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ visitId:text("visit_id").notNull().references(()=>diningVisit.id),
+ tableId:text("table_id").notNull().references(()=>diningTable.id),
+ roundNumber:integer("round_number").notNull(),
+ submittedBy:text("submitted_by").notNull().references(()=>user.id),
+ idempotencyKey:text("idempotency_key").notNull(),requestHash:text("request_hash").notNull(),
+ source:text("source").notNull().default("waiter"),status:text("status").notNull().default("accepted"),
+ currency:text("currency").notNull().default("AFN"),subtotalMinor:integer("subtotal_minor").notNull(),
+ taxMinor:integer("tax_minor").notNull().default(0),serviceMinor:integer("service_minor").notNull().default(0),
+ totalMinor:integer("total_minor").notNull(),orderNote:text("order_note").notNull().default(""),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[
+ uniqueIndex("order_round_actor_idem_idx").on(t.tenantId,t.submittedBy,t.idempotencyKey),
+ uniqueIndex("order_round_visit_seq_idx").on(t.visitId,t.roundNumber),
+ index("order_round_tenant_visit_idx").on(t.tenantId,t.locationId,t.visitId),
+ index("order_round_tenant_recent_idx").on(t.tenantId,t.locationId,t.createdAt)
+]);
+export const orderLine=pgTable("order_lines",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ roundId:text("round_id").notNull().references(()=>orderRound.id),
+ itemId:text("item_id").notNull().references(()=>menuItem.id),
+ lineIndex:integer("line_index").notNull(),quantity:integer("quantity").notNull(),
+ itemNameFa:text("item_name_fa").notNull(),itemNamePs:text("item_name_ps").notNull().default(""),
+ itemNameEn:text("item_name_en").notNull().default(""),
+ basePriceMinor:integer("base_price_minor").notNull(),
+ addonsMinor:integer("addons_minor").notNull().default(0),
+ unitPriceMinor:integer("unit_price_minor").notNull(),
+ lineTotalMinor:integer("line_total_minor").notNull(),
+ itemVersion:integer("item_version").notNull(),
+ allergens:jsonb("allergens").$type<string[]>().notNull().default([]),
+ modifierSnapshot:jsonb("modifier_snapshot").$type<Array<{groupId:string;nameFa:string;namePs:string;nameEn:string;options:Array<{id:string;nameFa:string;namePs:string;nameEn:string;deltaMinor:number}>}>>().notNull().default([]),
+ note:text("note").notNull().default(""),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("order_line_round_idx").on(t.roundId,t.lineIndex)]);
+export const kitchenTicket=pgTable("kitchen_tickets",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ roundId:text("round_id").notNull().references(()=>orderRound.id).unique(),
+ visitId:text("visit_id").notNull().references(()=>diningVisit.id),
+ tableId:text("table_id").notNull().references(()=>diningTable.id),
+ tableLabel:text("table_label").notNull(),status:text("status").notNull().default("new"),
+ version:integer("version").notNull().default(1),
+ startedAt:timestamp("started_at",{withTimezone:true}),
+ readyAt:timestamp("ready_at",{withTimezone:true}),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+ updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("kitchen_ticket_queue_idx").on(t.tenantId,t.locationId,t.status,t.createdAt),
+ index("kitchen_ticket_visit_idx").on(t.visitId)]);
+export const orderActivity=pgTable("order_activities",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ roundId:text("round_id").notNull().references(()=>orderRound.id),
+ actorId:text("actor_id").notNull().references(()=>user.id),
+ action:text("action").notNull(),details:jsonb("details").$type<Record<string,unknown>>().notNull().default({}),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("order_activity_round_idx").on(t.roundId,t.createdAt)]);
+export const orderOutbox=pgTable("order_outbox",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ roundId:text("round_id").notNull().references(()=>orderRound.id),
+ eventType:text("event_type").notNull(),
+ payload:jsonb("payload").$type<Record<string,unknown>>().notNull(),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+ deliveredAt:timestamp("delivered_at",{withTimezone:true})
+},t=>[index("order_outbox_tenant_idx").on(t.tenantId,t.locationId,t.createdAt)]);
+export const orderRevision=pgTable("order_revisions",{
+ locationId:text("location_id").primaryKey().references(()=>location.id),
+ tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ version:integer("version").notNull().default(1),
+ changedAt:timestamp("changed_at",{withTimezone:true}).notNull().defaultNow()
+});

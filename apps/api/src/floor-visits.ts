@@ -2,7 +2,7 @@ import {Router} from "express";
 import {and,eq,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
-import {diningTable,diningVisit} from "./schema";
+import {diningTable,diningVisit,orderRound} from "./schema";
 import {activeVisitFor} from "./floor-tables";
 import {bodyObject,bump,ensureAssigned,fail,field,floorRoute,floorScope,int,recordId} from "./floor-helpers";
 
@@ -66,6 +66,10 @@ visitRouter.post("/:id/finish",floorRoute(async(req,res)=>{
     const [table]=await tx.select().from(diningTable).where(and(eq(diningTable.id,visit.tableId),
       eq(diningTable.tenantId,scope.tenantId),eq(diningTable.locationId,scope.locationId))).limit(1);
     if(!table)fail(404,"NOT_FOUND","Table unavailable.");
+    const [unsettled]=await tx.select({id:orderRound.id}).from(orderRound)
+      .where(and(eq(orderRound.visitId,id),eq(orderRound.tenantId,scope.tenantId),
+        eq(orderRound.locationId,scope.locationId))).limit(1);
+    if(unsettled)fail(409,"UNSETTLED_CHECK","Orders exist on this visit. Close it through cashier settlement when Phase 9 is enabled.");
     await tx.update(diningVisit).set({status:"closed",closedBy:scope.actorId,
       closedAt:new Date(),closedReason:reason,updatedAt:new Date()})
       .where(and(eq(diningVisit.id,id),eq(diningVisit.status,"open")));

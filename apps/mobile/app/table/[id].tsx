@@ -7,9 +7,13 @@ import {floorRequest,FloorRequestError} from "../../src/floor-api";
 import {f,since,type Table} from "../../src/floor";
 import {useLocale} from "../../src/locale";
 import {theme} from "../../src/theme";
+import {o5} from "../../src/order-copy";
+import {price} from "../../src/order-types";
 export default function TableDetails(){
  const {id}=useLocalSearchParams<{id:string}>(),{locale}=useLocale(),rtl=direction(locale)==="rtl";
  const [table,setTable]=useState<Table|null>(null),[canOpen,setCanOpen]=useState(false);
+ const [rounds,setRounds]=useState<{id:string;roundNumber:number;status:string;totalMinor:number;createdAt:string}[]>([]);
+ const [estimate,setEstimate]=useState<number|null>(null);
  const [party,setParty]=useState("2"),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const load=useCallback(async(quiet=false)=>{
   if(!quiet)setLoading(true);setError("");
@@ -17,6 +21,13 @@ export default function TableDetails(){
    if(!id||typeof id!=="string")throw new Error("Missing table identifier.");
    const result=await floorRequest<{table:Table;canOpen:boolean}>("/api/floor/tables/"+encodeURIComponent(id));
    setTable(result.table);setCanOpen(result.canOpen);
+   if(result.table.visitId){
+    try{
+      const orders=await floorRequest<{rounds:{id:string;roundNumber:number;status:string;totalMinor:number;createdAt:string}[];estimateMinor:number}>(
+        "/api/orders/visits/"+encodeURIComponent(result.table.visitId)+"/rounds");
+      setRounds(orders.rounds);setEstimate(orders.estimateMinor);
+    }catch{setRounds([]);setEstimate(null);}
+   }else{setRounds([]);setEstimate(null);}
    if(!quiet)setParty(String(Math.min(2,result.table.seats)));
   }catch(e){
    if(e instanceof FloorRequestError&&e.status===401){router.replace("/sign-in");return;}
@@ -91,6 +102,19 @@ export default function TableDetails(){
       <Pressable style={[styles.primary,busy&&styles.disabled]} disabled={busy} accessibilityRole="button" onPress={()=>void open()}>
        {busy?<ActivityIndicator color="white"/>:<Ionicons name="people-outline" color="white" size={20}/>}
        <Text style={styles.primaryText}>{f(locale,"confirm")}</Text></Pressable>
+    </View>}
+    {table.status==="occupied"&&canOpen&&table.visitId&&<View style={styles.panel}>
+      <Text style={[styles.sectionTitle,{textAlign:rtl?"right":"left"}]}>{o5(locale,"orders")}</Text>
+      <Text style={[styles.muted,{textAlign:rtl?"right":"left"}]}>
+        {estimate===null?"—":o5(locale,"totalVisit")+": "+price(estimate,locale)}</Text>
+      {rounds.length?rounds.map(r=><Pressable key={r.id} style={styles.row}
+        onPress={()=>router.push({pathname:"/order/[id]",params:{id:r.id}})}>
+        <Text style={styles.value}>{o5(locale,"round")} #{r.roundNumber} · {o5(locale,r.status as "new"|"preparing"|"ready")}</Text>
+        <Text style={styles.muted}>{price(r.totalMinor,locale)}</Text></Pressable>):
+        <Text style={styles.muted}>{o5(locale,"noOrdersTable")}</Text>}
+      <Pressable style={styles.primary} onPress={()=>router.push({pathname:"/visit/[id]/new-order",params:{id:table.visitId!}})}>
+        <Ionicons name="add-circle-outline" color="white" size={21}/>
+        <Text style={styles.primaryText}>{o5(locale,"addRound")}</Text></Pressable>
     </View>}
     {table.status==="cleaning"&&canOpen&&<Pressable style={[styles.primary,busy&&styles.disabled]}
       disabled={busy} onPress={makeReady}><Ionicons name="checkmark-circle-outline" size={20} color="white"/>

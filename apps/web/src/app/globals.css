@@ -481,3 +481,57 @@ a { color:inherit; text-decoration:none; }
  .sidebar .nav-link span{font-size:10px}
 }
 @media(prefers-reduced-motion:reduce){.floor-table-card{transition:none}}
+
+/* P05: orders, live kitchen tickets and immutable accepted snapshots */
+.order-shell{max-width:1420px}
+.order-live-note{display:inline-flex;align-items:center;gap:10px;font-size:12px;font-weight:750;color:var(--muted)}
+.order-signal{width:9px;height:9px;border-radius:50%;background:#17a676;box-shadow:0 0 0 4px #ccebdc}
+.order-ticket-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(295px,1fr));align-items:start;gap:17px}
+.order-ticket-card{border:1px solid #dfebe1;border-radius:18px;background:#fff;padding:21px;display:grid;gap:15px;box-shadow:0 10px 32px #183a290a}
+.order-ticket-card.new{border-top:4px solid #cd8b3e}
+.order-ticket-card.preparing{border-top:4px solid #447cbb}
+.order-ticket-card.ready{border-top:4px solid #25a36e}
+.order-ticket-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.order-ticket-heading h3{font-size:26px;line-height:1.2;margin:6px 0 0}
+.order-ticket-meta{display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:12px;gap:9px}
+.order-ticket-meta span{display:flex;align-items:center;gap:5px}
+.order-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:99px;padding:5px 10px;font-weight:850;font-size:11px;white-space:nowrap}
+.order-pill.new{color:#a46b26;background:#fff2d9}
+.order-pill.preparing{color:#366cab;background:#e6f2ff}
+.order-pill.ready{color:#146c50;background:#e5f9ee}
+.order-pill.accepted{color:#4a7162;background:#eff8f0}
+.order-detail-lines{display:grid;gap:5px;border-block:1px solid var(--border);padding:7px 0}
+.order-detail-line{display:grid;gap:8px;padding:14px 0;border-bottom:1px solid #edf1ee}
+.order-detail-line:last-of-type{border-bottom:0}
+.order-line-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;font-size:14px;line-height:1.45}
+.order-line-head strong{font-weight:800}
+.order-line-head b{font-size:13px;white-space:nowrap;color:var(--brand);font-weight:900}
+.order-line-mods{display:flex;flex-wrap:wrap;gap:6px}
+.order-line-mods span{background:#f2f7f2;border-radius:7px;padding:5px 8px;font-size:11px;color:#507266}
+.order-kitchen-note{border-inline-start:3px solid #e1a456;background:#fff8ea;border-radius:4px 9px 9px 4px;padding:9px 12px;font-size:13px;line-height:1.5;color:#815829;margin:1px 0}
+.order-total{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 0 5px}
+.order-total span{color:var(--muted);font-size:13px}
+.order-total strong{font-size:19px;color:var(--ink);font-weight:900}
+.order-fees-note{font-size:11px;margin:0 0 9px}
+.order-ticket-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px}
+.order-ticket-actions .button-primary{min-height:46px;font-weight:800}
+.order-money{font-weight:850;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+.order-dialog-backdrop{z-index:150}
+.order-dialog{width:min(100%,720px);max-height:91vh;overflow-y:auto;background:#fff;border-radius:22px;padding:clamp(21px,3vw,32px);display:grid;gap:18px;box-shadow:0 25px 80px #0d352d36}
+.order-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.order-dialog-head h2{font-size:25px;margin:7px 0 0}
+.order-dialog-meta{display:flex;align-items:center;flex-wrap:wrap;gap:12px;color:var(--muted);font-size:13px;font-weight:700}
+.order-dialog-meta>span:first-child{color:var(--ink);font-weight:900}
+.order-activity{display:grid;gap:10px}
+.order-activity h3{font-size:18px;margin:0}
+.order-activity>div{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--ink)}
+.order-activity time{margin-inline-start:auto;color:var(--muted);font-size:11px}
+.order-timeline-dot{width:10px;height:10px;background:var(--brand);border-radius:50%;flex-shrink:0}
+.order-card-skeleton{padding:5px 0}
+@media(max-width:700px){
+ .order-ticket-grid{grid-template-columns:1fr}
+ .order-ticket-card{padding:16px}
+ .order-dialog-backdrop{place-items:end center}
+ .order-dialog{width:100%;max-height:93vh;border-radius:22px 22px 0 0}
+ .order-ticket-heading h3{font-size:23px}
+}

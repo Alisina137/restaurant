@@ -60,7 +60,7 @@ catalogRouter.get("/catalog",route(async(req,res)=>{
   res.json({currency:"AFN",version:(await currentRevision(scope.locationId)).version,categories,
     items:items.map(i=>({...i,groupIds:links.filter(l=>l.itemId===i.id).map(l=>l.groupId)})),
     groups:groups.map(g=>({id:g.id,nameFa:g.nameFa,namePs:g.namePs,nameEn:g.nameEn,
-      selectionMode:g.selectionMode,minSelections:g.minSelections,maxSelections:g.maxSelections,
+      selectionMode:g.selectionMode,minSelections:g.minSelections,maxSelections:g.maxSelections,version:g.version,
       options:options.filter(o=>o.groupId===g.id).map(o=>({id:o.id,nameFa:o.nameFa,
         namePs:o.namePs,nameEn:o.nameEn,deltaMinor:o.deltaMinor}))}))});
 }));

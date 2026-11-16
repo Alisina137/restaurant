@@ -1,39 +1,41 @@
-# DineFlow — Current Project State
-**Product specification:** v1.0. **Development workflow:** V5. Repository: `Alisina137/restaurant`.
+# DineFlow — Project State
 
-## Implementation
-- **P01**: identity, role-aware workspaces, API/DB, localization. Earlier CI passed; physical-device QA outstanding.
-- **P02**: verified owner onboarding, invitations, staff roles, restaurant settings, platform bootstrap. Earlier CI passed; live browser and production email deliverability QA outstanding.
-- **P03**: menu catalog implementation in `phase-03-menu-catalog`; require passing GitHub CI and merge into main. Physical browser/device QA pending.
+Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisina137/restaurant`.
 
-### P03 scope (F03, PG-30, AT-003)
-- Owner/manager menu navigation has four functional tabs: **Items, Categories, Modifier Groups, Availability**. Uses stable app shell, responsive RTL/LTR layout, loading/empty/error/retry and server-backed pagination.
-- Categories: localizable names, publishing, sorting, versioned edits, safe non-destructive archive; active meals block archive, published meals block unpublish.
-- Items: localized fields, optional SKU (case-insensitive unique per location), integer-minor-unit AFN pricing, allergens, prep estimate, photo, modifier attachments, publish/draft, safe duplication and archive.
-- Modifier groups: single/multi choice, required min/max constraints, priced localized options and archived dependencies; version-aware mutations.
-- Availability: per-item and page-batch sold-out status with reason, optimistic versions and transaction rollback. Authenticated staff-readable catalog plus authenticated catalog version stream and polling fallback.
-- Media: image type/size/pixel verification, automatic resize and WebP optimization with private per-tenant access. Persistent `MEDIA_LOCAL_DIR` is required in production. Current storage is local filesystem (suitable for a single instance or shared mounted volume); S3/CDN is not claimed.
-- UI menu preview is read-only; **no fake order submission** until P05 and no guest QR until P07.
-- All edits derive restaurant and branch IDs from active authenticated membership, enforce DB constraints, are audited, and advance catalog revision.
+## Delivery progress
 
-### Automated verification
-- CI runs TypeScript checks, unit tests, Next production build, PostgreSQL migrations, seed and P01/P02/P03 integration.
-- P03 scenario validates category/option validation, SKU collision, optimistic version failure, tenant isolation, image decode, publish/sold-out propagation, duplication as unpublished draft, archives and catalog data.
-- Live responsive/browser/Expo Go QA still required. Historical price snapshots will be introduced alongside accepted orders in P05; P03 does not yet record orders.
-- The **initial 14-day trial is a pilot configuration** rather than implemented billing; subscriptions come in P12.
+- **P01–P04**: Auth and role shells; restaurant onboarding and staff; menu management; sections, tables, live visits and waiter assignments. All previously merged to `main`, with their API/CI checks passing. Real-device review remains ongoing.
+- **P05**: Real waiter ordering, immutable order snapshots and first kitchen receiver. Implemented on `phase-05-ordering-kitchen` pending CI and merge to `main`. Mobile/web visual checks and physical phone verification are still required.
 
-## Phase 04
-New sections, table board, collision-safe visits, waiter assignment, cleaning cycle and Expo Tables UI are implemented on branch `phase-04-sections-tables-visits`. CI includes P04 integration and regressions. Live Windows/Android UI tests remain pending. See `docs/PHASE-04-ACCEPTANCE.md`.
+### P05 completed work
+- **Waiter mobile: 5 active bottom tabs**: Home (real active tables/orders summary), Tables (active visit, current rounds), Orders (Active/Ready; Completed explains future serving), Menu (read-only catalog and choose an active table), More (existing profile/language/signout).
+- **Order builder**: active visit-scoped Menu/Cart, search/category browsing, meal customization (mandatory option min/max), quantity 1–99, note, exact price estimate, encrypted device-local per-line draft, explicit Send, server acknowledged order, retry with same idempotency key, cart preserved if API fails. The server rejects obsolete item/version/options and expired visits.
+- **Kitchen web**: high-contrast New, Preparing and Ready tabs; snapshot line cards, option/note details, Start Preparing / Mark Ready actions, server version checks and reconciling SSE/poll.
+- **Restaurant manager web**: Orders Live and History tabs; no fake payment data.
+- **DB/API**: order_rounds, order_lines with immutable prices/name/options/allergens, kitchen_tickets unique per round, order_activities, transactional order_outbox and order_revisions. Each submit locks the visit table, validates active membership and all menu choices in transaction, stores atomic order+ticket+activity+outbox and responds from committed state. Prices in AFN minor units, no fictional taxes or service charges.
+- **Safety**: P04 pilot "finish visit" now blocks visits containing any accepted order until cashier settlement exists (P09); avoids silently closing unpaid work. Kitchen can only transition NEW→PREPARING→READY, not auto-mark served or paid.
 
-## Next
-P05 — waiter ordering and minimal kitchen ticket receiver.
+### P05 boundaries
+- Order rounds and lines are immutable: refunds, edits, void and price adjustments are **not yet exposed**, due in P08/P10.
+- Only internal waiter orders in P05. Guest QR/PIN and approvals come in P07, kitchen serves/alerts/history advanced in P06, payment and check locking P09.
+- A visit containing a real order cannot yet be closed via P04 pilot closure; this is intentional until billing is delivered. Do not demonstrate a pretend payment.
+- Outbox rows are durable and transactionally committed. Initial realtime is revision-SSE plus periodic refetch; a dedicated multi-channel event consumer/notification worker remains a later phase.
+- Local drafts use already-installed `expo-secure-store` split across per-line keys; no new npm packages are required. Large/invalid drafts produce an explicit Save error rather than silent loss.
+
+## Automated verification
+- `pnpm typecheck`, `pnpm test`, `pnpm build:web`, Postgres migrations, P01/P02/P03/P04 API integrations and P05 integration (100 safe replay requests, one ticket, mandatory modifiers, stale prices, kitchen state conflicts, tenant isolation and closure guard).
+- Browser/mobile visual QA is not performed by GitHub Actions; check 320–1280px, Dari/Pashto/English, mobile Expo Go and network retries locally.
+
+## Next phase
+P06 — full kitchen operational flow, ready-to-serve/pickup acknowledgment, waiter mark-served, notifications and advanced history.
 
 ## Local commands
 ```powershell
 cd C:\projects\restaurant
 git pull --ff-only origin main
-pnpm install
 pnpm db:migrate
 pnpm dev:api
 pnpm dev:web
+pnpm dev:mobile
 ```
+Ensure `apps/api/.env`, `apps/web/.env.local`, `apps/mobile/.env` exist and contain the required values, as documented in the example files.
