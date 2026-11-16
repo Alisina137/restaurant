@@ -33,8 +33,13 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - Accepted order rounds remain immutable. Monetary changes, refunds and void authorizations belong to P10. No unsafe silent edits.
 - Manual check required: phone/tablet layout, three languages RTL/LTR, older/expired guest session and service workflow.
 
+## Phase 10 status
+- On `phase-10-approvals-refunds`: cashier correction requests, separate management approval, approved unprepared-round voids, discounts applied to unpaid unsplit checks, cashier-executed cash/manual transfer refunds after settlement, separate reversal ledger, shift reconciliation, and tenant-scoped audit.
+- P10 CI integrates with the seeded disposable PostgreSQL backend after P09/P08. See `docs/PHASE-10-ACCEPTANCE.md` for manual browser, role and money-handling checks.
+- All receipt and accepted order monetary snapshots remain immutable; no automated payment-provider refunds.
+
 ## Next phase
-P10 — authorized adjustments, voids, discounts and refunds.
+P11 — reporting, exports and trustworthy reconciliation. Prior to pilot: manual physical device and business workflow QA across all locales.
 
 ## Local commands
 ```powershell
