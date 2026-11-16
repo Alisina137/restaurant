@@ -127,6 +127,31 @@ async function main(){
  await expect<{adjustment:{status:string}}>(await call("/api/finance/adjustments/"+late.adjustment.id+
   "/decision","POST",{version:late.adjustment.version,decision:"reject",
    note:"Kitchen already started preparation"},owner),200);
+ // Waiter mobile requests are scoped to the assigned visit and reviewed in the manager queue.
+ const round3=await expect<{round:{id:string;totalMinor:number}}>(
+  await call("/api/orders/visits/"+visit.visit.id+"/rounds","POST",{
+   idempotencyKey:"p10-waiter-round-"+randomUUID(),note:"Guest correction",lines:[line]},waiter),201);
+ const preview=await expect<{request:null;canRequest:boolean}>(
+  await call("/api/orders/rounds/"+round3.round.id+"/correction","GET",undefined,waiter),200);
+ assert.equal(preview.request,null);assert.equal(preview.canRequest,true);
+ const wk="p10-waiter-change-"+randomUUID();
+ const wb={reason:"Guest cancelled this round",idempotencyKey:wk};
+ const waiterRequest=await expect<{request:{id:string;status:string};created:boolean}>(
+  await call("/api/orders/rounds/"+round3.round.id+"/correction","POST",wb,waiter),201);
+ assert.equal(waiterRequest.request.status,"pending");
+ const waiterReplay=await expect<{created:boolean;request:{id:string}}>(
+  await call("/api/orders/rounds/"+round3.round.id+"/correction","POST",wb,waiter),200);
+ assert.equal(waiterReplay.created,false);assert.equal(waiterReplay.request.id,waiterRequest.request.id);
+ assert.equal((await call("/api/orders/rounds/"+round3.round.id+"/correction",
+  "GET",undefined,other)).status,404);
+ await expect<{adjustment:{status:string}}>(
+  await call("/api/finance/adjustments/"+waiterRequest.request.id+"/decision",
+   "POST",{version:1,decision:"approve",note:"Guest corrected order"},owner),200);
+ const waiterFinal=await expect<{request:{status:string};canRequest:boolean}>(
+  await call("/api/orders/rounds/"+round3.round.id+"/correction","GET",undefined,waiter),200);
+ assert.equal(waiterFinal.request.status,"applied");assert.equal(waiterFinal.canRequest,false);
+ const [cancelled]=await db.select().from(orderRound).where(eq(orderRound.id,round3.round.id)).limit(1);
+ assert.equal(cancelled?.status,"voided");
  const [original]=await db.select().from(orderRound).where(eq(orderRound.id,round2.round.id)).limit(1);
  assert.equal(original?.totalMinor,round2.round.totalMinor,"order price snapshots never change");
  // Use a Phase 9 settled check containing an original cash tender.
