@@ -161,6 +161,11 @@ async function main(){
  const duplicate=await expect<{created:boolean;refund:{id:string}}>(
   await call(refundPath,"POST",{version:2,method:"cash",note:"Paid back to guest"},cashier),200);
  assert.equal(duplicate.created,false);assert.equal(duplicate.refund.id,paid.refund.id);
+ const refundHistory=await expect<{items:{id:string;amountMinor:number;status:string}[]}>(
+  await call("/api/finance/transactions?view=refunds","GET",undefined,cashier),200);
+ assert.ok(refundHistory.items.some(x=>x.id===paid.refund.id&&x.amountMinor===-toReturn&&x.status==="refunded"),
+  "Refund must appear as a separate negative ledger entry.");
+ assert.equal((await call("/api/finance/transactions?view=made-up","GET",undefined,cashier)).status,400);
  const ledger=await expect<{refunds:{amountMinor:number}[];refundedMinor:number}>(
   await call("/api/finance/checks/"+settled.id,"GET",undefined,cashier),200);
  assert.ok(ledger.refunds.some(r=>r.amountMinor===toReturn));
