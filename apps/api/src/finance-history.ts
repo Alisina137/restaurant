@@ -39,7 +39,8 @@ financeHistoryRouter.post("/checks/:id/settle",route(async(req,res)=>{
       nameEn:orderLine.itemNameEn,quantity:orderLine.quantity,unitPriceMinor:orderLine.unitPriceMinor,
       lineTotalMinor:orderLine.lineTotalMinor})
      .from(orderLine).where(and(eq(orderLine.tenantId,scope.tenantId),
-       inArray(orderLine.roundId,rounds.map(x=>x.id)))):[];
+       inArray(orderLine.roundId,rounds.map(x=>x.id)),
+       sql`${orderLine.kitchenStatus}<>'cancelled'`)):[];
    const payments=await tx.select().from(checkPayment).where(and(eq(checkPayment.checkId,check.id),
      eq(checkPayment.tenantId,scope.tenantId))).orderBy(asc(checkPayment.createdAt));
    if(payments.reduce((s,x)=>s+x.amountMinor,0)!==check.paidMinor)
@@ -200,7 +201,8 @@ guestFinanceRouter.get("/bill",route(async(req,res)=>{
  const lines=rounds.length?await db.select({nameFa:orderLine.itemNameFa,namePs:orderLine.itemNamePs,
    nameEn:orderLine.itemNameEn,quantity:orderLine.quantity,lineTotalMinor:orderLine.lineTotalMinor})
     .from(orderLine).where(and(eq(orderLine.tenantId,scope.tenantId),
-      inArray(orderLine.roundId,rounds.map(x=>x.id)))):[];
+      inArray(orderLine.roundId,rounds.map(x=>x.id)),
+       sql`${orderLine.kitchenStatus}<>'cancelled'`)):[];
  res.setHeader("Cache-Control","no-store");
  res.json({restaurant:scope.tenantName,tableLabel:scope.tableLabel,visitId:scope.visitId,
    checkNumber:c?.number??null,status:c?.status??"not_opened",currency:"AFN",

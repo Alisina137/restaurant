@@ -143,7 +143,7 @@ changeRouter.post("/changes/:id/decision",route(async(req,res)=>{
        fail(409,"KITCHEN_ADVANCED","This item is now ready/served; manager cannot cancel it.");
      deltaMinor=-line.lineTotalMinor;
      await tx.update(orderLine).set({kitchenStatus:"cancelled"}).where(eq(orderLine.id,line.id));
-     const [remaining]=await tx.select({id:orderLine.id}).from(orderLine).where(and(
+     const remaining=await tx.select({id:orderLine.id}).from(orderLine).where(and(
        eq(orderLine.roundId,request.roundId),eq(orderLine.tenantId,scope.tenantId),
        ne(orderLine.kitchenStatus,"cancelled"))).limit(1);
      await tx.update(kitchenTicket).set({status:remaining?ticket.status:"cancelled",

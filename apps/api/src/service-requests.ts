@@ -53,7 +53,7 @@ guestServiceRouter.post("/service",route(async(req,res)=>{
    fail(400,"INVALID_REASON","Choose a valid assistance reason.");
  const note=field(body.note??"",200,"Note");
  const splitPreference=type==="bill"?body.splitPreference??"together":null;
- if(type==="bill"&&!["together","split"].includes(splitPreference))
+ if(type==="bill"&&splitPreference!=="together"&&splitPreference!=="split")
    fail(400,"INVALID_PREFERENCE","Choose together or split.");
  const key=field(body.idempotencyKey,100,"Request key",12);
  if(!/^[A-Za-z0-9_-]{12,100}$/.test(key))fail(400,"INVALID_KEY","Invalid retry key.");
