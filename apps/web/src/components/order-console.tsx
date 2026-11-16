@@ -3,6 +3,7 @@ import {useCallback,useEffect,useRef,useState} from "react";
 import Link from "next/link";
 import {ArrowUpRight,Check,ChefHat,Clock3,RefreshCw,Receipt,RotateCw,UtensilsCrossed,X} from "lucide-react";
 import {useWorkspace} from "./workspace-provider";
+import {GuestApprovalPanel} from "./guest-approval-panel";
 import {API_URL} from "@/lib/auth-client";
 import {jsonRequest,Phase2Error} from "@/lib/phase2-api";
 import {ow} from "@/lib/order-web-copy";
@@ -164,6 +165,7 @@ export function ManagementOrders({tab}:{tab:"live"|"history"}){
       className={"context-tab"+(k===tab?" current":"")} aria-current={k===tab?"page":undefined}>
         <Receipt size={17}/>{ow(locale,k)}</Link>)}</nav>
   {error&&<div className="form-error" role="alert">{error}<button type="button" className="text-link" onClick={()=>void load()}>{ow(locale,"retry")}</button></div>}
+  {tab==="live"&&<GuestApprovalPanel/>}
   <section className="settings-card">
    <div className="section-heading"><h2>{ow(locale,tab)}</h2>
      <span className="data-badge active">{data?.total??"—"}</span></div>

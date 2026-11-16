@@ -2,7 +2,7 @@
 import {createContext,useCallback,useContext,useEffect,useMemo,useState,type Dispatch,type SetStateAction,type ReactNode} from "react";
 import {usePathname,useRouter} from "next/navigation";
 import Link from "next/link";
-import {ArrowLeft,BookOpen,BowlFood,CheckCircle2,ShoppingBasket,ReceiptText,RefreshCw,ShieldCheck,UtensilsCrossed,WifiOff} from "lucide-react";
+import {ArrowLeft,BookOpen,CheckCircle2,ShoppingBasket,ReceiptText,RefreshCw,ShieldCheck,UtensilsCrossed,WifiOff} from "lucide-react";
 import {direction,type Locale} from "@dineflow/shared";
 import {g7} from "@/lib/guest-copy";
 import {API_URL} from "@/lib/auth-client";

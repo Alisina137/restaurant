@@ -96,7 +96,7 @@ export function GuestItemPage({id}:{id:string}){
    setError("");
  }
  function add(){
-   if(!validLine(draft!,catalog)){setError(g7(locale,"invalidOptions"));return;}
+   if(!validLine(draft!,catalog!)){setError(g7(locale,"invalidOptions"));return;}
    setCart(old=>{
      if(edit!==null)return {...old,lines:old.lines.map((x,i)=>i===edit?draft!:x),idempotencyKey:orderKey()};
      if(old.lines.length>=40){setError(g7(locale,"emptyLine"));return old;}
