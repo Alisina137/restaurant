@@ -215,7 +215,8 @@ async function main(){
  assert.ok(transactions.items.some(x=>x.amountMinor===second.amountMinor));
  const current=await expect<{shift:{id:string};cashMinor:number;expectedMinor:number}>(
     await call("/api/finance/shifts/current","GET",undefined,cashier),200);
- assert.equal(current.expectedMinor,10000+first.amountMinor);
+ assert.equal(current.expectedMinor,10000+(a.status===201?first.amountMinor:0),
+   "Cashier shift must count only cash credited by the actual winning cashier.");
  const closeShift=await expect<{shift:{expectedMinor:number;varianceMinor:number}}>(
     await call("/api/finance/shifts/"+open1.shift.id+"/close","POST",{
       countMinor:current.expectedMinor},cashier),200);

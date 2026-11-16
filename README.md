@@ -2,7 +2,7 @@
 
 A Dari-first, tenant-scoped restaurant SaaS for Afghanistan. Product source of truth: [Product Specification v1.0](docs/PRODUCT-SPECIFICATION-v1.md) and [Development Workflow V5](docs/SOFTWARE-DEVELOPMENT-WORKFLOW-v5.md).
 
-**Implemented through Phase 6:** verified owner/staff auth; restaurant onboarding and role-aware management; full published menu and modifiers; dining sections/tables/live visits; waiters' 5-tab Expo ordering app; server-priced immutable order rounds and kitchen tickets; complete kitchen New → Preparing → Ready → Handed Off lifecycle; waiter item/ticket Served confirmation; durable ready notifications and in-app attention; kitchen history/realtime reconciliation. No QR guest self-ordering or settlement is exposed before its own phase.
+**Release status:** Phases 1–6 are merged to `main`; Phase 7 QR guest ordering is in an unmerged development branch; Phase 8 service requests are not implemented. Phase 9 cashier checks, shift ledger and receipts are implemented in `phase-09-cashier-checks-ledger` (based on Phase 7), but not merged into `main` and not production-certified.
 
 ## Workspace
 - `apps/api` — Express 4, Drizzle/PostgreSQL, Better Auth, roles, menu, floor and kitchen/notification APIs (port **4000**).
@@ -19,7 +19,7 @@ cd C:\projects\restaurant
 git pull --ff-only origin main
 ```
 
-Do **not** rerun `pnpm install` on each pull unless a missing dependency or a changed package manifest requires it. For initial setup, run `pnpm install` once. The Phase 6 update adds **no npm dependency**.
+Do **not** rerun `pnpm install` on each pull unless a missing dependency or a changed package manifest requires it. For initial setup, run `pnpm install` once. Phase 9 adds no npm packages, but its Phase 7 base adds the QR renderer `qrcode.react`; run `pnpm install` once when switching from `main`.
 
 If the local environment files do not exist, **create them from the committed examples**:
 
@@ -59,13 +59,29 @@ pnpm dev:mobile
 - Kitchen: `http://localhost:3000/kitchen/live`, `/kitchen/preparing`, `/kitchen/ready`, `/kitchen/history`.
 - Waiter mobile: Home, Tables, Orders, Menu, More, with ready alerts and Serve actions.
 
+## Phase 9 — test the development branch (not main)
+
+```powershell
+cd C:\projects\restaurant
+git fetch origin phase-09-cashier-checks-ledger
+git switch -c phase-09-cashier-checks-ledger --track origin/phase-09-cashier-checks-ledger
+pnpm install
+pnpm db:migrate
+```
+
+The development cashier routes are `/cashier/checks`, `/cashier/transactions`, `/cashier/shifts`, `/cashier/receipts`. Owners/managers use `/app/billing/checks`, `/app/billing/transactions`, `/app/billing/receipts`, and `/app/settings/charges`. A verified guest can read the current visit bill at `/g/:visit/bill`.
+
+Real cashier process: open shift → open check → optional split → record **cash** or **manually verified external transfer** → ensure all orders served and approvals resolved → settle → print immutable receipt → clean table. Payment Requested is not populated until Phase 8 service requests exist.
+
+See [Phase 09 Acceptance](docs/PHASE-09-ACCEPTANCE.md) for security, test coverage and release dependencies.
+
 ## Phase 6 demo
 1. Owner publishes a meal and modifiers, creates a table and assigns a verified waiter.
 2. Waiter opens a visit on mobile and sends a valid order to kitchen; the server commits **one order/ticket** even on retries.
 3. Kitchen marks New → Preparing, optionally individual items Ready; all items Ready gives one notification to the assigned waiter.
 4. Kitchen optionally marks Handed Off; waiter **confirms Served** from the Ready tab or order details. Serving does not post a payment.
 5. Kitchen History and order activity keep status timestamps, audit events and original line/price snapshots.
-6. A visit with accepted orders **cannot be pilot-closed without settlement**; cashier/check/receipt workflows are scheduled for Phase 9.
+6. A visit with accepted orders **cannot be pilot-closed without settlement**; cashier/check/receipt functionality is implemented on the unmerged Phase 9 branch.
 
 ## Verification
 ```powershell
@@ -74,6 +90,6 @@ pnpm test
 pnpm build:web
 ```
 
-GitHub CI also runs PostgreSQL migrations, seed and P01–P06 live API integrations (10-ticket rush, 100× safe idempotent retry from P05, assignment isolation, ready/served, notification replay and state/version conflicts). Tests on a real Android device and browser are still necessary before a live restaurant pilot.
+GitHub CI on the Phase 9 branch also runs PostgreSQL migrations, seed, P01–P06 and P09 live API integrations (10-ticket rush, 100× safe idempotent retry from P05, assignment isolation, ready/served, notification replay and state/version conflicts). Tests on a real Android device and browser are still necessary before a live restaurant pilot.
 
 See [Project State](docs/PROJECT-STATE.md), [Phase 05 Acceptance](docs/PHASE-05-ACCEPTANCE.md), and [Phase 06 Acceptance](docs/PHASE-06-ACCEPTANCE.md) for scope, test cases and remaining boundaries.
