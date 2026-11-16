@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2, History, Wallet, Clock3, Percent, Bell } from "lucide-react";
+import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2, History, Wallet, Clock3, Percent, Bell, RotateCcw } from "lucide-react";
 import { direction, t, webAreaFor, type Locale, type WebArea } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
 import { ApiError, getContext, type WorkspaceContext } from "@/lib/context";
@@ -81,6 +81,8 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             <History size={20}/><span>{k6(locale,"history")}</span></Link>
         </>}
         {area==="cashier"&&<>
+          <Link href="/cashier/adjustments" className={"nav-link"+(pathname.startsWith("/cashier/adjustments")?" selected":"")}>
+            <RotateCcw size={20}/><span>{locale==="en"?"Adjustments":locale==="ps-AF"?"سمونونه":"اصلاحات"}</span></Link>
           <Link href="/cashier/transactions" title={f9(locale,"transactions")}
             className={"nav-link"+(pathname.startsWith("/cashier/transactions")?" selected":"")}
             aria-current={pathname.startsWith("/cashier/transactions")?"page":undefined}>
@@ -95,6 +97,8 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             <ReceiptText size={20}/><span>{f9(locale,"receipts")}</span></Link>
         </>}
         {area==="app"&&<>
+          <Link href="/app/billing/adjustments" className={"nav-link"+(pathname.startsWith("/app/billing/adjustments")?" selected":"")}>
+            <RotateCcw size={20}/><span>{locale==="en"?"Adjustments & refunds":locale==="ps-AF"?"سمونونه او بېرته ورکړې":"اصلاحات و بازپرداخت"}</span></Link>
           <Link href="/app/service/requests" title={sr8(locale,"requests")}
             className={"nav-link"+(pathname.startsWith("/app/service/")?" selected":"")}
             aria-current={pathname.startsWith("/app/service/")?"page":undefined}>

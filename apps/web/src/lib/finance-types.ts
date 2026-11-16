@@ -7,7 +7,7 @@ export type FinancePolicy={taxRateBps:number;taxInclusive:boolean;serviceRateBps
  serviceFixedMinor:number;receiptFooter:string};
 export type FinanceCheck={id:string;visitId:string;tableId:string;number:number;version:number;
  status:"open"|"settled";splitMode:"single"|"equal"|"items";splitCount:number;
- chargePolicy:FinancePolicy;subtotalMinor:number;taxMinor:number;serviceMinor:number;
+ chargePolicy:FinancePolicy;subtotalMinor:number;discountMinor:number;taxMinor:number;serviceMinor:number;
  totalMinor:number;paidMinor:number;lockedAt:string|null;settledAt:string|null;
  receiptId:string|null;createdAt:string};
 export type SnapshotLine={id:string;roundId:string;quantity:number;unitPriceMinor:number;
@@ -20,9 +20,9 @@ export type Payment={id:string;checkId:string;shareId:string;method:"cash"|"manu
  externalReference:string|null;note:string;createdAt:string};
 export type CheckActivity={id:string;action:string;createdAt:string;actorId:string;details:Record<string,unknown>};
 export type CheckDetails={check:FinanceCheck;visit:{id:string;status:string;waiterId:string;openedAt:string};
- tableLabel:string;rounds:{id:string;roundNumber:number;createdAt:string;totalMinor:number}[];
+ tableLabel:string;rounds:{id:string;roundNumber:number;createdAt:string;totalMinor:number;status:string}[];
  lines:SnapshotLine[];shares:CheckShare[];payments:Payment[];
- activities:CheckActivity[];allocations:Array<{lineId:string;shareId:string;quantity:number;lineAmountMinor:number}>;
+ activities:CheckActivity[];refundedMinor:number;allocations:Array<{lineId:string;shareId:string;quantity:number;lineAmountMinor:number}>;
  receipt:{id:string}|null;dueMinor:number;timezone:string;currency:"AFN"};
 export type Shift={id:string;status:"open"|"closed";cashierId:string;openingFloatMinor:number;
  closingCountMinor:number|null;expectedMinor:number|null;varianceMinor:number|null;
@@ -35,7 +35,7 @@ export type TransactionPage={items:FinanceTransaction[];total:number;page:number
 export type ReceiptEntry={id:string;checkId:string;number:string;tableLabel:string;
  totalMinor:number;reprintCount:number;createdAt:string};
 export type ReceiptSnapshot={receiptNumber:string;checkNumber:number;restaurant:string;
- tableLabel:string;issuedAt:string;currency:string;subtotalMinor:number;taxMinor:number;serviceMinor:number;
+ tableLabel:string;issuedAt:string;currency:string;subtotalMinor:number;discountMinor?:number;taxMinor:number;serviceMinor:number;
  totalMinor:number;paidMinor:number;footer:string;
  lines:Array<{nameFa:string;namePs:string;nameEn:string;quantity:number;unitPriceMinor:number;lineTotalMinor:number}>;
  payments:Array<{method:string;amountMinor:number;receivedMinor:number;changeMinor:number;createdAt:string;
