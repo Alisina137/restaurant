@@ -240,7 +240,8 @@ export const orderRound=pgTable("order_rounds",{
  visitId:text("visit_id").notNull().references(()=>diningVisit.id),
  tableId:text("table_id").notNull().references(()=>diningTable.id),
  roundNumber:integer("round_number").notNull(),
- submittedBy:text("submitted_by").notNull().references(()=>user.id),
+ submittedBy:text("submitted_by").references(()=>user.id),
+ guestSessionId:text("guest_session_id").references(()=>guestVisitSession.id),
  idempotencyKey:text("idempotency_key").notNull(),requestHash:text("request_hash").notNull(),
  source:text("source").notNull().default("waiter"),status:text("status").notNull().default("accepted"),
  currency:text("currency").notNull().default("AFN"),subtotalMinor:integer("subtotal_minor").notNull(),
@@ -300,7 +301,7 @@ export const orderActivity=pgTable("order_activities",{
  id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
  locationId:text("location_id").notNull().references(()=>location.id),
  roundId:text("round_id").notNull().references(()=>orderRound.id),
- actorId:text("actor_id").notNull().references(()=>user.id),
+ actorId:text("actor_id").references(()=>user.id),
  action:text("action").notNull(),details:jsonb("details").$type<Record<string,unknown>>().notNull().default({}),
  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
 },t=>[index("order_activity_round_idx").on(t.roundId,t.createdAt)]);
@@ -338,3 +339,81 @@ export const staffNotification=pgTable("staff_notifications",{
  uniqueIndex("staff_notification_recipient_round_type_unique").on(t.recipientId,t.roundId,t.type),
  index("staff_notification_inbox_idx").on(t.tenantId,t.locationId,t.recipientId,t.createdAt)
 ]);
+
+/** P07: printed QR is an opaque table locator, NOT a guest authorization credential. */
+export const tableQr=pgTable("table_qrs",{
+ tableId:text("table_id").primaryKey().references(()=>diningTable.id),
+ tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ code:text("code").notNull().unique(),
+ version:integer("version").notNull().default(1),
+ issuedBy:text("issued_by").notNull().references(()=>user.id),
+ updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("table_qrs_tenant_idx").on(t.tenantId,t.locationId)]);
+
+/** HMAC-derived six digit PIN depends on visit ID + monotonic generation and never needs plaintext storage. */
+export const guestVisitPin=pgTable("guest_visit_pins",{
+ visitId:text("visit_id").primaryKey().references(()=>diningVisit.id),
+ tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ generation:integer("generation").notNull().default(1),
+ rotatedAt:timestamp("rotated_at",{withTimezone:true}).notNull().defaultNow()
+});
+
+/** Per-visit global and per-fingerprint rate limiting; wrong codes cannot reset the window. */
+export const guestPinAttempt=pgTable("guest_pin_attempts",{
+ id:text("id").primaryKey(),visitId:text("visit_id").notNull().references(()=>diningVisit.id),
+ fingerprint:text("fingerprint").notNull(),
+ failures:integer("failures").notNull().default(0),
+ windowStarted:timestamp("window_started",{withTimezone:true}).notNull().defaultNow(),
+ lockedUntil:timestamp("locked_until",{withTimezone:true})
+},t=>[uniqueIndex("guest_pin_attempt_visit_fingerprint").on(t.visitId,t.fingerprint)]);
+
+/** Guest session is bound to one active visit + QR/PIN generations; bearer hash only persisted. */
+export const guestVisitSession=pgTable("guest_visit_sessions",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ tableId:text("table_id").notNull().references(()=>diningTable.id),
+ visitId:text("visit_id").notNull().references(()=>diningVisit.id),
+ tokenHash:text("token_hash").notNull().unique(),
+ pinGeneration:integer("pin_generation").notNull(),
+ qrVersion:integer("qr_version").notNull(),
+ expiresAt:timestamp("expires_at",{withTimezone:true}).notNull(),
+ revokedAt:timestamp("revoked_at",{withTimezone:true}),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("guest_session_visit_idx").on(t.visitId,t.expiresAt)]);
+
+export type GuestCartSnapshot={itemId:string;itemVersion:number;quantity:number;note:string;
+ selections:Array<{groupId:string;version:number;optionIds:string[]}>};
+export type GuestPreviewLine={nameFa:string;namePs:string;nameEn:string;quantity:number;unitPriceMinor:number;
+ lineTotalMinor:number;note:string;modifierSummary:string[]};
+export const guestSubmission=pgTable("guest_submissions",{
+ id:text("id").primaryKey(),tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ locationId:text("location_id").notNull().references(()=>location.id),
+ visitId:text("visit_id").notNull().references(()=>diningVisit.id),
+ tableId:text("table_id").notNull().references(()=>diningTable.id),
+ guestSessionId:text("guest_session_id").notNull().references(()=>guestVisitSession.id),
+ idempotencyKey:text("idempotency_key").notNull(),requestHash:text("request_hash").notNull(),
+ status:text("status").notNull().default("pending"),version:integer("version").notNull().default(1),
+ policy:text("policy").notNull().default("waiter_approval"),
+ orderNote:text("order_note").notNull().default(""),
+ cart:jsonb("cart").$type<GuestCartSnapshot[]>().notNull().default([]),
+ preview:jsonb("preview").$type<GuestPreviewLine[]>().notNull().default([]),
+ estimatedMinor:integer("estimated_minor").notNull(),
+ roundId:text("round_id").references(()=>orderRound.id),
+ rejectionReason:text("rejection_reason"),
+ decidedBy:text("decided_by").references(()=>user.id),
+ decidedAt:timestamp("decided_at",{withTimezone:true}),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[
+ uniqueIndex("guest_submissions_session_idem_idx").on(t.guestSessionId,t.idempotencyKey),
+ index("guest_submissions_pending_idx").on(t.tenantId,t.locationId,t.status,t.createdAt),
+ index("guest_submissions_visit_idx").on(t.visitId,t.createdAt)
+]);
+
+export const guestRevision=pgTable("guest_revisions",{
+ locationId:text("location_id").primaryKey().references(()=>location.id),
+ tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ version:integer("version").notNull().default(1),
+ changedAt:timestamp("changed_at",{withTimezone:true}).notNull().defaultNow()
+});
