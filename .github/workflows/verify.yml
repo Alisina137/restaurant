@@ -66,6 +66,7 @@ jobs:
       - run: pnpm --filter @dineflow/api exec tsx src/phase2-ci.ts
       - run: pnpm --filter @dineflow/api exec tsx src/phase3-ci.ts
       - run: pnpm --filter @dineflow/api exec tsx src/phase4-ci.ts
+      - run: pnpm --filter @dineflow/api exec tsx src/phase5-ci.ts
       - name: API logs after failure
         if: failure()
         run: cat /tmp/dineflow-api.log || true

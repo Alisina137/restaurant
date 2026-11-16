@@ -16,7 +16,7 @@ type VisitResult={visit:{id:string;tableId:string;waiterId:string;status:"open"|
 type TableResult={table:{label:string;visitId:string|null;assignedWaiterId:string|null}};
 const emptyMenu:MenuData={version:0,currency:"AFN",categories:[],items:[],groups:[]};
 export default function NewOrder(){
- const {id}=useLocalSearchParams<{id:string}>(),{locale}=useLocale(),rtl=direction(locale)==="rtl",cookie=useMenuCookie();
+ const {id,itemId}=useLocalSearchParams<{id:string;itemId?:string}>(),{locale}=useLocale(),rtl=direction(locale)==="rtl",cookie=useMenuCookie();
  const [identity,setIdentity]=useState<Identity|null>(null),[menu,setMenu]=useState<MenuData>(emptyMenu);
  const [tableName,setTableName]=useState(""),[tab,setTab]=useState<"menu"|"cart">("menu");
  const [search,setSearch]=useState(""),[category,setCategory]=useState(""),[draft,setDraft]=useState<OrderDraft>(freshDraft);
@@ -35,12 +35,14 @@ export default function NewOrder(){
    const table=await floorRequest<TableResult>("/api/floor/tables/"+encodeURIComponent(visit.visit.tableId));
    if(table.table.visitId!==id)throw new Error(o5(locale,"visitClosed"));
    setIdentity(who);setMenu(catalog);setTableName(table.table.label);
+   const preselectItem=itemId?catalog.items.find(x=>x.id===itemId):undefined;
+   if(preselectItem&&!preselectItem.soldOut)setPick({item:preselectItem});
    const cached=await readDraft(who.user.id,who.tenantId!,id);
    if(cached&&!submitted.current)setDraft(cached);
    loaded.current=true;
   }catch(e){setError(e instanceof Error?e.message:o5(locale,"offline"));}
   finally{setLoading(false);}
- },[id,locale]);
+ },[id,itemId,locale]);
  useEffect(()=>{void load();},[load]);
  useEffect(()=>{
   if(!loaded.current||!identity?.tenantId||!id||submitted.current)return;
