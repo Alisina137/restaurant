@@ -228,6 +228,42 @@ async function main(){
  const listing=await expect<{items:{number:string}[]}>(
    await call("/api/finance/receipts","GET",undefined,owner),200);
  assert.ok(listing.items.some(x=>x.number===settled.receiptNumber));
+ // A new accepted round after the first check read must reconcile both the
+ // cashier detail and open-check board before any financial lock is placed.
+ const t2=await expect<{id:string}>(await call("/api/floor/tables","POST",{
+   sectionId:section.id,label:"Z8",seats:3,sortOrder:98,notes:"Late round test",
+   active:true,assignedWaiterId:w.id},owner),201);
+ const v2=await expect<{visit:{id:string}}>(await call(
+   "/api/floor/visits/tables/"+t2.id+"/open","POST",{partySize:2},waiter),201);
+ const freshRound=(label:string)=>({
+   idempotencyKey:"p09-late-"+randomUUID(),note:label,lines:[line(label)]});
+ await expect<{round:{id:string}}>(await call(
+   "/api/orders/visits/"+v2.visit.id+"/rounds","POST",freshRound("First"),waiter),201);
+ const firstCheck=await expect<{id:string}>(await call(
+   "/api/finance/visits/"+v2.visit.id+"/check","POST",{},cashier),200);
+ const firstDetail=await expect<{check:{totalMinor:number;version:number;subtotalMinor:number}}>
+   (await call("/api/finance/checks/"+firstCheck.id,"GET",undefined,cashier),200);
+ const onePrice=burger.priceMinor+option.deltaMinor;
+ assert.equal(firstDetail.check.totalMinor,onePrice+1);
+ await expect<{round:{id:string}}>(await call(
+   "/api/orders/visits/"+v2.visit.id+"/rounds","POST",freshRound("Second"),waiter),201);
+ const twoDetails=await expect<{check:{totalMinor:number;version:number;subtotalMinor:number};
+   shares:{id:string;amountMinor:number}[];lines:{id:string}[]}>(
+   await call("/api/finance/checks/"+firstCheck.id,"GET",undefined,cashier),200);
+ assert.equal(twoDetails.check.totalMinor,2*onePrice+1,
+   "Open check detail includes the late round and charges service fee once.");
+ assert.equal(twoDetails.check.subtotalMinor,2*onePrice);
+ assert.ok(twoDetails.check.version>firstDetail.check.version);
+ assert.equal(twoDetails.shares[0]?.amountMinor,twoDetails.check.totalMinor);
+ assert.equal(twoDetails.lines.length,2);
+ const boardLate=await expect<{items:{visitId:string;dueMinor:number}[]}>(
+   await call("/api/finance/checks?tab=all","GET",undefined,cashier),200);
+ assert.equal(boardLate.items.find(x=>x.visitId===v2.visit.id)?.dueMinor,2*onePrice+1);
+ assert.equal((await call("/api/finance/checks/"+firstCheck.id+"/payments","POST",{
+   version:twoDetails.check.version,shareId:twoDetails.shares[0]!.id,
+   method:"cash",amountMinor:1,receivedMinor:1,externalReference:"",
+   note:"Closed shift must reject",idempotencyKey:"p09-closed-"+randomUUID()
+ },cashier)).status,409,"Posting cash to an already-closed shift is forbidden.");
  console.info("PASS P09: split quantities, penny rounding, cash change, verified transfer, shift ledger, concurrent cashiers, receipts, closed table, guest guards and tenant isolation.");
 }
 main().then(async()=>{await pool.end();}).catch(async e=>{console.error(e);await pool.end();process.exitCode=1;});

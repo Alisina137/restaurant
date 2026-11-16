@@ -111,9 +111,14 @@ export async function getCheckForVisit(scope:FinanceScope,visitId:string){
  });
 }
 export async function fullCheck(scope:FinanceScope,id:string){
- const [check]=await db.select().from(diningCheck).where(and(eq(diningCheck.id,id),
+ let [check]=await db.select().from(diningCheck).where(and(eq(diningCheck.id,id),
    eq(diningCheck.tenantId,scope.tenantId),eq(diningCheck.locationId,scope.locationId))).limit(1);
  if(!check)fail(404,"NOT_FOUND","Check unavailable.");
+ // Late waiter/guest rounds remain visible before first tender or split.
+ // Serialize the read-side reconciliation with table ordering, then read fresh snapshot.
+ if(check.status==="open"&&!check.lockedAt){
+   check=await getCheckForVisit(scope,check.visitId);
+ }
  const [visit]=await db.select().from(diningVisit).where(eq(diningVisit.id,check.visitId)).limit(1);
  const [table]=await db.select({label:diningTable.label}).from(diningTable)
    .where(eq(diningTable.id,check.tableId)).limit(1);

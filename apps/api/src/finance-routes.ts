@@ -75,7 +75,8 @@ financeRouter.get("/checks",route(async(req,res)=>{
  const result=visits.map(({visit,table})=>{
   const c=checks.find(x=>x.visitId===visit.id);
   const sum=rounds.filter(x=>x.visitId===visit.id).reduce((s,x)=>s+x.totalMinor,0);
-  const totals=c??calculate(sum,policy);
+  const totals=c?.status==="open"&&!c.lockedAt?calculate(sum,c.chargePolicy):
+    c??calculate(sum,policy);
   return {id:c?.id??null,visitId:visit.id,tableId:table.id,tableLabel:table.label,
    waiterId:visit.waiterId,openedAt:visit.openedAt,status:c?.status??"open",
    amountMinor:totals.totalMinor,paidMinor:c?.paidMinor??0,
@@ -206,6 +207,11 @@ financeRouter.post("/checks/:id/payments",route(async(req,res)=>{
    if(!share)fail(404,"NOT_FOUND","Split share unavailable.");
    if(amountMinor>share.amountMinor-share.paidMinor||amountMinor>check.totalMinor-check.paidMinor)
       fail(409,"OVERPAYMENT","Amount exceeds remaining share or check balance.");
+   // Shift closure and payment posting must agree on the exact same ledger
+   // boundary. Lock this shift before inserting tender; a concurrent close waits.
+   await tx.execute(sql`SELECT id FROM cashier_shifts WHERE tenant_id=${scope.tenantId}
+     AND location_id=${scope.locationId} AND cashier_id=${scope.actorId}
+     AND status='open' FOR UPDATE`);
    const shift=await currentShift(tx,scope);
    if(!shift)fail(409,"SHIFT_REQUIRED","Open your cashier shift before recording tender.");
    const changeMinor=receivedMinor-amountMinor,now=new Date();
