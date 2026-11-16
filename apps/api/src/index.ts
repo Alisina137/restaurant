@@ -105,9 +105,13 @@ app.get("/api/health/operations",requireIdentity,async(req:AuthorizedRequest,res
   const [state]=await db.select({pending:count(),oldest:min(orderOutbox.createdAt)})
    .from(orderOutbox).where(isNull(orderOutbox.deliveredAt));
   const pending=state?.pending??0;
+  const oldestPendingAt=state?.oldest??null;
+  const ageSeconds=oldestPendingAt===null?null:
+   Math.max(0,Math.floor((Date.now()-new Date(oldestPendingAt).getTime())/1000));
   res.setHeader("Cache-Control","no-store");
-  res.json({status:pending>5000?"attention":"ok",pendingOutbox:pending,
-   oldestPendingAt:state?.oldest??null,polling:"database_revision"});
+  res.json({status:pending>5000||(ageSeconds!==null&&ageSeconds>60)?"attention":"ok",
+   pendingOutbox:pending,oldestPendingAt,oldestPendingAgeSeconds:ageSeconds,
+   polling:"database_revision"});
  }catch{
   res.status(503).json({code:"SERVICE_UNAVAILABLE",message:"Operations summary unavailable"});
  }

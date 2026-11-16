@@ -65,10 +65,22 @@ export function PlatformDashboard(){
   ["ticketQueue",data?.openTickets,Headphones,"/platform/support"],
   ["pending",data?.pendingRestaurants,ClipboardCheck,"/platform/restaurants?status=pending"]] as const;
  return <div className="content-stack p12-console"><Header title={p12(locale,"overview")} desc={p12(locale,"platformHelp")}/>
- <Refresh onClick={()=>void load()} label={p12(locale,"refresh")}/><Display error={error} notice=""/>
+ <Refresh onClick={()=>{void load();void ops.load();}} label={p12(locale,"refresh")}/><Display error={error} notice=""/>
  <div className="p12-stat-grid">{cards.map(([key,count,Icon,href])=><Link href={href} className="p12-stat" key={key}>
   <Icon size={22}/><span>{p12(locale,key)}</span><strong>{loading?"—":count??"—"}</strong>
   <ArrowUpRight size={16}/></Link>)}</div>
+ <section className="settings-card p12-panel" aria-live="polite">
+  <div className="section-heading"><div><h2>{locale==="en"?"Service health":locale==="ps-AF"?"د خدمت روغتیا":"سلامت خدمات"}</h2>
+   <p>{locale==="en"?"Durable kitchen event recovery, not guest order details.":locale==="ps-AF"?"د پخلنځي د پېښو خوندي بیا ترلاسه کول؛ د مېلمنو د فرمایشونو جزئیات نه.":"بازیابی پایدار رویدادهای آشپزخانه؛ بدون جزئیات سفارش مشتری."}</p></div>
+   <ShieldCheck size={22}/></div>
+  {ops.error?<div className="form-error" role="alert">{ops.error}</div>:
+  <div className="p12-list-row"><span>{locale==="en"?"Pending recovery":locale==="ps-AF"?"په تمه بیا ترلاسه کول":"رویدادهای منتظر بازیابی"}</span>
+   <strong>{ops.loading?"—":ops.data?.pendingOutbox??"—"}</strong>
+   <span className="data-badge">{ops.loading?"…":ops.data?.status??"—"}</span>
+   <small>{ops.data?.oldestPendingAgeSeconds!==null&&ops.data?.oldestPendingAgeSeconds!==undefined?
+   (locale==="en"?"Oldest: ":"") + ops.data.oldestPendingAgeSeconds+" s":
+   locale==="en"?"No pending events":locale==="ps-AF"?"هېڅ پېښه په تمه نشته":"رویدادی در انتظار نیست"}</small></div>}
+  </section>
  <div className="p12-split"><section className="settings-card p12-panel"><h2>{p12(locale,"manuallyVerified")}</h2>
   <p>{p12(locale,"privateNote")}</p><Link className="button button-primary" href="/platform/subscriptions">
    <Banknote size={16}/>{p12(locale,"payments")}</Link></section>
