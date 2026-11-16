@@ -3,7 +3,7 @@ import {Router} from "express";
 import {and,count,desc,eq,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
-import {location,tenant,user} from "./schema";
+import {location,restaurantSetting,tenant,user} from "./schema";
 import {saasSupportGrant,saasTicket,saasTicketMessage} from "./phase12-schema";
 import {audit,choice,identity,record,value} from "./phase12-core";
 import {fail,paramId,route} from "./menu-helpers";
@@ -126,12 +126,17 @@ saasSupportRouter.get("/grants/:id/metadata",route(async(req,res)=>{
   if(!grant||grant.requestedBy!==a.userId||grant.status!=="approved"||
    !grant.expiresAt||grant.expiresAt<=new Date())
    fail(403,"ACCESS_EXPIRED","Grant missing, expired or revoked.");
-  const [org,locs]=await Promise.all([
+  const [org,locs,config]=await Promise.all([
    tx.select({name:tenant.name,status:tenant.status,slug:tenant.slug}).from(tenant)
     .where(eq(tenant.id,grant.tenantId)).limit(1),
-   tx.select({n:count()}).from(location).where(eq(location.tenantId,grant.tenantId))]);
+   tx.select({n:count()}).from(location).where(eq(location.tenantId,grant.tenantId)),
+   tx.select({timezone:restaurantSetting.timezone,locale:restaurantSetting.locale,
+    phone:restaurantSetting.phone,address:restaurantSetting.address,
+    orderingPolicy:restaurantSetting.orderingPolicy})
+    .from(restaurantSetting).where(eq(restaurantSetting.tenantId,grant.tenantId)).limit(1)]);
   await audit(tx,a.userId,grant.tenantId,"saas.support_metadata_accessed",{grantId:id,scope:"metadata"});
-  return {restaurant:org[0]??null,locations:locs[0]?.n??0,expiresAt:grant.expiresAt};
+  return {restaurant:org[0]??null,locations:locs[0]?.n??0,
+   configuration:config[0]??null,expiresAt:grant.expiresAt};
  });
  res.setHeader("Cache-Control","no-store");
  res.json(data);
