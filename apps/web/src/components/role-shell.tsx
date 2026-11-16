@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2, History } from "lucide-react";
+import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2, History, Wallet, Clock3, Percent } from "lucide-react";
 import { direction, t, webAreaFor, type Locale, type WebArea } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
 import { ApiError, getContext, type WorkspaceContext } from "@/lib/context";
@@ -12,6 +12,7 @@ import { m3 } from "@/lib/menu-copy";
 import { f4 } from "@/lib/floor-copy";
 import { ow } from "@/lib/order-web-copy";
 import { k6 } from "@/lib/kitchen-copy";
+import {f9} from "@/lib/finance-copy";
 
 const rootPages: Record<WebArea, { route: string; label: "overview" | "live" | "openChecks"; icon: typeof LayoutDashboard }> = {
   app: { route: "/app/overview", label: "overview", icon: LayoutDashboard },
@@ -60,7 +61,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
       <Link className="sidebar-brand" href={page.route}><span className="brand-mark"><UtensilsCrossed size={20} /></span><strong>DineFlow</strong></Link>
       <div className="sidebar-caption">{t(locale, "workspace")}</div>
       <nav className="sidebar-nav">
-        <Link className={"nav-link" + (pathname === page.route ? " selected" : "")} href={page.route}
+        <Link className={"nav-link" + ((pathname === page.route || area==="cashier"&&pathname.startsWith("/cashier/checks/")) ? " selected" : "")} href={page.route}
           aria-current={pathname === page.route ? "page" : undefined} title={t(locale, page.label)}>
           <Icon size={20} strokeWidth={1.9} /><span>{t(locale, page.label)}</span>
         </Link>
@@ -78,6 +79,20 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             aria-current={pathname==="/kitchen/history"?"page":undefined}>
             <History size={20}/><span>{k6(locale,"history")}</span></Link>
         </>}
+        {area==="cashier"&&<>
+          <Link href="/cashier/transactions" title={f9(locale,"transactions")}
+            className={"nav-link"+(pathname.startsWith("/cashier/transactions")?" selected":"")}
+            aria-current={pathname.startsWith("/cashier/transactions")?"page":undefined}>
+            <Wallet size={20}/><span>{f9(locale,"transactions")}</span></Link>
+          <Link href="/cashier/shifts" title={f9(locale,"shifts")}
+            className={"nav-link"+(pathname.startsWith("/cashier/shifts")?" selected":"")}
+            aria-current={pathname.startsWith("/cashier/shifts")?"page":undefined}>
+            <Clock3 size={20}/><span>{f9(locale,"shifts")}</span></Link>
+          <Link href="/cashier/receipts" title={f9(locale,"receipts")}
+            className={"nav-link"+(pathname.startsWith("/cashier/receipts")?" selected":"")}
+            aria-current={pathname.startsWith("/cashier/receipts")?"page":undefined}>
+            <ReceiptText size={20}/><span>{f9(locale,"receipts")}</span></Link>
+        </>}
         {area==="app"&&<>
           <Link href="/app/orders/live" title={ow(locale,"orders")}
             className={"nav-link"+(pathname.startsWith("/app/orders/")?" selected":"")}
@@ -91,6 +106,10 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             className={"nav-link"+(pathname.startsWith("/app/tables/")?" selected":"")}
             aria-current={pathname.startsWith("/app/tables/")?"page":undefined}>
             <Armchair size={20} strokeWidth={1.9}/><span>{f4(locale,"tables")}</span></Link>
+          <Link href="/app/billing/checks" title={f9(locale,"billing")}
+            className={"nav-link"+(pathname.startsWith("/app/billing/")?" selected":"")}
+            aria-current={pathname.startsWith("/app/billing/")?"page":undefined}>
+            <Wallet size={20}/><span>{f9(locale,"billing")}</span></Link>
           <Link href="/app/staff/directory" title={p2(locale,"team")}
             className={"nav-link"+(pathname.startsWith("/app/staff/")?" selected":"")}
             aria-current={pathname.startsWith("/app/staff/")?"page":undefined}>
