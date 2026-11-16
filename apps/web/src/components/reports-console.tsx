@@ -31,7 +31,7 @@ function Datum({title,value,description,negative=false}:{
 function Chart({values,locale}:{values:SalesDay[];locale:Locale}){
  const max=Math.max(1,...values.map(day=>Math.abs(day.netCollectedMinor)));
  // A fixed-width scroll grid avoids shrinking labels below legible size on phones.
- return <div className="p11-chart-scroll"><div className="p11-bars" role="img"
+ return <div className="p11-chart-scroll"><div className="p11-bars" style={{gridTemplateColumns:`repeat(${values.length}, minmax(37px, 1fr))`,minWidth:Math.max(550,values.length*48)}} role="img"
   aria-label={values.map(x=>x.day+": "+money(x.netCollectedMinor,locale)).join("; ")}>
   {values.map(d=><div key={d.day} className="p11-bar-column"
     title={d.day+" · "+money(d.netCollectedMinor,locale)}>
@@ -84,7 +84,7 @@ function Sales({report,locale}:{report:SalesReport;locale:Locale}){
  </div>;
 }
 function Items({report,locale}:{report:ItemsReport;locale:Locale}){
- const rows=report.items,top=rows[0]?.quantity??1;
+ const rows=report.items,top=Math.max(1,...rows.map(x=>x.quantity));
  return <section className="settings-card p11-panel">
   <div className="section-heading"><div><h2>{r11(locale,"rankings")}</h2>
    <p>{r11(locale,"categoryHint")}</p></div><Chip>{r11(locale,"showing")}: {rows.length}</Chip></div>
