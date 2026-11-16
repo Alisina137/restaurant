@@ -127,7 +127,7 @@ export async function fullCheck(scope:FinanceScope,id:string){
    .where(eq(diningTable.id,check.tableId)).limit(1);
  const rounds=await db.select().from(orderRound).where(and(eq(orderRound.visitId,check.visitId),
    eq(orderRound.tenantId,scope.tenantId))).orderBy(asc(orderRound.roundNumber));
- const ids=rounds.map(r=>r.id);
+ const ids=rounds.filter(r=>r.status!=="voided").map(r=>r.id);
  const [lines,shares,payments,activities,receipt,restaurantSettingRow]=await Promise.all([
    ids.length?db.select().from(orderLine).where(and(eq(orderLine.tenantId,scope.tenantId),
      inArray(orderLine.roundId,ids))).orderBy(asc(orderLine.createdAt),asc(orderLine.lineIndex)):Promise.resolve([]),
