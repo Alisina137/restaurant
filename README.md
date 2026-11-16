@@ -125,3 +125,10 @@ Follow [Phase 08 Acceptance](docs/PHASE-08-ACCEPTANCE.md) before live use.
 - Pending corrections block tender/split/settlement until reviewed. All changes are tenant-scoped and versioned, with audit, idempotency and capped sums.
 - Automated API regression (disposable development DB) `pnpm --filter @dineflow/api exec tsx src/phase10-ci.ts` runs in GitHub CI after the earlier phases.
 - See [Phase 10 Acceptance](docs/PHASE-10-ACCEPTANCE.md). Bank/card refund automation is not implemented; real-money reconciliation must be supervised during pilot.
+
+## Phase 13 — Reliability safeguards and operator release checklist
+
+- Production API config, secure request headers, sanitized operations logs, public traffic limits and outbox crash replay with platform health monitoring.
+- Keyboard skip navigation and three-language disconnected-state feedback.
+- Disposable PostgreSQL restore rehearsal via `pnpm ops:rehearsal` (requires explicit environment confirmation, separate target database and PostgreSQL client tools).
+- Source and automated integration gates merged in [PR #14](https://github.com/Alisina137/restaurant/pull/14); browser, Android, printing, financial cash and real restore rehearsals require manual sign-off **before pilot**. See [Phase 13 Acceptance](docs/PHASE-13-ACCEPTANCE.md).

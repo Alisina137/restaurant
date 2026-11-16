@@ -52,8 +52,16 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - Tenant server checks enforce staff/table plan limits, subscription trial/period/grace and suspended new-visit gating without disrupting closure of existing visits. No unverified payment counts as paid.
 - See `docs/PHASE-12-ACCEPTANCE.md`. Physical devices, printed invoice layout, actual payment references and pilot acceptance remain pending.
 
+## Phase 13 status
+- **Merged to main via PR #14.** Two full feature-head GitHub Actions runs passed TypeScript checks, unit tests, Next.js build, migration/seed and P01–P13 PostgreSQL integration.
+- HTTP security, no-cache responses, safe request IDs/structured timing logs, per-instance public entry throttles and production environment/TLS validation are implemented. Existing durable PIN and auth attempt protection is preserved.
+- A PostgreSQL SKIP LOCKED outbox reconciler recovers stranded accepted order/kitchen events and advances the durable location revision; this is in-app polling recovery, not mobile push delivery.
+- Platform-only operations health counts and backlog age appear on `/platform/overview`; web role shell has a keyboard skip link and localized offline indicator.
+- Added an isolated PostgreSQL backup/restore rehearsal script and operator runbook. No new schema migration or package installation required.
+- See `docs/PHASE-13-ACCEPTANCE.md`. **Manual gates are NOT certified:** 3-language full visual QA, physical Android/receipt validation, peak-load, production backup/media recovery and measured RPO/RTO, accessibility, and cash reconciliation.
+
 ## Next phase
-P13 — production reliability, localization certification, accessibility and nonfunctional gates (then P14 supervised pilot launch).
+P14 — supervised restaurant pilot; begin only after mandatory manual P13 release gates are signed off.
 
 ## Local commands
 ```powershell
