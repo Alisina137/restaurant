@@ -178,3 +178,57 @@ export const menuItemGroup = pgTable("menu_item_groups", {
   groupId: text("group_id").notNull().references(() => menuModifierGroup.id)
 }, (t) => [uniqueIndex("menu_item_group_unique").on(t.itemId,t.groupId),
   index("menu_item_group_group_idx").on(t.groupId)]);
+
+/** P04: one physical restaurant location per tenant for the MVP. */
+export const diningSection = pgTable("dining_sections", {
+  id:text("id").primaryKey(),
+  tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+  locationId:text("location_id").notNull().references(()=>location.id),
+  name:text("name").notNull(),
+  sortOrder:integer("sort_order").notNull().default(0),
+  active:boolean("active").notNull().default(true),
+  version:integer("version").notNull().default(1),
+  archivedAt:timestamp("archived_at",{withTimezone:true}),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("dining_sections_location_idx").on(t.tenantId,t.locationId,t.sortOrder)]);
+export const diningTable = pgTable("dining_tables", {
+  id:text("id").primaryKey(),
+  tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+  locationId:text("location_id").notNull().references(()=>location.id),
+  sectionId:text("section_id").notNull().references(()=>diningSection.id),
+  label:text("label").notNull(),
+  seats:integer("seats").notNull().default(4),
+  sortOrder:integer("sort_order").notNull().default(0),
+  notes:text("notes").notNull().default(""),
+  active:boolean("active").notNull().default(true),
+  cleaning:boolean("cleaning").notNull().default(false),
+  assignedWaiterId:text("assigned_waiter_id").references(()=>user.id),
+  version:integer("version").notNull().default(1),
+  archivedAt:timestamp("archived_at",{withTimezone:true}),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("dining_tables_section_idx").on(t.tenantId,t.locationId,t.sectionId,t.sortOrder),
+  index("dining_tables_waiter_idx").on(t.tenantId,t.assignedWaiterId)]);
+export const diningVisit = pgTable("dining_visits", {
+  id:text("id").primaryKey(),
+  tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+  locationId:text("location_id").notNull().references(()=>location.id),
+  tableId:text("table_id").notNull().references(()=>diningTable.id),
+  waiterId:text("waiter_id").notNull().references(()=>user.id),
+  partySize:integer("party_size").notNull(),
+  status:text("status").notNull().default("open"),
+  openedBy:text("opened_by").notNull().references(()=>user.id),
+  closedBy:text("closed_by").references(()=>user.id),
+  closedReason:text("closed_reason"),
+  openedAt:timestamp("opened_at",{withTimezone:true}).notNull().defaultNow(),
+  closedAt:timestamp("closed_at",{withTimezone:true}),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("dining_visits_tenant_idx").on(t.tenantId,t.locationId,t.openedAt),
+  index("dining_visits_table_idx").on(t.tableId,t.openedAt)]);
+export const floorRevision=pgTable("floor_revisions",{
+  locationId:text("location_id").primaryKey().references(()=>location.id),
+  tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+  version:integer("version").notNull().default(1),
+  changedAt:timestamp("changed_at",{withTimezone:true}).notNull().defaultNow()
+});

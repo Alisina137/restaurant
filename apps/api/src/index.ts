@@ -16,6 +16,10 @@ import { groupRouter } from "./menu-groups";
 import { itemRouter } from "./menu-items";
 import { imageRouter } from "./menu-images";
 import { catalogRouter } from "./menu-catalog";
+import { sectionRouter } from "./floor-sections";
+import { tableRouter } from "./floor-tables";
+import { visitRouter } from "./floor-visits";
+import { floorLiveRouter } from "./floor-live";
 
 const app = express();
 app.disable("x-powered-by");
@@ -38,6 +42,10 @@ app.use("/api/menu/groups", groupRouter);
 app.use("/api/menu/items", itemRouter);
 app.use("/api/menu/images", imageRouter);
 app.use("/api/menu", catalogRouter);
+app.use("/api/floor/sections", sectionRouter);
+app.use("/api/floor/tables", tableRouter);
+app.use("/api/floor/visits", visitRouter);
+app.use("/api/floor", floorLiveRouter);
 
 type AuthorizedRequest = Request & { identity?: IdentityContext };
 async function requireIdentity(req: AuthorizedRequest, res: Response, next: NextFunction) {
