@@ -1113,3 +1113,8 @@ button.p12-list-row{width:100%;cursor:pointer}
  body{background:#fff!important}
 }
 @media(prefers-reduced-motion:reduce){.p12-tab,.p12-stat{transition:none}}
+
+/* Phase 13: keyboard skip navigation and honest disconnected state. */
+.skip-content-link{position:fixed;z-index:1000;inset-block-start:10px;inset-inline-start:10px;transform:translateY(-180%);background:#fff;color:#123d34;border:2px solid #147e68;border-radius:10px;padding:9px 15px;font-weight:700}
+.skip-content-link:focus{transform:translateY(0)}
+.workspace-offline{padding:10px 18px;background:#fff2d5;border-block-end:1px solid #c89e46;color:#684616;font-weight:650;font-size:.91rem;line-height:1.6}

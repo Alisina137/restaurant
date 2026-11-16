@@ -14,7 +14,8 @@
     "seed:dev": "pnpm --filter @dineflow/api seed:dev",
     "typecheck": "pnpm --filter @dineflow/shared typecheck && pnpm --filter @dineflow/api typecheck && pnpm --filter @dineflow/web typecheck && pnpm --filter @dineflow/mobile typecheck",
     "test": "pnpm --filter @dineflow/shared test && pnpm --filter @dineflow/api test",
-    "build:web": "cross-env NODE_ENV=production pnpm --filter @dineflow/web build"
+    "build:web": "cross-env NODE_ENV=production pnpm --filter @dineflow/web build",
+    "ops:rehearsal": "pnpm --filter @dineflow/api backup:rehearsal"
   },
   "devDependencies": {
     "cross-env": "^7.0.3"
