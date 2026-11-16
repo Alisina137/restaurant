@@ -5,7 +5,8 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 ## Delivery progress
 
 - **P01–P04**: Auth and role shells; restaurant onboarding and staff; menu management; sections, tables, live visits and waiter assignments. All previously merged to `main`, with their API/CI checks passing. Real-device review remains ongoing.
-- **P05**: Real waiter ordering, immutable order snapshots and first kitchen receiver. Implemented on `phase-05-ordering-kitchen` pending CI and merge to `main`. Mobile/web visual checks and physical phone verification are still required.
+- **P05**: Real waiter ordering, immutable order snapshots and initial kitchen receiver, merged to main after CI.
+- **P06**: Complete kitchen New/Preparing/Ready/History, optional handoff, per-line readiness, waiter Served + Completed, durable notifications, sound/vibration opt-ins, authorized event cursor and resync. Implemented in branch `phase-06-kitchen-service`; see `docs/PHASE-06-ACCEPTANCE.md`. Mobile/browser visual QA and production push delivery remain outstanding.
 
 ### P05 completed work
 - **Waiter mobile: 5 active bottom tabs**: Home (real active tables/orders summary), Tables (active visit, current rounds), Orders (Active/Ready; Completed explains future serving), Menu (read-only catalog and choose an active table), More (existing profile/language/signout).
@@ -23,11 +24,11 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - Local drafts use already-installed `expo-secure-store` split across per-line keys; no new npm packages are required. Large/invalid drafts produce an explicit Save error rather than silent loss.
 
 ## Automated verification
-- `pnpm typecheck`, `pnpm test`, `pnpm build:web`, Postgres migrations, P01/P02/P03/P04 API integrations and P05 integration (100 safe replay requests, one ticket, mandatory modifiers, stale prices, kitchen state conflicts, tenant isolation and closure guard).
+- `pnpm typecheck`, `pnpm test`, `pnpm build:web`, Postgres migrations, P01–P05 API regressions and P06 integration (100 safe replay requests, one ticket, mandatory modifiers, stale prices, kitchen state conflicts, tenant isolation and closure guard).
 - Browser/mobile visual QA is not performed by GitHub Actions; check 320–1280px, Dari/Pashto/English, mobile Expo Go and network retries locally.
 
 ## Next phase
-P06 — full kitchen operational flow, ready-to-serve/pickup acknowledgment, waiter mark-served, notifications and advanced history.
+P07 — guest table QR/PIN verification, waiter approval and customer self-ordering.
 
 ## Local commands
 ```powershell
