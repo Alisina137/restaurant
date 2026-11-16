@@ -1,4 +1,4 @@
-import { bigint, boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigint, bigserial, boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(), name: text("name").notNull(), email: text("email").notNull().unique(),
@@ -673,3 +673,21 @@ export const platformSetting=pgTable("platform_settings",{
  supportEmail:text("support_email").notNull().default(""),
  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
 });
+
+/** P14 append-only gate evidence; checked-by-actor reports, not a production deployment toggle. */
+export const pilotGateEvent=pgTable("pilot_gate_events",{
+ id:bigserial("id",{mode:"number"}).primaryKey(),
+ tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ gateKey:text("gate_key").notNull(),result:text("result").notNull(),
+ evidence:text("evidence").notNull(),actorId:text("actor_id").notNull().references(()=>user.id),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("pilot_gate_event_tenant_order_idx").on(t.tenantId,t.id)]);
+export const pilotSignoffEvent=pgTable("pilot_signoff_events",{
+ id:bigserial("id",{mode:"number"}).primaryKey(),
+ tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ stage:text("stage").notNull(),decision:text("decision").notNull(),
+ ownerSignoffId:bigint("owner_signoff_id",{mode:"number"}),
+ fingerprint:text("fingerprint").notNull(),
+ note:text("note").notNull(),actorId:text("actor_id").notNull().references(()=>user.id),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("pilot_signoff_tenant_order_idx").on(t.tenantId,t.id)]);

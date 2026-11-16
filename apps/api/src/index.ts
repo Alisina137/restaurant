@@ -32,6 +32,7 @@ import {adjustmentsRouter} from "./phase10-adjustments";
 import {waiterCorrectionRouter} from "./phase10-waiter";
 import {reportingRouter} from "./phase11-reporting";
 import {tenantSaasRouter,platformSaasRouter} from "./phase12-platform";
+import {tenantPilotRouter,platformPilotRouter} from "./phase14-pilot";
 import {validateProductionEnvironment,hardenedHeadersAndLogs,createIpRateLimiter} from "./production-hardening";
 import {startOutboxReconciliation} from "./outbox-reconciler";
 
@@ -78,6 +79,8 @@ app.use("/api/finance",financeHistoryRouter);
 app.use("/api/finance",adjustmentsRouter);
 app.use("/api/reports",reportingRouter);
 app.use("/api/subscription",tenantSaasRouter);
+app.use("/api/pilot",tenantPilotRouter);
+app.use("/api/platform/pilots",platformPilotRouter);
 app.use("/api/platform",platformSaasRouter);
 app.use("/api/guest",guestFinanceRouter);
 app.use("/api/guest",guestAssistanceRouter);
