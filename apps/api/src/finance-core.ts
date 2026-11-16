@@ -157,11 +157,22 @@ export async function orderGuard(tx:Tx,scope:{tenantId:string;locationId:string}
  if(check&&(check.status!=="open"||check.lockedAt))
    fail(409,"CHECK_LOCKED","Check is locked for payment. Ask your cashier before adding another order.");
 }
+export async function pendingCorrectionGuard(tx:Tx,scope:FinanceScope,checkId:string){
+ const [active]=await tx.select({id:financeAdjustment.id}).from(financeAdjustment)
+  .where(and(eq(financeAdjustment.tenantId,scope.tenantId),
+   eq(financeAdjustment.locationId,scope.locationId),eq(financeAdjustment.checkId,checkId),
+   inArray(financeAdjustment.status,["pending","approved"]))).limit(1);
+ if(active)fail(409,"CORRECTION_PENDING","Resolve the open adjustment request before changing payments or splitting.");
+}
 export async function pendingGuard(tx:Tx,scope:FinanceScope,visitId:string){
  const [pending]=await tx.select({id:guestSubmission.id}).from(guestSubmission).where(and(
     eq(guestSubmission.visitId,visitId),eq(guestSubmission.tenantId,scope.tenantId),
     eq(guestSubmission.status,"pending"))).limit(1);
  if(pending)fail(409,"PENDING_GUEST_ORDER","Resolve pending guest orders before settling.");
+ const [check]=await tx.select({id:diningCheck.id}).from(diningCheck)
+  .where(and(eq(diningCheck.tenantId,scope.tenantId),eq(diningCheck.locationId,scope.locationId),
+    eq(diningCheck.visitId,visitId))).limit(1);
+ if(check)await pendingCorrectionGuard(tx,scope,check.id);
  const rounds=await currentOrders(tx,scope,visitId);
  if(!rounds.length)fail(409,"EMPTY_CHECK","Cannot settle a visit without ordered items.");
  const [unfinished]=await tx.select({id:kitchenTicket.id}).from(kitchenTicket)
