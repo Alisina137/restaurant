@@ -140,7 +140,7 @@ saasPlatformRouter.post("/tenants/:id/:action",route(async(req,res)=>{
   if(action==="restore"&&effectiveStatus(sub,policy.graceDays)==="suspended"&&sub.status!=="suspended")
    fail(409,"PAYMENT_REQUIRED","A verified invoice or active trial is required to restore this restaurant.");
   if(action==="restore"&&sub.status==="suspended"){
-   if((sub.paidUntil?.getTime()??0)<=Date.now()&&(sub.trialEndsAt?.getTime()??0)<=Date.now())
+   if(sub.priceMinor>0&&(sub.paidUntil?.getTime()??0)<=Date.now()&&(sub.trialEndsAt?.getTime()??0)<=Date.now())
     fail(409,"PAYMENT_REQUIRED","Verify a current invoice before restoring service.");
   }
   if(action==="approve"&&org.status!=="pending")fail(409,"INVALID_STATE","Only pending restaurants can be approved.");
