@@ -9,10 +9,12 @@ import { useLocale } from "../../src/locale";
 import { router, useFocusEffect } from "expo-router";
 import { floorRequest } from "../../src/floor-api";
 import { f, type Board } from "../../src/floor";
+import { o5 } from "../../src/order-copy";
 export default function Home() {
   const { locale, changeLocale } = useLocale();
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [floor, setFloor] = useState<Board | null>(null);
+  const [ordersStat,setOrdersStat]=useState<{active:number;ready:number}|null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const rtl = direction(locale) === "rtl";
@@ -23,7 +25,11 @@ export default function Home() {
       if (data.role !== "waiter") { setError("ACCESS"); setIdentity(null); return; }
       setIdentity(data);
       changeLocale(data.locale);
-      try { setFloor(await floorRequest<Board>("/api/floor/tables/board")); } catch { setFloor(null); }
+      try { const [b,stats]=await Promise.all([
+       floorRequest<Board>("/api/floor/tables/board"),
+       floorRequest<{active:number;ready:number}>("/api/orders/my/stats")]);
+       setFloor(b);setOrdersStat(stats);
+      } catch { setFloor(null);setOrdersStat(null); }
     } catch (e) {
       const message = String(e);
       if (message.includes("401")) { router.replace("/sign-in"); return; }
@@ -56,6 +62,15 @@ export default function Home() {
           <Text style={styles.title}>{floor?floor.tables.filter(t=>t.visitId&&t.assignedWaiterId===floor.actorId).length:"—"}</Text>
           <Pressable accessibilityRole="button" onPress={()=>router.push("/(main)/tables")} style={styles.action}>
             <Text style={styles.actionText}>{f(locale,"openTables")}</Text></Pressable>
+        </View>
+        <View style={styles.panel}>
+          <View style={[styles.panelRow,{flexDirection:rtl?"row-reverse":"row"}]}>
+            <Ionicons name="receipt-outline" color={theme.brand} size={23}/>
+            <Text style={styles.sectionTitle}>{o5(locale,"working")}</Text></View>
+          <Text style={styles.title}>{ordersStat?.active??"—"}</Text>
+          <Text style={styles.muted}>{o5(locale,"readyItems")}: {ordersStat?.ready??"—"}</Text>
+          <Pressable style={styles.action} onPress={()=>router.push("/(main)/orders")}>
+            <Text style={styles.actionText}>{o5(locale,"showActive")}</Text></Pressable>
         </View>
         <View style={styles.panel}>
           <View style={[styles.panelRow, { flexDirection: rtl ? "row-reverse" : "row" }]}><Ionicons name="lock-closed-outline" color={theme.brand} size={23} /><Text style={styles.sectionTitle}>{t(locale, "secure")}</Text></View>

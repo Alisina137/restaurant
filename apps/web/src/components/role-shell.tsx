@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair } from "lucide-react";
+import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2 } from "lucide-react";
 import { direction, t, webAreaFor, type Locale, type WebArea } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
 import { ApiError, getContext, type WorkspaceContext } from "@/lib/context";
@@ -10,6 +10,7 @@ import { WorkspaceProvider } from "./workspace-provider";
 import { p2 } from "@/lib/phase2-copy";
 import { m3 } from "@/lib/menu-copy";
 import { f4 } from "@/lib/floor-copy";
+import { ow } from "@/lib/order-web-copy";
 
 const rootPages: Record<WebArea, { route: string; label: "overview" | "live" | "openChecks"; icon: typeof LayoutDashboard }> = {
   app: { route: "/app/overview", label: "overview", icon: LayoutDashboard },
@@ -62,7 +63,21 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
           aria-current={pathname === page.route ? "page" : undefined} title={t(locale, page.label)}>
           <Icon size={20} strokeWidth={1.9} /><span>{t(locale, page.label)}</span>
         </Link>
+        {area==="kitchen"&&<>
+          <Link href="/kitchen/preparing" title={ow(locale,"preparing")}
+            className={"nav-link"+(pathname==="/kitchen/preparing"?" selected":"")}
+            aria-current={pathname==="/kitchen/preparing"?"page":undefined}>
+            <Timer size={20}/><span>{ow(locale,"preparing")}</span></Link>
+          <Link href="/kitchen/ready" title={ow(locale,"ready")}
+            className={"nav-link"+(pathname==="/kitchen/ready"?" selected":"")}
+            aria-current={pathname==="/kitchen/ready"?"page":undefined}>
+            <CheckCircle2 size={20}/><span>{ow(locale,"ready")}</span></Link>
+        </>}
         {area==="app"&&<>
+          <Link href="/app/orders/live" title={ow(locale,"orders")}
+            className={"nav-link"+(pathname.startsWith("/app/orders/")?" selected":"")}
+            aria-current={pathname.startsWith("/app/orders/")?"page":undefined}>
+            <ClipboardList size={20} strokeWidth={1.9}/><span>{ow(locale,"orders")}</span></Link>
           <Link href="/app/menu/items" title={m3(locale,"menu")}
             className={"nav-link"+(pathname.startsWith("/app/menu/")?" selected":"")}
             aria-current={pathname.startsWith("/app/menu/")?"page":undefined}>
