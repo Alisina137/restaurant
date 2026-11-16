@@ -544,6 +544,7 @@ export const serviceRequest=pgTable("service_requests",{
  createdBy:text("created_by").references(()=>user.id),
  type:text("type").notNull(),
  note:text("note").notNull().default(""),
+ billPreference:text("bill_preference").notNull().default("together"),
  status:text("status").notNull().default("pending"),
  version:integer("version").notNull().default(1),
  acknowledgedBy:text("acknowledged_by").references(()=>user.id),

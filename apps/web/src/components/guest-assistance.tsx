@@ -5,12 +5,12 @@ import {Bell,CheckCheck,Clock3,Droplets,FileText,MessageCircle,RefreshCw,Send} f
 import {useGuest} from "./guest-shell";
 import {guestRequest} from "@/lib/guest-client";
 import {help8,type ServiceItem} from "@/lib/service-copy";
-const kinds=["call_waiter","water","bill","other"] as const;
-const icons={call_waiter:Bell,water:Droplets,bill:FileText,other:MessageCircle};
+const kinds=["call_waiter","water","cutlery","bill","other"] as const;
+const icons={call_waiter:Bell,water:Droplets,cutlery:MessageCircle,bill:FileText,other:MessageCircle};
 export function GuestAssistance(){
  const {session,locale,visit}=useGuest();
  const [items,setItems]=useState<ServiceItem[]>([]),[kind,setKind]=useState<typeof kinds[number]>("call_waiter");
- const [note,setNote]=useState(""),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
+ const [note,setNote]=useState(""),[billPreference,setBillPreference]=useState<"together"|"split">("together"),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
  const [error,setError]=useState(""),[success,setSuccess]=useState("");
  const load=useCallback(async()=>{
    try{
@@ -27,7 +27,7 @@ export function GuestAssistance(){
    setBusy(true);setError("");setSuccess("");
    try{
      await guestRequest(session.token,"/requests",{method:"POST",
-       body:JSON.stringify({type:kind,note:note.trim()})});
+       body:JSON.stringify({type:kind,note:note.trim(),billPreference})});
      setSuccess(help8(locale,"success"));setNote("");await load();
    }catch(e){setError(e instanceof Error?e.message:help8(locale,"retry"));await load();}
    finally{setBusy(false);}
@@ -42,13 +42,19 @@ export function GuestAssistance(){
       className={"guest-help-option"+(kind===key?" selected":"")}
       aria-pressed={kind===key} onClick={()=>{setKind(key);setError("");setSuccess("");}}>
         <Icon size={23}/><strong>{help8(locale,key)}</strong>
-        <small>{help8(locale,({call_waiter:"callDesc",water:"waterDesc",bill:"billDesc",other:"otherDesc"} as const)[key])}</small>
+        <small>{help8(locale,({call_waiter:"callDesc",water:"waterDesc",cutlery:"cutleryDesc",bill:"billDesc",other:"otherDesc"} as const)[key])}</small>
        </button>;})}</div>
    <section className="guest-help-form">
      <h3>{help8(locale,kind)}</h3>
      <label className="finance-field"><span>{help8(locale,"note")}</span>
       <textarea rows={3} maxLength={200} value={note} placeholder={help8(locale,"describe")}
        onChange={e=>setNote(e.target.value)} disabled={!!active}/></label>
+     {kind==="bill"&&<fieldset className="guest-bill-choice" disabled={!!active}>
+       <legend>{help8(locale,"billPreference")}</legend>
+       {(["together","split"] as const).map(k=><label key={k}>
+         <input type="radio" name="billPreference" checked={billPreference===k}
+           onChange={()=>setBillPreference(k)}/><span>{help8(locale,k)}</span></label>)}
+     </fieldset>}
      <small className="guest-help-counter">{note.length}/200</small>
      {active&&<div className="guest-help-current"><Clock3 size={19}/>
         <span>{help8(locale,active.status==="pending"?"pending":"acknowledged")}. {help8(locale,"slow")}</span></div>}
@@ -66,7 +72,7 @@ export function GuestAssistance(){
      items.map(x=>{const Icon=icons[x.type];return <article key={x.id} className="guest-help-row">
         <span className="guest-help-icon"><Icon size={20}/></span><div>
          <strong>{help8(locale,x.type)}</strong><small>{help8(locale,x.status)}</small>
-         {x.note&&<p>{x.note}</p>}{x.resolutionNote&&<p>{x.resolutionNote}</p>}
+         {x.type==="bill"&&<p>{help8(locale,x.billPreference)}</p>}{x.note&&<p>{x.note}</p>}{x.resolutionNote&&<p>{x.resolutionNote}</p>}
         </div><time>{new Date(x.createdAt).toLocaleTimeString(locale,{hour:"2-digit",minute:"2-digit"})}</time>
        </article>;})}</section>
    <Link href={"/g/"+visit+"/orders"} className="guest-button secondary">{help8(locale,"back")}</Link>

@@ -12,7 +12,7 @@ export const guestAssistanceRouter=Router();
 export const staffAssistanceRouter=Router();
 type Tx=Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Scope={tenantId:string;locationId:string};
-const kinds=["call_waiter","water","bill","other"] as const;
+const kinds=["call_waiter","water","cutlery","bill","other"] as const;
 const available=(kind:unknown):kind is typeof kinds[number]=>typeof kind==="string"&&kinds.some(x=>x===kind);
 const recordId=(v:unknown)=>field(v,100,"Request ID",1);
 async function lockVisit(tx:Tx,visitId:string,scope:Scope){
@@ -37,10 +37,12 @@ async function signal(tx:Tx,scope:Scope,action:string,details:Record<string,unkn
  await tx.insert(auditEvent).values({id:randomUUID(),tenantId:scope.tenantId,
    userId:actorId,action:"service."+action,details});
 }
-async function place(scope:Scope,visitId:string,kind:unknown,note:unknown,sessionId:string|null,actorId:string|null){
+async function place(scope:Scope,visitId:string,kind:unknown,note:unknown,sessionId:string|null,actorId:string|null,preference:unknown="together"){
  if(!available(kind))fail(400,"INVALID_REQUEST","Choose waiter, water, bill or other.");
  const cleanNote=field(note??"",200,"Request note");
  if(kind==="other"&&cleanNote.length<3)fail(400,"NOTE_REQUIRED","Describe the assistance needed.");
+ if(preference!=="together"&&preference!=="split")
+   fail(400,"INVALID_PREFERENCE","Bill preference must be together or split.");
  return db.transaction(async tx=>{
    const visit=await lockVisit(tx,visitId,scope);
    if(kind==="bill"){
@@ -55,12 +57,12 @@ async function place(scope:Scope,visitId:string,kind:unknown,note:unknown,sessio
    const [latest]=await tx.select().from(serviceRequest).where(and(
       eq(serviceRequest.visitId,visit.id),eq(serviceRequest.type,kind)))
      .orderBy(desc(serviceRequest.createdAt)).limit(1);
-   if(latest&&Date.now()-latest.createdAt.getTime()<45_000)
+   if(latest&&Date.now()-latest.createdAt.getTime()<60_000)
      return {created:false,deduplicated:true,request:latest};
    const [created]=await tx.insert(serviceRequest).values({
      id:randomUUID(),tenantId:scope.tenantId,locationId:scope.locationId,
      visitId:visit.id,tableId:visit.tableId,guestSessionId:sessionId,
-     createdBy:actorId,type:kind,note:cleanNote,status:"pending"
+     createdBy:actorId,type:kind,note:cleanNote,billPreference:kind==="bill"?preference:"together",status:"pending"
    }).returning();
    if(!created)fail(503,"SAVE_FAILED","Could not create request.");
    await signal(tx,scope,"created",{id:created.id,type:kind,visitId:visit.id,tableId:visit.tableId},actorId);
@@ -70,7 +72,7 @@ async function place(scope:Scope,visitId:string,kind:unknown,note:unknown,sessio
 guestAssistanceRouter.get("/requests",route(async(req,res)=>{
  const scope=await guestAccess(req);
  const rows=await db.select({id:serviceRequest.id,type:serviceRequest.type,
-   status:serviceRequest.status,note:serviceRequest.note,version:serviceRequest.version,
+   status:serviceRequest.status,note:serviceRequest.note,billPreference:serviceRequest.billPreference,version:serviceRequest.version,
    createdAt:serviceRequest.createdAt,acknowledgedAt:serviceRequest.acknowledgedAt,
    resolvedAt:serviceRequest.resolvedAt,resolutionNote:serviceRequest.resolutionNote})
   .from(serviceRequest).where(and(eq(serviceRequest.tenantId,scope.tenantId),
@@ -80,7 +82,7 @@ guestAssistanceRouter.get("/requests",route(async(req,res)=>{
 }));
 guestAssistanceRouter.post("/requests",route(async(req,res)=>{
  const scope=await guestAccess(req),data=bodyObject(req);
- const result=await place(scope,scope.visitId,data.type,data.note,scope.sessionId,null);
+ const result=await place(scope,scope.visitId,data.type,data.note,scope.sessionId,null,data.billPreference);
  res.status(result.created?201:200).json(result);
 }));
 staffAssistanceRouter.get("/requests",route(async(req,res)=>{
@@ -128,7 +130,7 @@ staffAssistanceRouter.post("/visits/:id/requests",route(async(req,res)=>{
  if(!visit)fail(404,"NOT_FOUND","Visit unavailable.");
  if(scope.role==="waiter"&&visit.waiterId!==scope.actorId)
    fail(403,"NOT_ASSIGNED","Only the assigned waiter can request service.");
- const result=await place(scope,visitId,data.type,data.note,null,scope.actorId);
+ const result=await place(scope,visitId,data.type,data.note,null,scope.actorId,data.billPreference);
  res.status(result.created?201:200).json(result);
 }));
 staffAssistanceRouter.post("/requests/:id/transition",route(async(req,res)=>{

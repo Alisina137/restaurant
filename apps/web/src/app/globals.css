@@ -899,3 +899,8 @@ a { color:inherit; text-decoration:none; }
 .service-console-actions{display:grid;gap:10px}
 .service-console-actions input{min-height:45px;border:1px solid #dae7dd;border-radius:10px;padding:11px;background:#fff;color:#254d3c}
 .service-console-actions button{min-height:44px;justify-content:center}
+
+.guest-bill-choice{display:flex;flex-wrap:wrap;gap:12px;border:1px solid #d6e5d9;border-radius:13px;padding:14px}
+.guest-bill-choice legend{font-size:12px;font-weight:800;color:#527861}
+.guest-bill-choice label{display:flex;gap:8px;align-items:center;font-size:13px;color:#2b6a4c}
+.guest-bill-choice input{width:17px;height:17px;accent-color:#167653}

@@ -5,7 +5,7 @@ import {Bell,CheckCircle2,Clock3,Droplets,FileText,MessageCircle,RefreshCw} from
 import {jsonRequest} from "@/lib/phase2-api";
 import {useWorkspace} from "./workspace-provider";
 import {sr8,type ServiceList,type ServiceRequest} from "@/lib/staff-service-copy";
-const icons={call_waiter:Bell,water:Droplets,bill:FileText,other:MessageCircle};
+const icons={call_waiter:Bell,water:Droplets,cutlery:MessageCircle,bill:FileText,other:MessageCircle};
 export function ServiceRequestsConsole(){
  const {workspace}=useWorkspace(),locale=workspace.locale;
  const [status,setStatus]=useState<"active"|"resolved">("active"),[page,setPage]=useState(1);
@@ -50,6 +50,7 @@ export function ServiceRequestsConsole(){
            {sr8(locale,request.status==="pending"?"pending":request.status==="acknowledged"?"acknowledged":"resolved")}</span></div>
        <div><span className="eyebrow">{sr8(locale,"table")} {request.tableLabel}</span>
          <h2>{sr8(locale,request.type)}</h2></div>
+       {request.type==="bill"&&<p className="service-console-note">{sr8(locale,"billPreference")}: {sr8(locale,request.billPreference)}</p>}
        {request.note&&<p className="service-console-note">{request.note}</p>}
        <div className="finance-muted"><Clock3 size={16}/>
         {new Date(request.createdAt).toLocaleString(locale,{dateStyle:"short",timeStyle:"short"})}</div>

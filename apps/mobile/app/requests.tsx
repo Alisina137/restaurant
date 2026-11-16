@@ -49,13 +49,14 @@ export default function Requests(){
     data.items.map(item=><View style={styles.card} key={item.id}>
       <View style={[styles.row,{flexDirection:rtl?"row-reverse":"row"}]}>
        <View style={styles.icon}><Ionicons name={item.type==="water"?"water-outline":
-         item.type==="bill"?"receipt-outline":item.type==="other"?"chatbubble-outline":"notifications-outline"}
+         item.type==="bill"?"receipt-outline":item.type==="other"||item.type==="cutlery"?"chatbubble-outline":"notifications-outline"}
           size={23} color={theme.brand}/></View>
        <View style={{flex:1}}><Text style={[styles.itemTitle,{textAlign:rtl?"right":"left"}]}>
          {sr8(locale,item.type)} · {sr8(locale,"table")} {item.tableLabel}</Text>
          <Text style={[styles.subtitle,{textAlign:rtl?"right":"left"}]}>
            {sr8(locale,item.status==="pending"?"pending":item.status==="acknowledged"?"acknowledged":"resolved")}</Text></View>
       </View>
+      {item.type==="bill"&&<Text style={styles.note}>{sr8(locale,"billPreference")}: {sr8(locale,item.billPreference)}</Text>}
       {!!item.note&&<Text style={[styles.note,{textAlign:rtl?"right":"left"}]}>{item.note}</Text>}
       <Text style={styles.time}>{new Date(item.createdAt).toLocaleString(locale)}</Text>
       {item.status!=="resolved"&&<>
