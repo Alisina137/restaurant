@@ -34,7 +34,7 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - Manual check required: phone/tablet layout, three languages RTL/LTR, older/expired guest session and service workflow.
 
 ## Phase 10 status
-- On `phase-10-approvals-refunds`: cashier correction requests, separate management approval, approved unprepared-round voids, discounts applied to unpaid unsplit checks, cashier-executed cash/manual transfer refunds after settlement, separate reversal ledger, shift reconciliation, and tenant-scoped audit.
+- **Merged to `main` via PR #10:** cashier correction requests, separate management approval, approved unprepared-round voids, discounts applied to unpaid unsplit checks, cashier-executed cash/manual transfer refunds after settlement, separate reversal ledger, shift reconciliation, and tenant-scoped audit. Assigned waiter mobile can request an entire unprepared round cancellation; kitchen preparation race is guarded.
 - P10 CI integrates with the seeded disposable PostgreSQL backend after P09/P08. See `docs/PHASE-10-ACCEPTANCE.md` for manual browser, role and money-handling checks.
 - All receipt and accepted order monetary snapshots remain immutable; no automated payment-provider refunds.
 
