@@ -2,7 +2,7 @@
 
 A Dari-first, tenant-scoped restaurant SaaS for Afghanistan. Product source of truth: [Product Specification v1.0](docs/PRODUCT-SPECIFICATION-v1.md) and [Development Workflow V5](docs/SOFTWARE-DEVELOPMENT-WORKFLOW-v5.md).
 
-**Release status:** Phases 1–9 are merged to `main`. Phase 10 reviewed financial corrections and refunds are implemented on the Phase 10 feature branch, pending verified merge. No production certification is claimed without real-device and browser QA.
+**Release status:** Phases 1–10 are merged to `main` (Phase 10 via PR #10). The next planned phase is P11 reporting and exports. Automated CI checks passed for the Phase 10 merge head; production certification still requires a supervised pilot, real-device, browser, and receipt-printer QA.
 
 ## Workspace
 - `apps/api` — Express 4, Drizzle/PostgreSQL, Better Auth, roles, menu, floor and kitchen/notification APIs (port **4000**).
