@@ -96,3 +96,6 @@ export type TranslationKey = keyof (typeof dictionary)["en"];
 export function t(locale: Locale, key: TranslationKey): string {
   return (dictionary[locale] as Record<string, string>)[key] ?? dictionary.en[key];
 }
+
+export {s8} from "./service";
+export type {ServiceWord,ServiceRequest,ServicePage,ServiceGuestPage,OrderChange,ChangePage} from "./service";

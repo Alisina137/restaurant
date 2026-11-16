@@ -866,3 +866,89 @@ a { color:inherit; text-decoration:none; }
 .finance-manager-ack{padding:12px;border-radius:11px;border:1px solid #e6ba76;background:#fff7e6;color:#795725}
 .finance-shift-history .section-heading{margin-bottom:15px}
 @media(max-width:690px){.finance-shift-manager-grid{grid-template-columns:1fr}}
+
+/* P08 – Service requests, guest assistance and manager review. */
+.guest-help-page{display:grid;gap:20px}
+.guest-help-subtitle{font-size:13px;color:#668275;line-height:1.7;max-width:560px;margin-top:8px}
+.guest-help-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.guest-help-actions button{border:1px solid #d9e7dc;background:white;border-radius:20px;padding:22px 17px;
+ min-height:153px;display:flex;align-items:flex-start;justify-content:center;flex-direction:column;gap:11px;
+ color:#2b5741;text-align:start;box-shadow:0 7px 26px #274a2011;transition:background .2s,border-color .2s}
+.guest-help-actions button.active{background:#e9f8ee;border-color:#66bc90;box-shadow:0 9px 32px #1c724129}
+.guest-help-icon{width:44px;height:44px;display:grid;place-items:center;background:#d6f0e0;color:#156849;border-radius:13px}
+.guest-help-actions b{font-size:16px;line-height:1.3}
+.guest-help-actions small{font-size:12px;color:#6a8275;line-height:1.5}
+.guest-help-form{display:grid;gap:16px;padding:22px;border-radius:20px;background:#fff;border:1px solid #dfebe0}
+.guest-help-form h3{font-size:17px;color:#284e3b;margin:0}
+.guest-help-reasons{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.guest-help-reasons button{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;min-height:51px;
+ padding:12px;background:#fff;border:1px solid #d9e8dc;border-radius:12px;color:#406d56;font-size:12px;font-weight:850}
+.guest-help-reasons button.selected{border-color:#27996e;background:#e6f5eb;color:#11764f}
+.guest-help-note{display:grid;gap:10px;font-size:13px;color:#355f4a;font-weight:800}
+.guest-help-note textarea{border:1px solid #d3e3d9;border-radius:12px;background:#fbfdfa;padding:13px;color:#1e4b36;
+ min-height:87px;resize:vertical;outline-color:#0f8259}
+.guest-help-note small{text-align:end;color:#899d90;font-size:11px}
+.guest-help-form>.guest-button{min-height:55px;display:flex;align-items:center;justify-content:center;gap:9px}
+.guest-help-open{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:13px;border-radius:12px;
+ background:#fff7e7;border:1px solid #edd09f;color:#946b26;font-size:12px}
+.guest-service-badge{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:7px 11px;
+ font-size:11px;font-weight:850;background:#fff0d6;color:#a87624;white-space:nowrap}
+.guest-service-badge.acknowledged{background:#e8f3fc;color:#4271ad}
+.guest-service-badge.resolved{background:#dff4e7;color:#13754f}
+.guest-help-success{display:flex;align-items:center;gap:10px;background:#e2f5e8;color:#127953;border:1px solid #b9e2c9;
+ border-radius:12px;padding:13px;font-weight:850;font-size:12px}
+.guest-help-history{display:grid;gap:12px}
+.guest-help-history-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.guest-help-history-head h3{font-size:19px;margin:0;color:#244c37}
+.guest-help-history-head>span{font-size:12px;background:#e9f3ea;color:#358166;border-radius:99px;padding:7px 12px}
+.guest-help-request{padding:16px;background:#fff;border:1px solid #e0e9e2;border-radius:16px;display:grid;gap:10px}
+.guest-help-request>div{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.guest-help-request strong{color:#224c36;font-size:14px}
+.guest-help-request p{margin:0;font-size:12px;color:#657d70;overflow-wrap:anywhere}
+.guest-help-request small{font-size:11px;color:#889b90}
+.guest-help-resolution{padding:10px;border-radius:9px;background:#f3f9f5}
+.guest-help-empty{min-height:135px;border:1px dashed #cbdccb;border-radius:15px;display:grid;gap:12px;place-content:center;
+ justify-items:center;color:#719581;font-size:13px}
+.service-console{max-width:1450px}
+.service-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.service-stat{display:grid;grid-template-columns:45px minmax(0,1fr) auto;gap:13px;align-items:center;
+ background:#fff;border:1px solid #dae9df;border-radius:16px;padding:19px;color:#377e5e}
+.service-stat span{font-size:13px;font-weight:800;color:#5f8170}
+.service-stat strong{font-size:26px;color:#174d35}
+.service-switch button{flex:1;min-width:160px;background:transparent;border:0;border-radius:12px;
+ padding:13px 18px;font-size:13px;font-weight:850;display:flex;align-items:center;justify-content:center;gap:10px;color:#577667}
+.service-switch button.selected{background:#fff;color:#126d4e;box-shadow:0 4px 14px #1e543115}
+.service-filter{align-self:start;flex-wrap:wrap}
+.service-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));align-items:start;gap:15px}
+.service-card{border:1px solid #dce9de;border-radius:19px;padding:19px;background:#fff;display:grid;gap:14px;
+ box-shadow:0 10px 30px #285d3010}
+.service-card header{display:flex;align-items:start;justify-content:space-between;gap:14px}
+.service-card h2{margin:4px 0 0;font-size:22px;color:#1e4b35;overflow-wrap:anywhere}
+.service-badge{padding:7px 11px;border-radius:99px;background:#fff0d8;color:#966b25;font-size:11px;font-weight:900}
+.service-badge.acknowledged{background:#e4f2ff;color:#386eaa}
+.service-badge.resolved,.service-badge.approved{background:#e4f5e9;color:#14714c}
+.service-badge.rejected{background:#ffe7e6;color:#a23e3b}
+.service-card-type{display:flex;align-items:center;gap:13px;border-radius:12px;padding:13px;background:#f3faf5;color:#177552}
+.service-card-type>div:last-child{display:grid;gap:6px;min-width:0}
+.service-card-type strong{color:#214c36;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.service-card-type small{font-size:11px;color:#658271}
+.service-icon{width:42px;height:42px;display:grid;place-items:center;background:#dceddf;border-radius:12px;flex-shrink:0}
+.service-meta{display:flex;align-items:center;gap:7px;font-size:11px;color:#879b8c}
+.service-note{font-size:12px;line-height:1.7;color:#516d59;overflow-wrap:anywhere;margin:0;padding:10px 12px;
+ background:#f6f8f5;border-inline-start:3px solid #a2cdaf;border-radius:9px}
+.service-card-actions{display:grid;gap:13px;border-top:1px dashed #dce9de;padding-top:15px}
+.service-card-actions>.button{min-height:47px;display:flex;justify-content:center;align-items:center;gap:8px}
+.service-decision-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.service-decision-buttons button{min-height:45px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:12px;font-weight:900}
+.service-deny{background:#ffebeb!important;border-color:#ffd1d1!important;color:#a43e3e!important}
+@media(max-width:640px){
+ .guest-help-actions{grid-template-columns:1fr 1fr;gap:8px}
+ .guest-help-actions button{padding:15px 12px;min-height:157px}
+ .guest-help-actions b{font-size:14px}
+ .guest-help-actions small{font-size:11px}
+ .guest-help-reasons{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .guest-help-form{padding:15px}
+ .service-grid{grid-template-columns:1fr}
+ .service-stat-grid{grid-template-columns:1fr}
+}
+@media(prefers-reduced-motion:reduce){.guest-help-actions button{transition:none}}

@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { ActivityIndicator, AppState, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { direction, t } from "@dineflow/shared";
+import { direction, t, s8 } from "@dineflow/shared";
 import { fetchIdentity, type Identity } from "../../src/api";
 import { authClient } from "../../src/auth-client";
 import { theme } from "../../src/theme";
@@ -19,6 +19,7 @@ export default function Home() {
   const [alerts,setAlerts]=useState<{id:string;roundId:string;tableLabel:string;lastNotifiedAt:string}[]|null>(null);
   const [unreadCount,setUnreadCount]=useState<number|null>(null);
   const [guestPending,setGuestPending]=useState<number|null>(null);
+  const [servicePending,setServicePending]=useState<number|null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const rtl = direction(locale) === "rtl";
@@ -34,6 +35,8 @@ export default function Home() {
        floorRequest<{active:number;ready:number}>("/api/orders/my/stats")]);
        setFloor(b);setOrdersStat(stats);
        try{const x=await floorRequest<{pending:number}>("/api/guest/staff/approvals/count");setGuestPending(x.pending);}catch{setGuestPending(null);}
+       try{const x=await floorRequest<{active:number}>("/api/service/requests/count");
+         setServicePending(x.active);}catch{setServicePending(null);}
         try{
           const notices=await floorRequest<{items:{id:string;roundId:string;tableLabel:string;lastNotifiedAt:string}[];unread:number}>(
            "/api/orders/notifications?unread=1&page=1");
@@ -95,6 +98,15 @@ export default function Home() {
           <Text style={styles.muted}>{gm7(locale,"approvalDefault")}</Text>
           <Pressable style={styles.action} accessibilityRole="button" onPress={()=>router.push("/approvals")}>
             <Text style={styles.actionText}>{gm7(locale,"viewAll")}</Text></Pressable>
+        </View>
+        <View style={styles.panel}>
+          <View style={[styles.panelRow,{flexDirection:rtl?"row-reverse":"row"}]}>
+            <Ionicons name="hand-left-outline" size={24} color={theme.brand}/>
+            <Text style={styles.sectionTitle}>{s8(locale,"needsAttention")}</Text></View>
+          <Text style={styles.title}>{servicePending??"—"}</Text>
+          <Text style={styles.muted}>{s8(locale,"guestRequests")}</Text>
+          <Pressable style={styles.action} accessibilityRole="button" onPress={()=>router.push("/requests")}>
+             <Text style={styles.actionText}>{s8(locale,"viewRequests")}</Text></Pressable>
         </View>
         <View style={styles.panel}>
           <View style={[styles.panelRow,{flexDirection:rtl?"row-reverse":"row"}]}>

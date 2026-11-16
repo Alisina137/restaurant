@@ -6,6 +6,7 @@ import {useRouter} from "next/navigation";
 import {useWorkspace} from "./workspace-provider";
 import {jsonRequest,Phase2Error} from "@/lib/phase2-api";
 import {f9} from "@/lib/finance-copy";
+import {s8} from "@dineflow/shared";
 import {isoTime,money,type CheckPage,type CheckRow} from "@/lib/finance-types";
 type Tab="all"|"requested"|"partial";
 export function CashierChecks({area="cashier"}:{area?:"cashier"|"app"}){
@@ -61,8 +62,7 @@ export function CashierChecks({area="cashier"}:{area?:"cashier"|"app"}){
        onChange={e=>{setQuery(e.target.value);setPage(1);}} placeholder={f9(locale,"search")}
        aria-label={f9(locale,"search")}/></label>
    </div>
-   {tab==="requested"&&<div className="finance-info"><ShieldCheck size={20}/>
-     <span>{f9(locale,"requestedComing")}</span></div>}
+
    {error&&<div className="form-error" role="alert">{error}
      <button className="text-link" onClick={()=>void load()}>{f9(locale,"retry")}</button></div>}
    {loading&&!data?<div className="list-skeleton settings-card"><span/><span/><span/></div>:
@@ -70,7 +70,7 @@ export function CashierChecks({area="cashier"}:{area?:"cashier"|"app"}){
       {data.items.map(row=><article className="finance-check-card" key={row.visitId}>
         <div className="finance-check-head"><div><span className="eyebrow">{f9(locale,"table")}</span>
           <h2>{row.tableLabel}</h2></div><span className={"finance-badge "+(row.partial?"partial":"open")}>
-           {row.dueMinor===0?f9(locale,"readyToClose"):row.partial?f9(locale,"partial"):f9(locale,"open")}</span></div>
+           {row.requested?s8(locale,"billRequested"):row.dueMinor===0?f9(locale,"readyToClose"):row.partial?f9(locale,"partial"):f9(locale,"open")}</span></div>
         <div className="finance-check-time"><Clock3 size={16}/><span>{isoTime(row.openedAt,locale)}</span></div>
         <div className="finance-check-numbers">
           <div><span>{f9(locale,"total")}</span><strong>{money(row.amountMinor,locale)}</strong></div>

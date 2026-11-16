@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2, History, Wallet, Clock3, Percent } from "lucide-react";
+import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2, History, Wallet, Clock3, Percent, BellRing } from "lucide-react";
 import { direction, t, webAreaFor, type Locale, type WebArea } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
 import { ApiError, getContext, type WorkspaceContext } from "@/lib/context";
@@ -13,6 +13,7 @@ import { f4 } from "@/lib/floor-copy";
 import { ow } from "@/lib/order-web-copy";
 import { k6 } from "@/lib/kitchen-copy";
 import {f9} from "@/lib/finance-copy";
+import {s8} from "@dineflow/shared";
 
 const rootPages: Record<WebArea, { route: string; label: "overview" | "live" | "openChecks"; icon: typeof LayoutDashboard }> = {
   app: { route: "/app/overview", label: "overview", icon: LayoutDashboard },
@@ -98,6 +99,10 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             className={"nav-link"+(pathname.startsWith("/app/orders/")?" selected":"")}
             aria-current={pathname.startsWith("/app/orders/")?"page":undefined}>
             <ClipboardList size={20} strokeWidth={1.9}/><span>{ow(locale,"orders")}</span></Link>
+          <Link href="/app/service" title={s8(locale,"requests")}
+            className={"nav-link"+(pathname.startsWith("/app/service")?" selected":"")}
+            aria-current={pathname.startsWith("/app/service")?"page":undefined}>
+            <BellRing size={20}/><span>{s8(locale,"requests")}</span></Link>
           <Link href="/app/menu/items" title={m3(locale,"menu")}
             className={"nav-link"+(pathname.startsWith("/app/menu/")?" selected":"")}
             aria-current={pathname.startsWith("/app/menu/")?"page":undefined}>

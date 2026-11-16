@@ -2,7 +2,7 @@ import {useCallback,useState} from "react";
 import {ActivityIndicator,Alert,Pressable,ScrollView,StyleSheet,Text,View} from "react-native";
 import {Ionicons} from "@expo/vector-icons";
 import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
-import {direction} from "@dineflow/shared";
+import {direction,s8} from "@dineflow/shared";
 import {useLocale} from "../../src/locale";
 import {theme} from "../../src/theme";
 import {floorRequest,FloorRequestError} from "../../src/floor-api";
@@ -75,6 +75,13 @@ export default function OrderDetailScreen(){
       {line.modifierSnapshot.flatMap(g=>g.options.map(opt=>nameOf(opt,locale))).length>0&&
        <Text style={styles.muted}>{line.modifierSnapshot.flatMap(g=>g.options.map(opt=>nameOf(opt,locale))).join(" · ")}</Text>}
       {!!line.note&&<Text style={styles.note}>{o5(locale,"note")}: {line.note}</Text>}
+      {["new","preparing"].includes(line.kitchenStatus)&&
+        <Pressable style={styles.lineAction} accessibilityRole="button"
+          onPress={()=>router.push({pathname:"/change/[id]",params:{id:line.id,roundId:order.id}})}>
+          <Ionicons name="create-outline" size={18} color={theme.brand}/>
+          <Text style={styles.lineActionText}>{s8(locale,"requestChange")}</Text></Pressable>}
+      {line.kitchenStatus==="cancelled"&&<Text style={styles.note}>
+          {s8(locale,"approved")} · {s8(locale,"immutable")}</Text>}
       {detail.ticket&&["ready","picked_up"].includes(detail.ticket.status)&&
         ["ready","picked_up"].includes(line.kitchenStatus)&&
         <Pressable disabled={serving} style={styles.lineAction} onPress={()=>void serve(line.id)}>

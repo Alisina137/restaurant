@@ -2,7 +2,7 @@ import {useCallback,useState} from "react";
 import {ActivityIndicator,Alert,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from "react-native";
 import {Ionicons} from "@expo/vector-icons";
 import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
-import {direction} from "@dineflow/shared";
+import {direction,s8,type ServicePage} from "@dineflow/shared";
 import {floorRequest,FloorRequestError} from "../../src/floor-api";
 import {f,since,type Table} from "../../src/floor";
 import {useLocale} from "../../src/locale";
@@ -17,6 +17,7 @@ export default function TableDetails(){
  const [rounds,setRounds]=useState<{id:string;roundNumber:number;status:string;totalMinor:number;createdAt:string}[]>([]);
  const [estimate,setEstimate]=useState<number|null>(null);
  const [guestPin,setGuestPin]=useState<GuestPin|null>(null),[pendingGuest,setPendingGuest]=useState(0);
+ const [servicePending,setServicePending]=useState(0);
  const [party,setParty]=useState("2"),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const load=useCallback(async(quiet=false)=>{
   if(!quiet)setLoading(true);setError("");
@@ -27,12 +28,14 @@ export default function TableDetails(){
    if(result.table.visitId){
     try{const pin=await floorRequest<GuestPin>("/api/guest/staff/visits/"+encodeURIComponent(result.table.visitId)+"/pin");setGuestPin(pin);}catch{setGuestPin(null);}
     try{const guest=await floorRequest<GuestApprovalPage>("/api/guest/staff/approvals?status=pending&tableId="+encodeURIComponent(result.table.id));setPendingGuest(guest.total);}catch{setPendingGuest(0);}
+    try{const help=await floorRequest<ServicePage>("/api/service/requests?status=active&tableId="+
+      encodeURIComponent(result.table.id));setServicePending(help.total);}catch{setServicePending(0);}
     try{
       const orders=await floorRequest<{rounds:{id:string;roundNumber:number;status:string;totalMinor:number;createdAt:string}[];estimateMinor:number}>(
         "/api/orders/visits/"+encodeURIComponent(result.table.visitId)+"/rounds");
       setRounds(orders.rounds);setEstimate(orders.estimateMinor);
     }catch{setRounds([]);setEstimate(null);}
-   }else{setRounds([]);setEstimate(null);setGuestPin(null);setPendingGuest(0);}
+   }else{setRounds([]);setEstimate(null);setGuestPin(null);setPendingGuest(0);setServicePending(0);}
    if(!quiet)setParty(String(Math.min(2,result.table.seats)));
   }catch(e){
    if(e instanceof FloorRequestError&&e.status===401){router.replace("/sign-in");return;}
@@ -133,6 +136,16 @@ export default function TableDetails(){
      <Pressable style={styles.primary} onPress={()=>router.push("/approvals")}>
        <Ionicons name="document-text-outline" color="white" size={19}/>
        <Text style={styles.primaryText}>{gm7(locale,"approvals")}{pendingGuest?" · "+pendingGuest:""}</Text></Pressable>
+    </View>}
+    {table.status==="occupied"&&canOpen&&table.visitId&&<View style={styles.panel}>
+      <View style={[styles.pinHeader,{flexDirection:rtl?"row-reverse":"row"}]}>
+       <Ionicons name="hand-left-outline" color={theme.brand} size={22}/>
+       <Text style={styles.sectionTitle}>{s8(locale,"requests")}</Text></View>
+      <Text style={styles.muted}>{s8(locale,"needsAttention")}: {servicePending}</Text>
+      <Pressable style={styles.primary} accessibilityRole="button" onPress={()=>router.push({
+        pathname:"/requests",params:{tableId:table.id}})}>
+        <Ionicons name="notifications-outline" color="white" size={20}/>
+        <Text style={styles.primaryText}>{s8(locale,"viewRequests")}</Text></Pressable>
     </View>}
     {table.status==="occupied"&&canOpen&&table.visitId&&<View style={styles.panel}>
       <Text style={[styles.sectionTitle,{textAlign:rtl?"right":"left"}]}>{o5(locale,"orders")}</Text>
