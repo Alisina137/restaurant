@@ -180,7 +180,11 @@ guestFinanceRouter.get("/bill",route(async(req,res)=>{
  const subtotal=rounds.reduce((sum,r)=>sum+r.totalMinor,0);
  const c=check[0];
  const p=charges[0];
- const values=c??calculate(subtotal,{taxRateBps:p?.taxRateBps??0,taxInclusive:p?.taxInclusive??false,
+ // Before the cashier locks a check, late accepted rounds must be reflected in
+ // the guest view even if the cashier has not yet reopened the check detail.
+ // Once tender starts, the persisted charge snapshot is authoritative.
+ const values=c?.status==="open"&&!c.lockedAt?calculate(subtotal,c.chargePolicy):
+   c??calculate(subtotal,{taxRateBps:p?.taxRateBps??0,taxInclusive:p?.taxInclusive??false,
    serviceRateBps:p?.serviceRateBps??0,serviceFixedMinor:p?.serviceFixedMinor??0,receiptFooter:""});
  const lines=rounds.length?await db.select({nameFa:orderLine.itemNameFa,namePs:orderLine.itemNamePs,
    nameEn:orderLine.itemNameEn,quantity:orderLine.quantity,lineTotalMinor:orderLine.lineTotalMinor})
