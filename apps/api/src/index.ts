@@ -20,6 +20,7 @@ import { sectionRouter } from "./floor-sections";
 import { tableRouter } from "./floor-tables";
 import { visitRouter } from "./floor-visits";
 import { floorLiveRouter } from "./floor-live";
+import { orderRouter } from "./order-routes";
 
 const app = express();
 app.disable("x-powered-by");
@@ -46,6 +47,7 @@ app.use("/api/floor/sections", sectionRouter);
 app.use("/api/floor/tables", tableRouter);
 app.use("/api/floor/visits", visitRouter);
 app.use("/api/floor", floorLiveRouter);
+app.use("/api/orders", orderRouter);
 
 type AuthorizedRequest = Request & { identity?: IdentityContext };
 async function requireIdentity(req: AuthorizedRequest, res: Response, next: NextFunction) {
