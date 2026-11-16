@@ -8,10 +8,10 @@
 - Check created lazily from an active table visit, showing all accepted immutable order snapshots. Late rounds reconcile before split/payment locks. Charge snapshot is immutable per check; tax/service policy changes affect new checks only.
 - **Single bill, equal split (2–10 shares, remainder last), item split** with explicit whole-quantity allocation for every line, server-side conservation checks, no change after tender.
 - **Cash** with received amount and exact change, or **manual external transfer** explicitly confirmed outside DineFlow and requiring reference. No payment gateway claimed. Posted payments are append-only and idempotent; concurrent cashier check locks and share balance prevent overpayment.
-- Cashier current and previous shift, opening float, cash sales/expected drawer/count/variance. A variance above 50 AFN must be closed by a manager or owner.
+- Cashier current and previous shift, opening float, cash sales/expected drawer/count/variance. A configurable per-restaurant threshold defaults to 50 AFN; a manager/owner must explicitly acknowledge excessive variance from the functional Billing → Shift Oversight screen. Tender and shift-close transactions use the same row lock so a closed shift cannot receive late cash.
 - **Settle** only at zero due, all shares paid, all kitchen tickets marked served, no pending guest approvals. Atomic receipt creation from immutable prices and payment snapshot, visit close, cleaning table state, guest session revocation, audit.
 - Browser receipt preview, 80mm print and **Save as PDF** through browser printing; reprint increments counter and audit without changing historical charges or payments. No invented third-party PDF generator.
-- Transaction list grouped by tenant and restaurant-configured business-date timezone, method filter and pagination. Read-only guest Bill shows current visit charges/due, no cashier information or guest payment controls.
+- Transaction list grouped by tenant and restaurant-configured business-date timezone, method filter and pagination. Receipt search by table/check/number, business date filters and server-side 20/page pagination. Read-only guest Bill shows current visit charges/due, no cashier information or guest payment controls.
 - Tenant and role authorization: cashier/owner/manager can access finance; guests only current visit Bill; waiters/kitchen cannot post tender; cross-tenant 404.
 - Responsive finance controls, localized English, Dari RTL and Pashto RTL.
 
@@ -21,7 +21,7 @@ GitHub CI: `pnpm typecheck`, `pnpm test`, `pnpm build:web`, real PostgreSQL migr
 
 P09 acceptance tests cover new check/charge snapshot, 1-minor-unit rounding, item quantity conservation, equal split remainder, order lock, cashier shift requirement, concurrent cashiers, same-key replay, received cash/change, externally confirmed transfer, unsettled food & pending guest guard, receipt reconciliation, cleaning status, invalidation of guest sessions, tenant isolation, reprint and shift count.
 
-**Required manual QA before pilot:** local browser, actual receipt printer/80mm paper, cash drawer procedure, 320–1280px responsive layout, phone/tablet guest Bill, three locales and failure/retry after timeouts.
+**Required manual QA before pilot:** local browser, actual receipt printer/80mm paper, cash drawer and manager cash-variance procedure, 320–1280px responsive layout, phone/tablet guest Bill, three locales and failure/retry after timeouts.
 
 ## Explicit constraints
 

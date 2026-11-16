@@ -1,5 +1,5 @@
 "use client";
-import {useCallback,useEffect,useState} from "react";
+import {useCallback,useEffect,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {ArrowLeft,FileDown,Printer,ReceiptText,RefreshCw,Search,ShieldCheck} from "lucide-react";
 import {useWorkspace} from "./workspace-provider";
@@ -10,14 +10,16 @@ type Page={items:ReceiptEntry[];total:number;page:number;perPage:number};
 export function FinanceReceipts({area="cashier"}:{area?:"cashier"|"app"}){
  const {workspace}=useWorkspace(),locale=workspace.locale,base=area==="cashier"?"/cashier":"/app/billing";
  const [items,setItems]=useState<Page|null>(null),[page,setPage]=useState(1),[query,setQuery]=useState("");
+ const [from,setFrom]=useState(""),[to,setTo]=useState(""),[applied,setApplied]=useState({from:"",to:""});
  const [loading,setLoading]=useState(true),[error,setError]=useState("");
  const load=useCallback(async()=>{
    setLoading(true);
-   try{setItems(await jsonRequest<Page>("/api/finance/receipts?page="+page+"&q="+encodeURIComponent(query)));
+   try{setItems(await jsonRequest<Page>("/api/finance/receipts?page="+page+"&q="+encodeURIComponent(query)+
+     (applied.from?"&from="+applied.from:"")+(applied.to?"&to="+applied.to:"")));
      setError("");}
    catch(e){setError(e instanceof Error?e.message:f9(locale,"actionFailed"));}
    finally{setLoading(false);}
- },[page,query,locale]);
+ },[page,query,locale,applied]);
  useEffect(()=>{void load();},[load]);
  return <div className="content-stack finance-console">
    <div className="page-heading"><div><div className="eyebrow">DINEFLOW / {f9(locale,"checkout")}</div>
@@ -31,9 +33,18 @@ export function FinanceReceipts({area="cashier"}:{area?:"cashier"|"app"}){
        <Link href="/app/billing/shifts">{f9(locale,"oversight")}</Link>}
      <Link href={base+"/receipts"} className="selected">{f9(locale,"receipts")}</Link>
    </nav>
-   <label className="finance-search finance-receipt-search"><Search size={19}/>
-     <input type="search" placeholder={f9(locale,"search")} value={query}
-      onChange={e=>{setQuery(e.target.value);setPage(1);}}/></label>
+   <form className="settings-card finance-toolbar" onSubmit={(e:FormEvent)=>{
+     e.preventDefault();setPage(1);setApplied({from,to});}}>
+     <label className="finance-search finance-receipt-search"><Search size={19}/>
+       <input type="search" aria-label={f9(locale,"search")}
+        placeholder={f9(locale,"search")} value={query}
+        onChange={e=>{setQuery(e.target.value);setPage(1);}}/></label>
+     <label className="finance-field"><span>{f9(locale,"from")}</span>
+       <input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label>
+     <label className="finance-field"><span>{f9(locale,"to")}</span>
+       <input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label>
+     <button className="button button-primary" type="submit"><Search size={17}/>{f9(locale,"filter")}</button>
+   </form>
    {error&&<p role="alert" className="form-error">{error}</p>}
    {loading&&!items?<div className="settings-card list-skeleton"><span/><span/></div>:
     items?.items.length?<div className="finance-receipt-grid">

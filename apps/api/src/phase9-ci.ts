@@ -258,6 +258,16 @@ async function main(){
  const listing=await expect<{items:{number:string}[]}>(
    await call("/api/finance/receipts","GET",undefined,owner),200);
  assert.ok(listing.items.some(x=>x.number===settled.receiptNumber));
+ const searched=await expect<{items:{number:string}[];total:number}>(
+   await call("/api/finance/receipts?q=Z9","GET",undefined,cashier),200);
+ assert.ok(searched.items.some(x=>x.number===settled.receiptNumber));
+ const notFoundReceipt=await expect<{items:unknown[];total:number}>(
+   await call("/api/finance/receipts?q=not-a-real-receipt","GET",undefined,cashier),200);
+ assert.equal(notFoundReceipt.total,0);
+ assert.equal((await call("/api/finance/receipts?from=2026-99-77","GET",undefined,cashier)).status,400);
+ assert.equal((await call("/api/finance/receipts?from=2026-12-10&to=2026-11-10",
+   "GET",undefined,cashier)).status,400);
+
  // A new accepted round after the first check read must reconcile both the
  // cashier detail and open-check board before any financial lock is placed.
  const t2=await expect<{id:string}>(await call("/api/floor/tables","POST",{

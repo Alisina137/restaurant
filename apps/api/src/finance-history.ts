@@ -110,15 +110,41 @@ financeHistoryRouter.get("/transactions",route(async(req,res)=>{
 financeHistoryRouter.get("/receipts",route(async(req,res)=>{
  const scope=await financeScope(req),p=page(req.query.page);
  const q=typeof req.query.q==="string"?field(req.query.q,100,"Search").toLowerCase():"";
- const rows=await db.select().from(checkReceipt).where(and(eq(checkReceipt.tenantId,scope.tenantId),
-   eq(checkReceipt.locationId,scope.locationId))).orderBy(desc(checkReceipt.createdAt)).limit(1000);
- const filtered=rows.filter(x=>!q||[x.number,x.snapshot.tableLabel,String(x.snapshot.checkNumber)]
-   .some(y=>y.toLowerCase().includes(q)));
+ const from=typeof req.query.from==="string"?req.query.from:"";
+ const to=typeof req.query.to==="string"?req.query.to:"";
+ for(const day of [from,to]){
+   if(!day)continue;
+   const d=new Date(day+"T00:00:00Z");
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||Number.isNaN(d.getTime())||d.toISOString().slice(0,10)!==day)
+     fail(400,"INVALID_DATE","Use YYYY-MM-DD for valid business dates.");
+ }
+ if(from&&to&&from>to)fail(400,"INVALID_RANGE","Date range is reversed.");
+ const [setting]=await db.select({timezone:restaurantSetting.timezone}).from(restaurantSetting)
+   .where(eq(restaurantSetting.tenantId,scope.tenantId)).limit(1);
+ const timezone=setting?.timezone??"Asia/Kabul";
+ const businessDay=sql`(${checkReceipt.createdAt} AT TIME ZONE ${timezone})::date`;
+ const where=and(eq(checkReceipt.tenantId,scope.tenantId),
+   eq(checkReceipt.locationId,scope.locationId),
+   q?sql`(strpos(lower(${checkReceipt.number}),${q})>0
+      OR strpos(lower(${diningTable.label}),${q})>0
+      OR strpos(${diningCheck.number}::text,${q})>0)`:undefined,
+   from?sql`${businessDay}>=${from}::date`:undefined,
+   to?sql`${businessDay}<=${to}::date`:undefined);
+ const joined=db.select({id:checkReceipt.id,checkId:checkReceipt.checkId,
+   number:checkReceipt.number,createdAt:checkReceipt.createdAt,reprintCount:checkReceipt.reprintCount,
+   tableLabel:diningTable.label,totalMinor:diningCheck.totalMinor}).from(checkReceipt)
+   .innerJoin(diningCheck,eq(diningCheck.id,checkReceipt.checkId))
+   .innerJoin(diningTable,eq(diningTable.id,diningCheck.tableId));
+ const totals=db.select({n:count()}).from(checkReceipt)
+   .innerJoin(diningCheck,eq(diningCheck.id,checkReceipt.checkId))
+   .innerJoin(diningTable,eq(diningTable.id,diningCheck.tableId));
+ const [items,total]=await Promise.all([
+   joined.where(where).orderBy(desc(checkReceipt.createdAt),desc(checkReceipt.id))
+     .limit(20).offset((p-1)*20),
+   totals.where(where)
+ ]);
  res.setHeader("Cache-Control","no-store");
- res.json({items:filtered.slice((p-1)*20,p*20).map(x=>({
-   id:x.id,checkId:x.checkId,number:x.number,createdAt:x.createdAt,
-   reprintCount:x.reprintCount,tableLabel:x.snapshot.tableLabel,totalMinor:x.snapshot.totalMinor})),
-   total:filtered.length,page:p,perPage:20});
+ res.json({items,total:total[0]?.n??0,page:p,perPage:20,timezone});
 }));
 financeHistoryRouter.get("/receipts/:id",route(async(req,res)=>{
  const scope=await financeScope(req);
