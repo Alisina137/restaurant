@@ -27,6 +27,8 @@ import {guestOrdersRouter} from "./guest-orders";
 import {guestStaffRouter} from "./guest-staff";
 import {financeRouter} from "./finance-routes";
 import {financeHistoryRouter,guestFinanceRouter} from "./finance-history";
+import {guestServiceRouter,staffServiceRouter} from "./service-requests";
+import {changeRouter} from "./service-changes";
 
 const app = express();
 app.disable("x-powered-by");
@@ -61,6 +63,9 @@ app.use("/api/guest/staff",guestStaffRouter);
 app.use("/api/finance",financeRouter);
 app.use("/api/finance",financeHistoryRouter);
 app.use("/api/guest",guestFinanceRouter);
+app.use("/api/guest",guestServiceRouter);
+app.use("/api/service",staffServiceRouter);
+app.use("/api/service",changeRouter);
 
 type AuthorizedRequest = Request & { identity?: IdentityContext };
 async function requireIdentity(req: AuthorizedRequest, res: Response, next: NextFunction) {

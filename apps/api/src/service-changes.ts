@@ -5,7 +5,8 @@ import {db} from "./db";
 import {auditEvent,diningVisit,kitchenTicket,orderChangeRequest,orderLine,
  orderRound} from "./schema";
 import {bodyObject,fail,field,int,route,scopeFor} from "./menu-helpers";
-import {orderChanged,orderGuard,orderScope} from "./order-core";
+import {orderChanged,orderScope} from "./order-core";
+import {orderGuard} from "./finance-core";
 import {bumpService} from "./service-requests";
 export const changeRouter=Router();
 type Tx=Parameters<Parameters<typeof db.transaction>[0]>[0];

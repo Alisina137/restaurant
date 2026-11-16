@@ -3,6 +3,7 @@ import {and,asc,desc,eq,inArray,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
 import {scopeFor,fail} from "./menu-helpers";
+import {effectiveSubtotal} from "./service-changes";
 import {auditEvent,cashierShift,checkActivity,checkPayment,checkReceipt,checkShare,
  checkShareLine,diningCheck,diningTable,diningVisit,financeSetting,guestSubmission,kitchenTicket,
  orderLine,orderRound,restaurantSetting,tenant} from "./schema";
@@ -57,7 +58,7 @@ export async function ensureCheck(tx:Tx,scope:FinanceScope,visit:typeof diningVi
   eq(diningCheck.tenantId,scope.tenantId),eq(diningCheck.locationId,scope.locationId))).limit(1);
  if(found)return found;
  const rounds=await currentOrders(tx,scope,visit.id);
- const subtotal=rounds.reduce((s,x)=>s+x.totalMinor,0);
+ const subtotal=await effectiveSubtotal(tx,scope,visit.id);
  const chargePolicy=await currentPolicy(tx,scope);
  const prices=calculate(subtotal,chargePolicy);
  const [created]=await tx.insert(diningCheck).values({id:randomUUID(),tenantId:scope.tenantId,
@@ -74,7 +75,7 @@ export async function ensureCheck(tx:Tx,scope:FinanceScope,visit:typeof diningVi
 export async function syncCheck(tx:Tx,scope:FinanceScope,check:typeof diningCheck.$inferSelect){
  if(check.status==="settled"||check.lockedAt)return check;
  const rounds=await currentOrders(tx,scope,check.visitId);
- const amounts=calculate(rounds.reduce((s,r)=>s+r.totalMinor,0),check.chargePolicy);
+ const amounts=calculate(await effectiveSubtotal(tx,scope,check.visitId),check.chargePolicy);
  if(check.subtotalMinor===amounts.subtotalMinor&&check.totalMinor===amounts.totalMinor)return check;
  if(check.paidMinor!==0||check.splitMode!=="single")fail(409,"CHECK_LOCKED","Cannot change locked check.");
  const [updated]=await tx.update(diningCheck).set({...amounts,version:check.version+1,updatedAt:new Date()})
@@ -156,7 +157,7 @@ export async function pendingGuard(tx:Tx,scope:FinanceScope,visitId:string){
  if(!rounds.length)fail(409,"EMPTY_CHECK","Cannot settle a visit without ordered items.");
  const [unfinished]=await tx.select({id:kitchenTicket.id}).from(kitchenTicket)
    .where(and(eq(kitchenTicket.visitId,visitId),eq(kitchenTicket.tenantId,scope.tenantId),
-     sql`${kitchenTicket.status} <> 'served'`)).limit(1);
+     sql`${kitchenTicket.status} NOT IN ('served','cancelled')`)).limit(1);
  if(unfinished)fail(409,"UNSERVED_FOOD","All kitchen tickets must be served before closing this visit.");
 }
 export function splitValues(total:number,count:number){

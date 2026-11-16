@@ -6,6 +6,7 @@ import {diningTable,diningVisit,kitchenTicket,orderLine,orderRound,orderRevision
 import {bodyObject,fail,int,route} from "./menu-helpers";
 import {orderScope,writeScope,kitchenScope,orderId,parseOrder,priceLines,orderChanged,readOrder} from "./order-core";
 import {orderGuard} from "./finance-core";
+import {effectiveSubtotal} from "./service-changes";
 import {createReadyAlert} from "./phase6-service";
 export const orderRouter=Router();
 
@@ -110,7 +111,7 @@ orderRouter.get("/visits/:id/rounds",route(async(req,res)=>{
    .innerJoin(kitchenTicket,eq(kitchenTicket.roundId,orderRound.id))
    .where(and(eq(orderRound.visitId,visitId),eq(orderRound.tenantId,scope.tenantId)))
    .orderBy(asc(orderRound.roundNumber)).limit(100);
- const amount=rounds.reduce((n,r)=>n+r.totalMinor,0);
+ const amount=await db.transaction(tx=>effectiveSubtotal(tx,scope,visitId));
  res.setHeader("Cache-Control","no-store");
  res.json({rounds,estimateMinor:amount,currency:"AFN",unsettled:rounds.length>0});
 }));

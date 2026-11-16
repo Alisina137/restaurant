@@ -11,6 +11,8 @@ import {lockTable,currentOrders,calculate,currentPolicy,ensureCheck,financeScope
  getCheckForVisit,fullCheck,lockedCheck,orderGuard,pendingGuard,splitValues,writeAudit,
  amountMax,type Tx,type FinanceScope} from "./finance-core";
 import {guestAccess} from "./guest-security";
+import {serviceRequest,orderChangeRequest} from "./schema";
+import {effectiveSubtotal} from "./service-changes";
 export const financeRouter=Router();
 function id(req:import("express").Request){return field(req.params.id,100,"Identifier",1);}
 const validPage=(v:unknown)=>typeof v==="string"&&/^\d+$/.test(v)?Math.min(Math.max(Number(v),1),10000):1;
@@ -65,33 +67,42 @@ financeRouter.get("/checks",route(async(req,res)=>{
    db.select().from(financeSetting).where(eq(financeSetting.tenantId,scope.tenantId)).limit(1)
  ]);
  const checked=visits.map(x=>x.visit.id);
- const [checks,rounds]=await Promise.all([
+ const [checks,rounds,requests,corrections]=await Promise.all([
    checked.length?db.select().from(diningCheck).where(and(eq(diningCheck.tenantId,scope.tenantId),
      inArray(diningCheck.visitId,checked))):Promise.resolve([]),
    checked.length?db.select({visitId:orderRound.visitId,totalMinor:orderRound.totalMinor})
       .from(orderRound).where(and(eq(orderRound.tenantId,scope.tenantId),
-        inArray(orderRound.visitId,checked))):Promise.resolve([])
+        inArray(orderRound.visitId,checked))):Promise.resolve([]),
+   checked.length?db.select({visitId:serviceRequest.visitId}).from(serviceRequest)
+     .where(and(eq(serviceRequest.tenantId,scope.tenantId),
+      eq(serviceRequest.locationId,scope.locationId),eq(serviceRequest.type,"bill"),
+      inArray(serviceRequest.status,["pending","acknowledged"]),
+      inArray(serviceRequest.visitId,checked))):Promise.resolve([]),
+   checked.length?db.select({visitId:orderChangeRequest.visitId,deltaMinor:orderChangeRequest.deltaMinor})
+     .from(orderChangeRequest).where(and(eq(orderChangeRequest.tenantId,scope.tenantId),
+      eq(orderChangeRequest.locationId,scope.locationId),eq(orderChangeRequest.status,"approved"),
+      inArray(orderChangeRequest.visitId,checked))):Promise.resolve([])
  ]);
  const policy=setting[0]?{taxRateBps:setting[0].taxRateBps,taxInclusive:setting[0].taxInclusive,
   serviceRateBps:setting[0].serviceRateBps,serviceFixedMinor:setting[0].serviceFixedMinor,
   receiptFooter:setting[0].receiptFooter}:{taxRateBps:0,taxInclusive:false,serviceRateBps:0,serviceFixedMinor:0,receiptFooter:""};
  const result=visits.map(({visit,table})=>{
   const c=checks.find(x=>x.visitId===visit.id);
-  const sum=rounds.filter(x=>x.visitId===visit.id).reduce((s,x)=>s+x.totalMinor,0);
+  const sum=rounds.filter(x=>x.visitId===visit.id).reduce((s,x)=>s+x.totalMinor,0)+
+   corrections.filter(x=>x.visitId===visit.id).reduce((s,x)=>s+x.deltaMinor,0);
   const totals=c?.status==="open"&&!c.lockedAt?calculate(sum,c.chargePolicy):
     c??calculate(sum,policy);
   return {id:c?.id??null,visitId:visit.id,tableId:table.id,tableLabel:table.label,
    waiterId:visit.waiterId,openedAt:visit.openedAt,status:c?.status??"open",
    amountMinor:totals.totalMinor,paidMinor:c?.paidMinor??0,
    dueMinor:totals.totalMinor-(c?.paidMinor??0),partial:(c?.paidMinor??0)>0,
-   requested:false,version:c?.version??0,splitMode:c?.splitMode??"single"};
+   requested:requests.some(x=>x.visitId===visit.id),version:c?.version??0,splitMode:c?.splitMode??"single"};
  }).filter(x=>(x.dueMinor>0||x.paidMinor>0)&&(tab==="all"||tab==="partial"&&x.partial&&x.dueMinor>0||
     tab==="requested"&&x.requested)&&
     (!search||[x.tableLabel,x.visitId,x.id??""].some(y=>y.toLowerCase().includes(search.toLowerCase()))));
- // Requested state is only populated when P08 service requests exist; never invent a bill request.
  res.setHeader("Cache-Control","no-store");
  res.json({items:result.slice((page-1)*20,page*20),total:result.length,page,perPage:20,
-   requestedAvailable:false});
+   requestedAvailable:true});
 }));
 financeRouter.post("/visits/:id/check",route(async(req,res)=>{
  const scope=await financeScope(req),check=await getCheckForVisit(scope,id(req));
@@ -115,14 +126,15 @@ financeRouter.post("/checks/:id/split",route(async(req,res)=>{
    // Allow reconfiguration after a first split, but no new orders after a split has been created.
    const current=await currentOrders(tx,scope,check.visitId);
    if(!current.length)fail(409,"EMPTY_CHECK","No accepted items on this table.");
-   if(current.reduce((s,r)=>s+r.totalMinor,0)!==check.subtotalMinor)
+   if(await effectiveSubtotal(tx,scope,check.visitId)!==check.subtotalMinor)
      fail(409,"CHECK_CHANGED","Order total changed. Reload.");
    let shareValues:number[],assignments:Array<{shareIndex:number;lineId:string;quantity:number;lineAmountMinor:number}>=[];
    if(mode==="items"){
      if(!Array.isArray(allocations)||allocations.length<1||allocations.length>300)
        fail(400,"INVALID_SPLIT","Allocate all item quantities among shares.");
      const lines=await tx.select().from(orderLine).where(and(eq(orderLine.tenantId,scope.tenantId),
-       inArray(orderLine.roundId,current.map(r=>r.id))));
+       inArray(orderLine.roundId,current.map(r=>r.id)),
+       sql`${orderLine.kitchenStatus}<>'cancelled'`));
      const allocated=new Map<string,number>();const base=Array.from({length:n},()=>0);
      for(const entry of allocations){
        if(!entry||typeof entry!=="object"||Array.isArray(entry))fail(400,"INVALID_SPLIT","Invalid allocation.");

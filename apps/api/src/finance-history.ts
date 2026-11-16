@@ -7,6 +7,8 @@ import {auditEvent,checkPayment,checkReceipt,checkShare,diningCheck,diningTable,
 import {bodyObject,fail,field,int,route} from "./menu-helpers";
 import {calculate,financeScope,lockedCheck,pendingGuard,writeAudit} from "./finance-core";
 import {guestAccess,invalidateVisitSessions} from "./guest-security";
+import {serviceRequest,orderChangeRequest} from "./schema";
+import {bumpService} from "./service-requests";
 export const financeHistoryRouter=Router();
 export const guestFinanceRouter=Router();
 const id=(req:import("express").Request)=>field(req.params.id,100,"ID",1);
@@ -63,6 +65,11 @@ financeHistoryRouter.post("/checks/:id/settle",route(async(req,res)=>{
      .where(eq(diningVisit.id,visit.id));
    if(table)await tx.update(diningTable).set({cleaning:true,version:table.version+1,
      updatedAt:now}).where(eq(diningTable.id,table.id));
+   await tx.update(serviceRequest).set({status:"resolved",resolvedBy:scope.actorId,
+     resolvedAt:now,updatedAt:now,resolutionNote:"Visit settled."})
+     .where(and(eq(serviceRequest.visitId,visit.id),eq(serviceRequest.tenantId,scope.tenantId),
+       inArray(serviceRequest.status,["pending","acknowledged"])));
+   await bumpService(tx,scope);
    await invalidateVisitSessions(tx,visit.id,scope,"Check settled; visit closed.");
    await tx.insert(floorRevision).values({locationId:scope.locationId,tenantId:scope.tenantId})
      .onConflictDoUpdate({target:floorRevision.locationId,
@@ -177,7 +184,11 @@ guestFinanceRouter.get("/bill",route(async(req,res)=>{
       eq(orderRound.tenantId,scope.tenantId))),
    db.select().from(financeSetting).where(eq(financeSetting.tenantId,scope.tenantId)).limit(1)
  ]);
- const subtotal=rounds.reduce((sum,r)=>sum+r.totalMinor,0);
+ const changes=await db.select({deltaMinor:orderChangeRequest.deltaMinor}).from(orderChangeRequest)
+   .where(and(eq(orderChangeRequest.visitId,scope.visitId),
+     eq(orderChangeRequest.tenantId,scope.tenantId),eq(orderChangeRequest.status,"approved")));
+ const subtotal=rounds.reduce((sum,r)=>sum+r.totalMinor,0)+
+   changes.reduce((sum,x)=>sum+x.deltaMinor,0);
  const c=check[0];
  const p=charges[0];
  // Before the cashier locks a check, late accepted rounds must be reflected in

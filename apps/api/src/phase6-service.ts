@@ -1,5 +1,5 @@
 import {Router} from "express";
-import {and,asc,desc,eq,gt,gte,inArray,isNull,lt,lte,ne,count,sql} from "drizzle-orm";
+import {and,asc,desc,eq,gt,gte,inArray,notInArray,isNull,lt,lte,ne,count,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
 import {diningVisit,kitchenTicket,orderLine,orderOutbox,orderRound,staffNotification,orderActivity,restaurantSetting} from "./schema";
@@ -58,7 +58,7 @@ serviceRouter.post("/tickets/:id/lines/:lineId/ready",route(async(req,res)=>{
    await tx.update(orderLine).set({kitchenStatus:"ready",readyAt:now}).where(eq(orderLine.id,lineId));
    const remaining=await tx.select({id:orderLine.id}).from(orderLine)
      .where(and(eq(orderLine.roundId,ticket.roundId),eq(orderLine.tenantId,scope.tenantId),
-       ne(orderLine.kitchenStatus,"ready"))).limit(1);
+       notInArray(orderLine.kitchenStatus,["ready","cancelled"]))).limit(1);
    const done=!remaining.length;
    await tx.update(kitchenTicket).set({status:done?"ready":"preparing",version:v+1,
      ...(done?{readyAt:now}:{}),updatedAt:now}).where(scopedTicket(scope,ticketId));
@@ -122,7 +122,7 @@ async function serve(scope:OrderScope,roundId:string,lineId:string|null,v:number
    }else{
      const unfinished=await tx.select({id:orderLine.id,kitchenStatus:orderLine.kitchenStatus})
        .from(orderLine).where(and(eq(orderLine.roundId,roundId),eq(orderLine.tenantId,scope.tenantId),
-         ne(orderLine.kitchenStatus,"served")));
+         notInArray(orderLine.kitchenStatus,["served","cancelled"])));
      if(!unfinished.length||unfinished.some(l=>!["ready","picked_up"].includes(l.kitchenStatus)))
        fail(409,"NOT_READY","Not all items are ready or some have already been served.");
      await tx.update(orderLine).set({kitchenStatus:"served",servedAt:now,servedBy:scope.actorId})
