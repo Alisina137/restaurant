@@ -33,6 +33,7 @@ export function FinanceTransactions({area="cashier"}:{area?:"cashier"|"app"}){
   if(exporting)return;setExporting(true);setError("");
   try{const query=new URLSearchParams();if(filter.from)query.set("from",filter.from);
    if(filter.to)query.set("to",filter.to);
+   if(filter.method!=="all")query.set("method",filter.method);
    await downloadReport("transactions",query.toString()?"&"+query.toString():"");}
   catch(e){setError(e instanceof Error?e.message:r11(locale,"exportError"));}
   finally{setExporting(false);}
