@@ -13,6 +13,7 @@ import type {AuditReport,ItemRow,ItemsReport,ReportTab,
 import type {Locale} from "@dineflow/shared";
 
 type ReportResult=SalesReport|ItemsReport|ServiceReport|AuditReport;
+type Category={id:string;nameFa:string;namePs:string;nameEn:string};
 const tabs:ReportTab[]=["sales","items","service","audit"];
 const symbol={sales:BarChart3,items:UtensilsCrossed,service:Activity,audit:ShieldCheck};
 function readable(day:string,locale:Locale){
@@ -175,11 +176,14 @@ export function ReportsConsole({initialTab="sales"}:{initialTab?:ReportTab}){
  const [data,setData]=useState<ReportResult|null>(null),[loading,setLoading]=useState(true);
  const [error,setError]=useState(""),[notice,setNotice]=useState(""),[exporting,setExporting]=useState(false);
  const [page,setPage]=useState(1),[action,setAction]=useState(""),[actionFilter,setActionFilter]=useState("");
+ const [category,setCategory]=useState(""),[categories,setCategories]=useState<Category[]>([]);
  const query=useMemo(()=>{const u=new URLSearchParams();
   if(applied.from)u.set("from",applied.from);if(applied.to)u.set("to",applied.to);
   if(tab==="audit"){u.set("page",String(page));if(actionFilter)u.set("action",actionFilter);}
+  if(tab==="items"&&category)u.set("category",category);
   return u.toString()?"&"+u.toString():"";
- },[applied,tab,page,actionFilter]);
+ },[applied,tab,page,actionFilter,category]);
+ useEffect(()=>{void jsonRequest<{items:Category[]}>("/api/reports/categories").then(r=>setCategories(r.items)).catch(()=>{});},[]);
  const load=useCallback(async(silent=false)=>{
   if(!silent)setLoading(true);setError("");
   try{
@@ -199,7 +203,7 @@ export function ReportsConsole({initialTab="sales"}:{initialTab?:ReportTab}){
  async function exportNow(kind=tab){
   if(exporting)return;
   setExporting(true);setError("");setNotice("");
-  try{await downloadReport(kind,query.replace(/&page=\d+|&action=[^&]+/g,""));
+  try{await downloadReport(kind,query.replace(/&page=\d+/g,""));
    setNotice(r11(locale,"exportSuccess"));}
   catch(e){setError(e instanceof Error?e.message:r11(locale,"exportError"));}
   finally{setExporting(false);}
@@ -230,6 +234,13 @@ export function ReportsConsole({initialTab="sales"}:{initialTab?:ReportTab}){
     <button type="button" className="button button-small" onClick={()=>preset(7)}>{r11(locale,"week")}</button>
     <button type="button" className="button button-small" onClick={()=>preset(30)}>{r11(locale,"month")}</button>
    </div>
+   {tab==="items"&&<label className="finance-field"><span>{r11(locale,"category")}</span>
+    <select value={category} onChange={e=>setCategory(e.target.value)}>
+     <option value="">{r11(locale,"allCategories")}</option>
+     {categories.map(c=><option key={c.id} value={c.id}>
+      {(locale==="en"?c.nameEn:locale==="ps-AF"?c.namePs:c.nameFa)||c.nameFa}
+     </option>)}
+    </select></label>}
    <label className="finance-field"><span>{r11(locale,"from")}</span><input type="date" value={from}
     onChange={e=>setFrom(e.target.value)}/></label>
    <label className="finance-field"><span>{r11(locale,"to")}</span><input type="date" value={to}
