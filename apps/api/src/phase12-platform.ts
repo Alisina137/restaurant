@@ -183,7 +183,7 @@ tenantSaasRouter.post("/grants",route(async(req,res)=>{
   await audit(tx,a,tenantId,"support.grant_created",{grantId:rows[0]!.id,scope,minutes});
   return rows;
  });
- res.status(201).json({id:r.id,expiresAt:r.expiresAt});
+ res.status(201).json({id:r!.id,expiresAt:r!.expiresAt});
 }));
 tenantSaasRouter.post("/grants/:id/revoke",route(async(req,res)=>{
  const a=await actor(req,false,true),id=identity(req),tenantId=a.tenantId!;
@@ -194,7 +194,7 @@ tenantSaasRouter.post("/grants/:id/revoke",route(async(req,res)=>{
   await audit(tx,a,tenantId,"support.grant_revoked",{grantId:id});
   return rows;
  });
- res.json({id:row.id,revokedAt:row.revokedAt});
+ res.json({id:row!.id,revokedAt:row!.revokedAt});
 }));
 
 // Platform routes: restaurant private orders and money ledgers are never exposed.
