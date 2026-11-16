@@ -38,8 +38,14 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - P10 CI integrates with the seeded disposable PostgreSQL backend after P09/P08. See `docs/PHASE-10-ACCEPTANCE.md` for manual browser, role and money-handling checks.
 - All receipt and accepted order monetary snapshots remain immutable; no automated payment-provider refunds.
 
+## Phase 11 status
+- **Merged to main via PR #11** after passing full GitHub typecheck, unit test, web build, database migrations and P01–P11 live PostgreSQL regression suite.
+- Management Reports at `/app/reports`: Sales, Items, Service and Audit. Settled check totals and posted net collected tender are separate financial timelines. Owner/manager can export sanitized, auditable CSV with strict tenant scope.
+- Owner dashboard now includes real active tables, accepted orders, unpaid checks and today's net collected payment/refund totals; no fake statistics or placeholders.
+- See `docs/PHASE-11-ACCEPTANCE.md`. Physical-device, browser and cash-handling pilot acceptance remain outstanding.
+
 ## Next phase
-P11 — reporting, exports and trustworthy reconciliation. Prior to pilot: manual physical device and business workflow QA across all locales.
+P12 — subscriptions, invoice lifecycle, entitlement policy and complete platform administration. Prior to pilot: manual physical-device and restaurant cash reconciliation QA across all locales.
 
 ## Local commands
 ```powershell
