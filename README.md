@@ -2,7 +2,15 @@
 
 A Dari-first, tenant-scoped restaurant SaaS for Afghanistan. Product source of truth: [Product Specification v1.0](docs/PRODUCT-SPECIFICATION-v1.md) and [Development Workflow V5](docs/SOFTWARE-DEVELOPMENT-WORKFLOW-v5.md).
 
-**Release status:** Phases 1–11 are merged to `main` (P11 via PR #11), with green full GitHub CI on the Phase 11 merge head. Next is P12 SaaS subscriptions and platform administration. Production certification still requires supervised restaurant, browser/mobile and receipt-printer QA.
+**Release status:** Phases 1–12 are merged to `main` (Phase 12 via PR #13). The P12 branch passed full GitHub CI, including live PostgreSQL acceptance and P01–P12 regression tests. Next is P13 production hardening. Pilot certification still requires supervised restaurant, browser/mobile, manual billing verification and receipt-printer QA.
+
+## Phase 12 — Restaurant subscriptions, manual payment verification and platform operations
+
+Restaurant owner/manager: `/app/subscription` displays the plan, trial/renewal/grace information, invoice snapshots, and a printable invoice (browser **Print → Save as PDF**). Owners can submit an exact-amount cash/bank/mobile-money reference for independent **platform verification**; pending evidence **never** marks an invoice paid. Owners can open support tickets and grant temporary, revocable metadata-only access at `/app/support`; managers can read billing and support state.
+
+Platform administrators: `/platform/overview`, `/platform/restaurants`, `/platform/subscriptions`, `/platform/support`, `/platform/audit`, and `/platform/settings` manage restaurant status, plan versions, invoice issuance, manual payment review, support and audited policy changes. Private customer orders and restaurant tender ledgers are **not** exposed to platform administrators through these workspaces.
+
+Server enforcement blocks creating new visits when a subscription is suspended or its trial/grace window has expired, while preserving the ability to close an existing visit; table and staff capacity checks use tenant-scoped transaction guards. New plans create versions and do not rewrite issued invoice amounts. Multi-branch plans and automatic payment gateways are not released. **After pulling Phase 12, run `pnpm db:migrate`**. See [Phase 12 Acceptance](docs/PHASE-12-ACCEPTANCE.md) for the complete checklist and remaining on-device/cash-handling acceptance.
 
 ## Phase 11 — Reporting and operational audit
 Restaurant owners and managers can open `/app/reports` to view real Sales, Items, Service and Audit data. The restaurant Overview displays live operational KPIs. Reports enforce a 90-day restaurant-business-date window, use settled check totals for sales, posted tenders/refunds for net cash collected, and support audited CSV downloads. Cashier and waiter roles do not have permission to export these management reports. See `docs/PHASE-11-ACCEPTANCE.md`.

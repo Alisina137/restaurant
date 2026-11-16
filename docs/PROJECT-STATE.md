@@ -44,8 +44,16 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - Owner dashboard now includes real active tables, accepted orders, unpaid checks and today's net collected payment/refund totals; no fake statistics or placeholders.
 - See `docs/PHASE-11-ACCEPTANCE.md`. Physical-device, browser and cash-handling pilot acceptance remain outstanding.
 
+## Phase 12 status
+- **Merged to main via PR #13**, after full GitHub CI passed on the feature branch, including TypeScript, unit tests, Next.js build, migrations and P01–P12 live PostgreSQL integration.
+- Restaurant subscription and invoice surfaces at `/app/subscription`: owner manual proof submission, read-only management access, versioned plans, invoice snapshots and browser print/PDF; no automatic payment provider.
+- Restaurant support at `/app/support`: tenant-scoped ticket conversations and owner-approved expiring/revocable, metadata-only grants.
+- Platform admin at `/platform/overview`, `/platform/restaurants`, `/platform/subscriptions`, `/platform/support`, `/platform/audit`, `/platform/settings`: restaurant oversight, invoices, manually verified payments, plan versions, role-guarded support, auditable policies.
+- Tenant server checks enforce staff/table plan limits, subscription trial/period/grace and suspended new-visit gating without disrupting closure of existing visits. No unverified payment counts as paid.
+- See `docs/PHASE-12-ACCEPTANCE.md`. Physical devices, printed invoice layout, actual payment references and pilot acceptance remain pending.
+
 ## Next phase
-P12 — subscriptions, invoice lifecycle, entitlement policy and complete platform administration. Prior to pilot: manual physical-device and restaurant cash reconciliation QA across all locales.
+P13 — production reliability, localization certification, accessibility and nonfunctional gates (then P14 supervised pilot launch).
 
 ## Local commands
 ```powershell
