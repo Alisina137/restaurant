@@ -1,11 +1,12 @@
 "use client";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Building2, Languages, LockKeyhole, Save, Settings2, ShieldCheck } from "lucide-react";
+import { Building2, Languages, LockKeyhole, Save, Settings2, ShieldCheck, ChefHat } from "lucide-react";
 import { type Locale } from "@dineflow/shared";
 import { useWorkspace } from "@/components/workspace-provider";
 import { jsonRequest } from "@/lib/phase2-api";
 import { p2 } from "@/lib/phase2-copy";
+import {sg7} from "@/lib/guest-staff-copy";
 type Tab="restaurant"|"localization"|"security";
 type Data={restaurant:{name:string;slug:string;status:string}|null;
   location:{name:string;city:string}|null;setting:{phone:string|null;address:string|null;
@@ -45,7 +46,8 @@ export function RestaurantSettings({tab}:{tab:Tab}){
       <h1>{p2(locale,"settings")}</h1><p className="muted">{workspace.tenantName}</p></div><Settings2 size={28} color="var(--brand)"/></div>
     <nav className="context-tabs" aria-label={p2(locale,"settings")}>{tabs.map(({key,label,icon:Icon})=>
       <Link key={key} className={"context-tab"+(key===tab?" current":"")} aria-current={key===tab?"page":undefined}
-        href={"/app/settings/"+key}><Icon size={18}/>{p2(locale,label)}</Link>)}</nav>
+        href={"/app/settings/"+key}><Icon size={18}/>{p2(locale,label)}</Link>)}
+      <Link href="/app/settings/ordering" className="context-tab"><ChefHat size={18}/>{sg7(locale,"rules")}</Link></nav>
     {error&&<p className="form-error" role="alert">{error} <button type="button" className="text-link" onClick={()=>void load()}>{p2(locale,"retry")}</button></p>}
     {notice&&<p role="status" className="success-banner"><ShieldCheck size={18}/>{notice}</p>}
     {loading?<section className="settings-card"><div className="list-skeleton"><span/><span/><span/></div></section>:

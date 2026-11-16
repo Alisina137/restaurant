@@ -22,6 +22,9 @@ import { visitRouter } from "./floor-visits";
 import { floorLiveRouter } from "./floor-live";
 import { orderRouter } from "./order-routes";
 import { serviceRouter } from "./phase6-service";
+import {guestPublicRouter} from "./guest-public";
+import {guestOrdersRouter} from "./guest-orders";
+import {guestStaffRouter} from "./guest-staff";
 
 const app = express();
 app.disable("x-powered-by");
@@ -50,6 +53,9 @@ app.use("/api/floor/visits", visitRouter);
 app.use("/api/floor", floorLiveRouter);
 app.use("/api/orders", orderRouter);
 app.use("/api/orders", serviceRouter);
+app.use("/api/guest",guestPublicRouter);
+app.use("/api/guest",guestOrdersRouter);
+app.use("/api/guest/staff",guestStaffRouter);
 
 type AuthorizedRequest = Request & { identity?: IdentityContext };
 async function requireIdentity(req: AuthorizedRequest, res: Response, next: NextFunction) {

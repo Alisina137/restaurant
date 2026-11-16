@@ -1,7 +1,7 @@
 "use client";
 import {useCallback,useEffect,useRef,useState} from "react";
 import Link from "next/link";
-import {DoorOpen,Layers3,RefreshCw,UtensilsCrossed} from "lucide-react";
+import {DoorOpen,Layers3,RefreshCw,UtensilsCrossed,QrCode} from "lucide-react";
 import {useWorkspace} from "@/components/workspace-provider";
 import {API_URL} from "@/lib/auth-client";
 import {jsonRequest,Phase2Error} from "@/lib/phase2-api";
@@ -102,6 +102,7 @@ export function FloorConsole({tab}:{tab:FloorTab}){
     aria-current={tab==="board"?"page":undefined}><DoorOpen size={18}/>{f4(locale,"board")}</Link>
    <Link href="/app/tables/manage" className={"context-tab"+(tab==="manage"?" current":"")}
     aria-current={tab==="manage"?"page":undefined}><Layers3 size={18}/>{f4(locale,"manage")}</Link>
+   <Link href="/app/tables/qr" className="context-tab"><QrCode size={18}/>QR</Link>
   </nav>
   {notice&&<p className="success-banner" role="status">{notice}</p>}
   {error&&<div role="alert" className="form-error">{error}
@@ -117,7 +118,7 @@ export function FloorConsole({tab}:{tab:FloorTab}){
       editTable={t=>setPopup({type:"edit-table",table:t})}
       archiveSection={s=>archive("sections",s.id,s.version)}
       archiveTable={t=>archive("tables",t.id,t.version)}/>}
-   {tab==="board"&&<div className="floor-next"><UtensilsCrossed size={18}/><span>{f4(locale,"noQR")}</span></div>}
+
   </>}
   {current&&!popup&&board&&<FloorDetails table={current} locale={locale} role={board.role} actorId={board.actorId}
     busy={busy} onSeat={()=>setPopup({type:"open",table:current})}
