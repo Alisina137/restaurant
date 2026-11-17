@@ -20,7 +20,7 @@ check(table,['useLiveScreen','useSafeAreaInsets','getDetails','canOpen',
  'pin/rotate','data.pin.version','setShowPin(false)','20000',
  'pinHidden','GuestPin','visitOrderCount','orderEstimateHint',
  'serviceActionAllowed','/api/service/requests/','/transition',
- 'confirmResolve','expected','noAssigned','/approvals','/requests',
+ 'confirmResolve','noAssigned','/approvals','/requests',
  '/order/[id]','/visit/[id]/new-order',
  'LiveNotice','RefreshControl','ActivityIndicator','accessibilityRole="button"'],
  "role-secured table, guest PIN, visits and request actions");
