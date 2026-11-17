@@ -35,7 +35,7 @@ requireAll(tables,['FlatList','filterFloorTables','floorMetrics','Pill',
  'router.push("/requests")','/table/[id]','RefreshControl'],
  'virtualized floor sections and attention feed');
 requireAll(orders,['FlatList','orderTab','useLocalSearchParams','Pager',
- '/api/orders/my?status=','role="tab"','status==="ready"','useLiveScreen',
+ '/api/orders/my?status=','accessibilityRole="tab"','status==="ready"','useLiveScreen',
  '/order/[id]','new Date(item.createdAt)','RefreshControl'],'live order tabs');
 requireAll(menu,['FlatList','selectableVisits','/api/menu/catalog',
  '/api/floor/tables/board','category','filtered','MenuCard','MenuData',
