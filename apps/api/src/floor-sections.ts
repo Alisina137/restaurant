@@ -12,7 +12,7 @@ function fields(input:Record<string,unknown>){
     active:bool(input.active??true,"Active")};
 }
 sectionRouter.get("/",floorRoute(async(req,res)=>{
-  const scope=await floorScope(req,true),{page,limit,offset}=paging(req);
+  const scope=await floorScope(req),{page,limit,offset}=paging(req);
   const q=typeof req.query.q==="string"?req.query.q.trim().slice(0,80):"";
   const predicate=and(eq(diningSection.tenantId,scope.tenantId),eq(diningSection.locationId,scope.locationId),
     req.query.archive==="1"?isNotNull(diningSection.archivedAt):isNull(diningSection.archivedAt),
