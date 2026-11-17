@@ -79,6 +79,19 @@ export async function saveDraft(userId:string,tenantId:string,visitId:string,dra
   } satisfies Head));
  });
 }
+export async function readSubmissionPending(userId:string,tenantId:string,visitId:string,
+ key:string):Promise<boolean>{
+ const p=prefix(userId,tenantId,visitId);
+ return serial(p,async()=>await SecureStore.getItemAsync(p+"pending25")===key);
+}
+export async function markSubmissionPending(userId:string,tenantId:string,visitId:string,key:string){
+ const p=prefix(userId,tenantId,visitId);
+ return serial(p,()=>SecureStore.setItemAsync(p+"pending25",key));
+}
+export async function clearSubmissionPending(userId:string,tenantId:string,visitId:string){
+ const p=prefix(userId,tenantId,visitId);
+ return serial(p,()=>SecureStore.deleteItemAsync(p+"pending25"));
+}
 export async function clearDraft(userId:string,tenantId:string,visitId:string){
  const p=prefix(userId,tenantId,visitId);
  return serial(p,async()=>{
@@ -86,6 +99,7 @@ export async function clearDraft(userId:string,tenantId:string,visitId:string){
   const legacy=await SecureStore.getItemAsync(p+"head");
   await SecureStore.deleteItemAsync(p+"head25");
   await SecureStore.deleteItemAsync(p+"head");
+  await SecureStore.deleteItemAsync(p+"pending25");
   for(let i=0;i<MAX_LINES;i++){
    await SecureStore.deleteItemAsync(p+"v25:0:"+i);
    await SecureStore.deleteItemAsync(p+"v25:1:"+i);
