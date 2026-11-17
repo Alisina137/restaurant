@@ -159,7 +159,8 @@ export function MenuConsole({tab}: {tab:MenuTab}){
       {!editor.categories.length&&!loading&&<p className="menu-callout">{m3(locale,"categoryRequired")} <Link className="text-link"
         href="/app/menu/categories">{m3(locale,"newCategory")} <ArrowUpRight size={15}/></Link></p>}
       <form className="menu-filters" onSubmit={(e:FormEvent)=>{e.preventDefault();setPage(1);setQuery(queryInput);}}>
-        <SearchInput className="menu-search" value={queryInput} onChange={setQueryInput}
+        <SearchInput className="menu-search" value={queryInput}
+          onChange={value=>{setQueryInput(value);if(!value){setQuery("");setPage(1);}}}
           label={m3(locale,"search")} clearLabel={ux(locale,"clearSearch")}/>
         <select value={status} aria-label={m3(locale,"filter")} onChange={e=>{setPage(1);setStatus(e.target.value);}}>
           <option value="all">{m3(locale,"all")}</option><option value="published">{m3(locale,"published")}</option>
