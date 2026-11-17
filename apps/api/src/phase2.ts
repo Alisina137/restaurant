@@ -184,6 +184,7 @@ staffRouter.get("/settings", route(async (req, res) => {
   const [setting] = await db.select().from(restaurantSetting).where(eq(restaurantSetting.tenantId, data.tenantId)).limit(1);
   const [branch] = await db.select().from(location).where(eq(location.tenantId, data.tenantId)).limit(1);
   const [org] = await db.select().from(tenant).where(eq(tenant.id, data.tenantId)).limit(1);
+  res.setHeader("Cache-Control","private, no-store, max-age=0");
   res.json({ setting: setting ?? null, location: branch ?? null, restaurant: org ?? null });
 }));
 staffRouter.patch("/settings", route(async (req, res) => {
@@ -193,20 +194,37 @@ staffRouter.patch("/settings", route(async (req, res) => {
   const phone = str(body.phone, 30), address = str(body.address, 200), timezone = str(body.timezone, 60);
   const locale = body.locale, receiptFooter = str(body.receiptFooter, 160);
   if (name.length < 2 || name.length > 100 || locationName.length < 2 || city.length < 2 ||
+      locationName.length > 80 || city.length > 80 ||
       !isLocale(locale) || (!Intl.supportedValuesOf("timeZone").includes(timezone) && timezone !== "Asia/Kabul") ||
       phone.length > 30 || address.length > 200 || receiptFooter.length > 160 ||
       typeof body.managerCanInvite !== "boolean") {
     fail(res, 400, "INVALID_SETTINGS", "Please correct the restaurant settings."); return;
   }
+  // Old clients may omit these fields; do not silently erase a configured timetable.
+  const hours=body.openingHours===undefined?undefined:parseOpeningHours(body.openingHours);
+  const expected=body.expectedUpdatedAt;
+  if(expected!==undefined&&(typeof expected!=="string"||
+    !Number.isFinite(Date.parse(expected))||expected.length>40))
+    throw new MenuError(400,"INVALID_VERSION","Refresh restaurant settings before saving.");
   await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT tenant_id FROM restaurant_settings WHERE tenant_id=${data.tenantId} FOR UPDATE`);
+    const [current]=await tx.select({updatedAt:restaurantSetting.updatedAt})
+      .from(restaurantSetting).where(eq(restaurantSetting.tenantId,data.tenantId)).limit(1);
+    if(!current)throw new MenuError(404,"NOT_FOUND","Restaurant settings unavailable.");
+    if(typeof expected==="string"&&current.updatedAt.getTime()!==new Date(expected).getTime())
+      throw new MenuError(409,"VERSION_CONFLICT","Settings changed elsewhere. Reload to review the latest values.");
+    const updatedAt=new Date(Math.max(Date.now(),current.updatedAt.getTime()+1));
     await tx.update(tenant).set({ name }).where(eq(tenant.id, data.tenantId));
     await tx.update(location).set({ name: locationName, city }).where(eq(location.tenantId, data.tenantId));
     await tx.update(restaurantSetting).set({ phone: phone || null, address: address || null, timezone,
-      locale, receiptFooter, managerCanInvite: body.managerCanInvite as boolean, updatedAt: new Date() })
+      locale, receiptFooter, managerCanInvite: body.managerCanInvite as boolean,
+      ...(hours!==undefined?{openingHours:hours}:{}),updatedAt })
       .where(eq(restaurantSetting.tenantId, data.tenantId));
     await tx.insert(auditEvent).values({ id: randomUUID(), userId: data.person.id, tenantId: data.tenantId,
-      action: "tenant.settings_updated", details: { name, locationName, city, timezone, locale } });
+      action: "tenant.settings_updated", details: { name, locationName, city, timezone, locale,
+        openingHoursChanged:hours!==undefined,managerCanInvite:body.managerCanInvite } });
   });
+  res.setHeader("Cache-Control","private, no-store, max-age=0");
   res.json({ saved: true });
 }));
 staffRouter.get("/staff", route(async (req, res) => {
