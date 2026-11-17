@@ -5,6 +5,7 @@ import "./interaction-system.css";
 import "./auth-experience.css";
 import "./dashboard.css";
 import "./menu20.css";
+import "./floor21.css";
 import {InteractionProvider} from "@/components/ui/interaction-provider";
 import type { Metadata } from "next";
 export const metadata: Metadata = {

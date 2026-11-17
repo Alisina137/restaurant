@@ -1,5 +1,5 @@
 import {Router} from "express";
-import {and,asc,count,eq,isNotNull,isNull,sql} from "drizzle-orm";
+import {and,asc,count,eq,ilike,isNotNull,isNull,or,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
 import {assertCapacity} from "./phase12-entitlements";
@@ -86,16 +86,40 @@ tableRouter.get("/board",floorRoute(async(req,res)=>{
   res.json({sections,tables:rows.map(t=>({...t,status:tableState(t.active,t.cleaning,t.visitId)})),
     locationId:scope.locationId,actorId:scope.actorId,role:scope.role});
 }));
+/** Manager directory filters apply in SQL BEFORE pagination, so count and results stay aligned. */
 tableRouter.get("/",floorRoute(async(req,res)=>{
   const scope=await floorScope(req,true),{page,limit,offset}=paging(req);
-  const where=and(eq(diningTable.tenantId,scope.tenantId),eq(diningTable.locationId,scope.locationId),
-    req.query.archive==="1"?isNotNull(diningTable.archivedAt):isNull(diningTable.archivedAt),
-    typeof req.query.section==="string"&&req.query.section?eq(diningTable.sectionId,req.query.section):undefined);
+  const q=typeof req.query.q==="string"?req.query.q.trim().slice(0,80):"";
+  const section=typeof req.query.section==="string"?req.query.section:"";
+  const status=typeof req.query.status==="string"?req.query.status:"all";
+  const assigned=typeof req.query.waiter==="string"?req.query.waiter:"";
+  const archived=req.query.archive==="1";
+  if(!["all","available","occupied","cleaning","disabled"].includes(status))
+    fail(400,"INVALID_STATUS","Choose a supported floor status.");
+  if(section.length>100||assigned.length>100)fail(400,"INVALID_FILTER","Invalid table filter.");
+  // A reservation status does not exist in this product; availability is derived from live visits.
+  const hasVisit=sql`EXISTS(SELECT 1 FROM dining_visits AS v WHERE v.table_id=${diningTable.id}
+    AND v.status='open' AND v.tenant_id=${scope.tenantId} AND v.location_id=${scope.locationId})`;
+  const noVisit=sql`NOT EXISTS(SELECT 1 FROM dining_visits AS v WHERE v.table_id=${diningTable.id}
+    AND v.status='open' AND v.tenant_id=${scope.tenantId} AND v.location_id=${scope.locationId})`;
+  const predicate=and(eq(diningTable.tenantId,scope.tenantId),eq(diningTable.locationId,scope.locationId),
+    archived?isNotNull(diningTable.archivedAt):isNull(diningTable.archivedAt),
+    section?eq(diningTable.sectionId,section):undefined,
+    assigned==="unassigned"?isNull(diningTable.assignedWaiterId):
+      assigned?eq(diningTable.assignedWaiterId,assigned):undefined,
+    status==="occupied"?hasVisit:
+      status==="disabled"?eq(diningTable.active,false):
+      status==="cleaning"?and(eq(diningTable.active,true),eq(diningTable.cleaning,true),noVisit):
+      status==="available"?and(eq(diningTable.active,true),eq(diningTable.cleaning,false),noVisit):undefined,
+    q?or(ilike(diningTable.label,"%"+q+"%"),ilike(diningTable.notes,"%"+q+"%"),
+      sql`EXISTS(SELECT 1 FROM dining_sections AS s WHERE s.id=${diningTable.sectionId}
+        AND s.tenant_id=${scope.tenantId} AND s.name ILIKE ${"%"+q+"%"})`):undefined);
   const [rows,totals]=await Promise.all([
-    db.select({id:diningTable.id}).from(diningTable).where(where)
+    db.select({id:diningTable.id}).from(diningTable).where(predicate)
       .orderBy(asc(diningTable.sortOrder),asc(diningTable.label)).limit(limit).offset(offset),
-    db.select({n:count()}).from(diningTable).where(where)
+    db.select({n:count()}).from(diningTable).where(predicate)
   ]);
+  res.setHeader("Cache-Control","private, no-store, max-age=0");
   res.json({items:(await Promise.all(rows.map(r=>tableFor(scope,r.id)))).filter(x=>x!==null),
     total:totals[0]?.n??0,page,perPage:limit});
 }));

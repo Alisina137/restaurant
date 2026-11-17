@@ -99,8 +99,15 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - `pnpm menu20:verify` and the seeded `apps/api/src/phase20-ci.ts` regression were added to CI. See `docs/PHASE-20-ACCEPTANCE.md` for manual menu publication, device, photo and QR validation.
 - Production approval still requires actual restaurant pilot evidence, accounting and hardware QA from Phase 14.
 
+## Phase 21 status
+- Live floor board upgraded with genuine open-visit occupancy and party counts, capacity/free-seat metrics, cleaning/unassigned attention, section/status/waiter/assigned-to-me filters, section grouping, role-appropriate actions, accessible details, and manager workflow links. No fabricated reserved status.
+- Owner/manager section and table management now has search/filter/pagination against tenant/location-scoped SQL before pagination (including real occupied/cleaning states, waiter/section constraints) and guarded archive/form controls. Existing server-side occupancy, waiter assignment, version and settlement protections remain authoritative.
+- Permanent table QR management gained secure rotation confirmation, printable selection and search/state filters, current-page selection and active-table guards. Floor updates retain last good data and use request-sequence guards, visible-tab SSE/polling and reconnect sync.
+- New responsive/RTL premium styling and three-language copy. No new migrations/packages. `pnpm floor21:verify` and seeded `phase21-ci.ts` are in CI.
+- See `docs/PHASE-21-ACCEPTANCE.md` for code/DB checks and outstanding mobile, live waiter, physical QR and cashier-service pilot verification. **Phase 14 production pilot gates remain pending.**
+
 ## Next phase
-Phase 21: tables and floor management UI, occupancy, seating, assignments and operational workflow polishing.
+Phase 22: staff directory, invitations, role administration and restaurant settings.
 
 ## Local commands
 ```powershell
