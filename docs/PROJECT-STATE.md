@@ -77,8 +77,13 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - `pnpm nav:verify` checks destination existence and navigation accessibility contracts in CI. See `docs/PHASE-16-ACCEPTANCE.md`.
 - Browser/device visual QA and the Phase 14 real restaurant release gates are still **not signed off**.
 
+## Phase 17 status
+- A route-persistent global UI notification and confirmation provider, shared search/filter/pagination/retry controls, and focus-managed dialogs were introduced. Menu, floor, staff, cashier check lists/settlement, and adjustment/refund workflows now use the shared UI and additional single-flight safeguards.
+- `pnpm interaction:verify` now runs in CI alongside existing visual/navigation checks. Acceptance matrix and known manual validation gates: `docs/PHASE-17-ACCEPTANCE.md`.
+- **Code changes are not proof of device QA or real cash settlement**. The Phase 14 independent pilot release gates remain outstanding.
+
 ## Next phase
-Phase 17: global feedback components, safe confirmation dialogs, loading and interaction consistency. Production deployment remains blocked pending real pilot acceptance.
+Phase 18: authentication, onboarding and account UX. Do not approve production deployment before the supervised restaurant pilot and manual requirements are signed off.
 
 ## Local commands
 ```powershell
