@@ -90,7 +90,7 @@ const messages = {
   resend:"د تایید برېښنالیک بیا ولېږئ",resendSent:"که دا پته مناسبه وي، د تایید برېښنالیک بیا غوښتل شوی دی.",
   checkEmailTitle:"برېښنالیک وګورئ",checkEmailHint:"لومړی برېښنالیک تایید کړئ، وروسته د رستورانت جوړولو لپاره ننوځئ.",
   verificationHelp:"برېښنالیک مو نه دی راغلی؟ سپام وګورئ یا د تایید له پاڼې بیا وغواړئ.",
-  fullName:"بشپړ نوم",nameError:"نوم باید له ۲ تر ۸۰ تورو وي.",saveProfile:"پروفایل خوندي کړئ",
+  fullName:"بشپړ نوم",nameError:"نوم باید له ۲ تر ۸۰ تورو وي.",saveProfile:"پروفایل خوندي کړئ",profileSaved:"پروفایل تازه شو.",
   accountSettings:"د حساب تنظیمات",editProfile:"ستاسو پروفایل",editProfileHint:"هغه نوم بدل کړئ چې همکاران یې ویني.",
   accountSecurity:"پټنوم او امنیت",securityHint:"خپل حساب خوندي کړئ او ننوتلي وسایل اداره کړئ.",
   changePassword:"پټنوم بدلول",passwordChanged:"پټنوم بدل شو. نورې ناستې پای ته ورسېدې.",
