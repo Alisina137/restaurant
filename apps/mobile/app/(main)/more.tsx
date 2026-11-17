@@ -9,7 +9,8 @@ import {authClient} from "../../src/auth-client";
 import {theme} from "../../src/theme";
 import {floorRequest,FloorRequestError} from "../../src/floor-api";
 import {o5} from "../../src/order-copy";
-import {vibrationKey} from "../../src/ready-settings";
+import {vibrationKeyFor} from "../../src/mobile26-data";
+import {m26} from "../../src/mobile26-copy";
 import {fetchIdentity,type Identity} from "../../src/api";
 import {m23} from "../../src/mobile23-copy";
 import {ScreenHeader,LiveNotice,LoadingPanel,QuickLink,SectionHeading} from "../../src/mobile23-ui";
@@ -21,7 +22,7 @@ async function loadMore():Promise<MoreData>{
  catch(e){if(String(e).includes("401"))throw new FloorRequestError(401,"UNAUTHENTICATED","Session ended");throw e;}
  const [alerts,preference]=await Promise.allSettled([
   floorRequest<{unread:number}>("/api/orders/notifications?page=1&unread=1"),
-  SecureStore.getItemAsync(vibrationKey)
+  SecureStore.getItemAsync(vibrationKeyFor(identity.user.id,identity.tenantId)??"dineflow.no-account")
  ]);
  return {identity,unread:alerts.status==="fulfilled"?alerts.value.unread:null,
   vibrate:preference.status==="fulfilled"?preference.value==="1":false};
@@ -34,9 +35,13 @@ export default function More(){
  const {data,loading,refreshing,error,lastUpdated,refresh}=useLiveScreen("waiter-more",loader,30000);
  useEffect(()=>{if(data&&vibrate===null)setVibrate(data.vibrate);},[data,vibrate]);
  async function toggleVibration(next:boolean){
-  if(locked.current)return;
+  if(locked.current||!data)return;
   locked.current=true;const old=vibrate;setVibrate(next);setErrorAction("");
-  try{await SecureStore.setItemAsync(vibrationKey,next?"1":"0");}
+  try{
+   const key=data?vibrationKeyFor(data.identity.user.id,data.identity.tenantId):null;
+   if(!key)throw new Error("ACCOUNT_UNAVAILABLE");
+   await SecureStore.setItemAsync(key,next?"1":"0");
+  }
   catch{setVibrate(old);setErrorAction(m23(locale,"noConnection"));}
   finally{locked.current=false;}
  }
@@ -104,17 +109,25 @@ export default function More(){
     </View>
     <View style={styles.vibrationCard}>
      <SectionHeading locale={locale} title={m23(locale,"vibration")} icon="notifications-outline"/>
-     <Text style={[styles.settingDescription,{textAlign:rtl?"right":"left"}]}>{m23(locale,"vibrationHelp")}</Text>
+     <Text style={[styles.settingDescription,{textAlign:rtl?"right":"left"}]}>{m26(locale,"vibrationHelp")}</Text>
      <View style={[styles.toggleRow,{flexDirection:rtl?"row-reverse":"row"}]}>
       <View style={styles.toggleText}>
        <Text style={[styles.toggleTitle,{textAlign:rtl?"right":"left"}]}>
         {m23(locale,(vibrate??data?.vibrate)?"vibrationOn":"vibrationOff")}</Text>
        <Text style={[styles.toggleHint,{textAlign:rtl?"right":"left"}]}>{o5(locale,"readyInstructions")}</Text>
       </View>
-      <Switch value={vibrate??data?.vibrate??false}
+      <Switch disabled={!data} value={vibrate??data?.vibrate??false}
        onValueChange={value=>void toggleVibration(value)}
        trackColor={{false:"#C4D6CB",true:"#9AD5B6"}} thumbColor={vibrate??data?.vibrate?"#247B57":"#F7FAF7"}
        accessibilityLabel={m23(locale,"vibration")}/>
+     </View>
+    </View>
+    <View style={styles.helpCard}>
+     <SectionHeading locale={locale} title={m26(locale,"helpTitle")} icon="help-circle-outline"/>
+     <Text style={[styles.settingDescription,{textAlign:rtl?"right":"left"}]}>{m26(locale,"helpText")}</Text>
+     <View style={[styles.helpHint,{flexDirection:rtl?"row-reverse":"row"}]}>
+      <Ionicons name="shield-checkmark-outline" size={16} color={theme.brand}/>
+      <Text style={[styles.settingDescription,{flex:1,textAlign:rtl?"right":"left"}]}>{m26(locale,"offlineChanges")}</Text>
      </View>
     </View>
     <Pressable onPress={confirmSignOut} disabled={busy} accessibilityRole="button"
@@ -150,6 +163,8 @@ const styles=StyleSheet.create({
  tenantName:{fontSize:14,fontWeight:"800",color:theme.ink},
  links:{gap:8},
  vibrationCard:{padding:18,backgroundColor:"#fff",borderRadius:16,borderWidth:1,borderColor:theme.border,gap:14},
+ helpCard:{padding:18,backgroundColor:"#fff",borderRadius:16,borderWidth:1,borderColor:theme.border,gap:13},
+ helpHint:{alignItems:"flex-start",gap:8,padding:12,backgroundColor:theme.brandSoft,borderRadius:11},
  settingDescription:{color:theme.muted,fontSize:12,lineHeight:20},
  toggleRow:{alignItems:"center",gap:14,padding:12,backgroundColor:theme.brandSoft,borderRadius:12},
  toggleText:{flex:1,gap:5},
