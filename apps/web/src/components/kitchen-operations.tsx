@@ -8,6 +8,11 @@ import {API_URL} from "@/lib/auth-client";
 import {name,amount,type WebDetail,type WebPage,type WebRow} from "@/lib/order-web-types";
 import {k6} from "@/lib/kitchen-copy";
 import type {Locale} from "@dineflow/shared";
+import {useInteraction} from "./ui/interaction-provider";
+import {useDialogFocus} from "./ui/use-dialog-focus";
+import {InlineFeedback,PageControls} from "./ui/interaction-controls";
+import {EmptyState,LoadingSkeleton,Surface} from "./ui/design-system";
+import {ux} from "@/lib/interaction-copy";
 type Status="new"|"preparing"|"ready"|"picked_up"|"served"|"voided";
 type Tab="new"|"preparing"|"ready"|"history";
 type HistoryRow={id:string;roundId:string;visitId:string;tableId:string;tableLabel:string;
@@ -38,6 +43,7 @@ function Details({detail,locale}:{detail:WebDetail;locale:Locale}){
   </div>;
 }
 function DetailModal({id,locale,onClose}:{id:string;locale:Locale;onClose:()=>void}){
+ const modalRef=useDialogFocus<HTMLElement>(true,onClose);
  const [detail,setDetail]=useState<WebDetail|null>(null),[error,setError]=useState("");
  useEffect(()=>{let active=true;
   void jsonRequest<WebDetail>("/api/orders/rounds/"+id).then(d=>{if(active)setDetail(d);})
@@ -45,7 +51,7 @@ function DetailModal({id,locale,onClose}:{id:string;locale:Locale;onClose:()=>vo
   return()=>{active=false;};
  },[id,locale]);
  return <div className="dialog-backdrop kitchen-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}>
-  <section className="kitchen-dialog" role="dialog" aria-modal="true" aria-labelledby="kitchen-ticket-modal-title">
+  <section ref={modalRef} tabIndex={-1} className="kitchen-dialog" role="dialog" aria-modal="true" aria-labelledby="kitchen-ticket-modal-title">
    <div className="kitchen-dialog-head"><div><div className="eyebrow">DINEFLOW / {k6(locale,"ticket")}</div>
      <h2 id="kitchen-ticket-modal-title">{k6(locale,"orderView")}</h2></div>
     <button type="button" className="icon-action" aria-label="Close" onClick={onClose}><X size={22}/></button></div>
@@ -102,6 +108,8 @@ function TicketCard({row,locale,now,busy,onAction,onLine,onView}:{
 }
 export function KitchenOperations({tab}:{tab:Tab}){
  const {workspace}=useWorkspace(),locale=workspace.locale;
+ const {confirm,notify}=useInteraction();
+ const actionLock=useRef(false);
  const [page,setPage]=useState(1),[data,setData]=useState<Page<TicketRow>|null>(null);
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [selected,setSelected]=useState<string|null>(null),[businessZone,setBusinessZone]=useState("Asia/Kabul"),[status,setStatus]=useState("all"),
@@ -110,6 +118,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
  const [now,setNow]=useState(0),[connected,setConnected]=useState(false),[lastSync,setLastSync]=useState<number|null>(null);
  const [sound,setSound]=useState(false);const soundRef=useRef<AudioContext|null>(null),known=useRef<Set<string>>(new Set());
  const first=useRef(true),lastBeep=useRef(0),revision=useRef(-1);
+ useEffect(()=>{if(notice){notify(notice,"success");setNotice("");}},[notice,notify]);
  useEffect(()=>{setNow(Date.now());const timer=setInterval(()=>setNow(Date.now()),10000);
    return()=>clearInterval(timer);},[]);
  useEffect(()=>{
@@ -188,8 +197,10 @@ export function KitchenOperations({tab}:{tab:Tab}){
  async function action(row:TicketRow,kind:"start"|"ready"|"handoff"|"notify",lineId?:string){
    const question=kind==="handoff"?"confirmHandoff":kind==="notify"?"confirmNotify":
      kind==="start"?"confirmStart":"confirmLineReady";
-   if(!window.confirm(k6(locale,question)))return;
-   setBusy(true);setNotice("");setError("");
+   if(busy||actionLock.current||!(await confirm({title:k6(locale,"ticket"),description:k6(locale,question),
+     confirmLabel:ux(locale,"confirm"),cancelLabel:ux(locale,"cancel")})))return;
+   if(actionLock.current)return;
+   actionLock.current=true;setBusy(true);setNotice("");setError("");
    let endpoint="",body:Record<string,unknown>={version:row.ticketVersion};
    if(kind==="start"||kind==="ready"){
      endpoint="/api/orders/tickets/"+row.ticketId+"/transition";
@@ -198,11 +209,12 @@ export function KitchenOperations({tab}:{tab:Tab}){
    else endpoint="/api/orders/tickets/"+row.ticketId+"/notify";
    if(lineId){endpoint="/api/orders/tickets/"+row.ticketId+"/lines/"+lineId+"/ready";}
    try{await jsonRequest(endpoint,{method:"POST",body:JSON.stringify(body)});
-     setNotice(k6(locale,"lineReady"));await load(true);
+     setNotice(k6(locale,kind==="start"?"preparing":kind==="handoff"?"handedOff":
+       kind==="notify"?"notifyAgain":"lineReady"));await load(true);
    }catch(e){setError(e instanceof Phase2Error&&e.code==="VERSION_CONFLICT"?
-     "Ticket changed on another device; refresh.":e instanceof Error?e.message:k6(locale,"error"));
+     k6(locale,"needsRefresh"):e instanceof Error?e.message:k6(locale,"error"));
      await load(true);}
-   finally{setBusy(false);}
+   finally{actionLock.current=false;setBusy(false);}
  }
  function applyFilters(event:FormEvent<HTMLFormElement>){event.preventDefault();
    setApplied({status,table:table.trim(),from,to});setPage(1);}
@@ -224,9 +236,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
        onClick={()=>void toggleSound()} title={k6(locale,"soundLabel")}>
        {sound?<Volume2 size={17}/>:<VolumeX size={17}/>}
        {k6(locale,sound?"soundOn":"soundOff")}</button></div>
-   {notice&&<p className="success-banner" role="status">{notice}</p>}
-   {error&&<div role="alert" className="form-error">{error}
-     <button type="button" className="text-link" onClick={()=>void load()}>{k6(locale,"refresh")}</button></div>}
+   {error&&<InlineFeedback message={error} retry={()=>void load()} onRetryLabel={k6(locale,"refresh")}/>}
    {tab==="new"&&<div className="kitchen-info"><BellRing size={19}/>
      <div><strong>{k6(locale,"waitingApproval")}</strong><p>{k6(locale,"waitingApprovalHint")}</p></div></div>}
    {tab==="history"&&<form className="kitchen-history-filters settings-card" onSubmit={applyFilters}>
@@ -243,7 +253,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
      <button className="button button-primary" type="submit">{k6(locale,"query")}</button>
      <p className="muted">{k6(locale,"filterHint")} · {businessZone}</p>
    </form>}
-   {loading&&!data?<div className="list-skeleton"><span/><span/><span/></div>:
+   {loading&&!data?<LoadingSkeleton rows={3} label={ux(locale,"loading")}/>:
      rows.length?tab==="history"?<div className="settings-card kitchen-history-list">
        <div className="section-heading"><h2>{k6(locale,"history")}</h2>
           <span className="data-badge active">{data?.total}</span></div>
@@ -262,14 +272,10 @@ export function KitchenOperations({tab}:{tab:Tab}){
          row={row} locale={locale} now={now} busy={busy}
          onAction={(r,kind)=>void action(r,kind)}
          onLine={(r,lineId)=>void action(r,"ready",lineId)} onView={setSelected}/>)}</div>:
-       <div className="settings-card empty-panel"><UtensilsCrossed size={33}/>
-         <h3>{k6(locale,tab==="history"?"noHistory":"empty")}</h3></div>}
-   {!!data&&data.total>data.perPage&&<div className="pager">
-     <button type="button" className="button button-small" disabled={page<=1}
-       onClick={()=>setPage(p=>p-1)}>{k6(locale,"newer")}</button>
-     <span>{page} / {Math.ceil(data.total/data.perPage)}</span>
-     <button type="button" className="button button-small" disabled={page>=Math.ceil(data.total/data.perPage)}
-       onClick={()=>setPage(p=>p+1)}>{k6(locale,"older")}</button></div>}
+       <Surface><EmptyState icon={<UtensilsCrossed size={33}/>} title={k6(locale,tab==="history"?"noHistory":"empty")}/></Surface>}
+   {!!data&&<PageControls page={page} total={data.total} perPage={data.perPage} onPageChange={setPage}
+     previousLabel={k6(locale,"newer")} nextLabel={k6(locale,"older")}
+     pageLabel={ux(locale,"page")} ofLabel={ux(locale,"of")} busy={loading}/>}
    {tab==="ready"&&<p className="muted">{k6(locale,"handoffNote")} {k6(locale,"servedNote")}</p>}
    {selected&&<DetailModal locale={locale} id={selected} onClose={()=>setSelected(null)}/>}
  </div>;

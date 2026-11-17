@@ -1,5 +1,5 @@
 "use client";
-import {useCallback,useEffect,useState} from "react";
+import {useCallback,useEffect,useRef,useState} from "react";
 import Link from "next/link";
 import {ArrowRight,Banknote,Clock3,RefreshCw,ReceiptText,Search,ShieldCheck,Wallet} from "lucide-react";
 import {useRouter} from "next/navigation";
@@ -8,31 +8,37 @@ import {jsonRequest,Phase2Error} from "@/lib/phase2-api";
 import {f9} from "@/lib/finance-copy";
 import {isoTime,money,type CheckPage,type CheckRow} from "@/lib/finance-types";
 import {ActionButton,EmptyState,LoadingSkeleton,Surface} from "./ui/design-system";
+import {InlineFeedback,PageControls,SearchInput} from "./ui/interaction-controls";
+import {ux} from "@/lib/interaction-copy";
 type Tab="all"|"requested"|"partial";
 export function CashierChecks({area="cashier"}:{area?:"cashier"|"app"}){
  const {workspace}=useWorkspace(),locale=workspace.locale,router=useRouter();
  const [data,setData]=useState<CheckPage|null>(null),[tab,setTab]=useState<Tab>("all"),
-  [query,setQuery]=useState(""),[page,setPage]=useState(1),[busy,setBusy]=useState(""),
+  [query,setQuery]=useState(""),[searchText,setSearchText]=useState(""),[page,setPage]=useState(1),[busy,setBusy]=useState(""),
   [loading,setLoading]=useState(true),[error,setError]=useState("");
+ const requestSequence=useRef(0),openingCheck=useRef(false);
+ useEffect(()=>{const timer=setTimeout(()=>{setPage(1);setQuery(searchText.trim());},300);
+   return()=>clearTimeout(timer);},[searchText]);
  const load=useCallback(async(silent=false)=>{
+   const current=++requestSequence.current;
    if(!silent)setLoading(true);setError("");
    try{
      const response=await jsonRequest<CheckPage>("/api/finance/checks?tab="+tab+"&page="+page+
        "&search="+encodeURIComponent(query));
-     setData(response);
-   }catch(e){setError(e instanceof Error?e.message:f9(locale,"actionFailed"));}
-   finally{setLoading(false);}
+     if(current===requestSequence.current)setData(response);
+   }catch(e){if(current===requestSequence.current)setError(e instanceof Error?e.message:f9(locale,"actionFailed"));}
+   finally{if(current===requestSequence.current)setLoading(false);}
  },[tab,page,query,locale]);
  useEffect(()=>{void load();const timer=setInterval(()=>{if(document.visibilityState==="visible")void load(true);},12000);
    return()=>clearInterval(timer);},[load]);
  async function open(row:CheckRow){
-   if(busy)return;setBusy(row.visitId);setError("");
+   if(openingCheck.current)return;openingCheck.current=true;setBusy(row.visitId);setError("");
    try{
      const result=await jsonRequest<{id:string}>("/api/finance/visits/"+row.visitId+"/check",{
        method:"POST",body:JSON.stringify({})});
      router.push(area==="cashier"?"/cashier/checks/"+result.id:"/app/billing/checks/"+result.id);
    }catch(e){setError(e instanceof Error?e.message:f9(locale,"actionFailed"));}
-   finally{setBusy("");}
+   finally{openingCheck.current=false;setBusy("");}
  }
  const prefix=area==="cashier"?"/cashier":"/app/billing";
  return <div className="content-stack finance-console">
@@ -58,14 +64,13 @@ export function CashierChecks({area="cashier"}:{area?:"cashier"|"app"}){
        {(["all","requested","partial"] as const).map(t=><button key={t} type="button" role="tab"
          aria-selected={tab===t} className={tab===t?"selected":""}
          onClick={()=>{setTab(t);setPage(1);}}>{f9(locale,t)}</button>)}</div>
-     <label className="finance-search"><Search size={19}/><input type="search" value={query}
-       onChange={e=>{setQuery(e.target.value);setPage(1);}} placeholder={f9(locale,"search")}
-       aria-label={f9(locale,"search")}/></label>
+     <SearchInput className="finance-search" value={searchText} onChange={setSearchText}
+       label={f9(locale,"search")} clearLabel={ux(locale,"clearSearch")}/>
    </Surface>
    {tab==="requested"&&data?.total===0&&<div className="finance-info"><ShieldCheck size={20}/>
      <span>{f9(locale,"noChecks")}</span></div>}
-   {error&&<div className="form-error" role="alert">{error}
-     <button className="text-link" onClick={()=>void load()}>{f9(locale,"retry")}</button></div>}
+   {error&&<InlineFeedback message={error} retry={()=>void load()} onRetryLabel={f9(locale,"retry")}/>}
+   {loading&&!!data&&<p className="df-inline-updating" role="status">{ux(locale,"loading")}</p>}
    {loading&&!data?<LoadingSkeleton rows={3} label={f9(locale,"checks")} className="settings-card"/>:
     data?.items.length?<div className="finance-check-grid">
       {data.items.map(row=><article className="finance-check-card" key={row.visitId}>
@@ -78,15 +83,13 @@ export function CashierChecks({area="cashier"}:{area?:"cashier"|"app"}){
           <div><span>{f9(locale,"paid")}</span><strong>{money(row.paidMinor,locale)}</strong></div>
           <div className="due"><span>{f9(locale,"due")}</span><strong>{money(row.dueMinor,locale)}</strong></div>
         </div>
-        <ActionButton variant="primary" type="button" loading={busy===row.visitId} loadingText={f9(locale,"processing")}
+        <ActionButton variant="primary" type="button" disabled={loading||!!busy} loading={busy===row.visitId} loadingText={f9(locale,"processing")}
          onClick={()=>void open(row)}>
           {f9(locale,"openCheck")}<ArrowRight size={18}/></ActionButton>
       </article>)}</div>:
      <Surface><EmptyState icon={<ReceiptText size={36}/>} title={f9(locale,"noChecks")}/></Surface>}
-   {!!data&&data.total>data.perPage&&<div className="pager">
-     <button className="button button-small" disabled={page===1}
-       onClick={()=>setPage(p=>p-1)}>‹</button><span>{page} / {Math.ceil(data.total/data.perPage)}</span>
-     <button className="button button-small" disabled={page>=Math.ceil(data.total/data.perPage)}
-       onClick={()=>setPage(p=>p+1)}>›</button></div>}
+   {!!data&&<PageControls page={page} total={data.total} perPage={data.perPage}
+     onPageChange={setPage} previousLabel={ux(locale,"previous")} nextLabel={ux(locale,"next")}
+     pageLabel={ux(locale,"page")} ofLabel={ux(locale,"of")} busy={loading}/> }
  </div>;
 }

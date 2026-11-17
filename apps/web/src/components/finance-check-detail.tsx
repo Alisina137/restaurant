@@ -1,5 +1,5 @@
 "use client";
-import {useCallback,useEffect,useMemo,useState,type FormEvent} from "react";
+import {useCallback,useEffect,useMemo,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {ArrowLeft,Banknote,Check,ChefHat,Clock3,FileCheck2,ReceiptText,RefreshCw,ShieldCheck,Split,Wallet} from "lucide-react";
 import {useRouter} from "next/navigation";
@@ -7,13 +7,19 @@ import {useWorkspace} from "./workspace-provider";
 import {jsonRequest,Phase2Error} from "@/lib/phase2-api";
 import {f9} from "@/lib/finance-copy";
 import {afnInput,isoTime,money,parseAFN,titleName,type CheckDetails,type CheckShare} from "@/lib/finance-types";
+import {useInteraction} from "./ui/interaction-provider";
+import {InlineFeedback} from "./ui/interaction-controls";
+import {LoadingSkeleton} from "./ui/design-system";
 type Tab="items"|"split"|"payments"|"activity";
 function nextKey(){return "payment-"+crypto.randomUUID().replaceAll("-","");}
 export function CashierCheckDetails({id,area="cashier"}:{id:string;area?:"cashier"|"app"}){
  const {workspace}=useWorkspace(),locale=workspace.locale,router=useRouter();
+ const {confirm,notify}=useInteraction();
+ const moneyLock=useRef(false);
  const base=area==="cashier"?"/cashier":"/app/billing";
  const [data,setData]=useState<CheckDetails|null>(null),[loading,setLoading]=useState(true),
    [tab,setTab]=useState<Tab>("items"),[busy,setBusy]=useState(""),[error,setError]=useState(""),[notice,setNotice]=useState("");
+ useEffect(()=>{if(notice){notify(notice,"success");setNotice("");}},[notice,notify]);
  const [shiftOpen,setShiftOpen]=useState(false),[float,setFloat]=useState("0");
  const [mode,setMode]=useState<"single"|"equal"|"items">("single"),[parts,setParts]=useState(2);
  const [allocation,setAllocation]=useState<Record<string,number>>({});
@@ -62,7 +68,7 @@ export function CashierCheckDetails({id,area="cashier"}:{id:string;area?:"cashie
    return index===1?data?.lines.find(x=>x.id===lineId)?.quantity??0:0;
  }
  async function splitSave(e:FormEvent){
-   e.preventDefault();if(!data||!canSplit)return;
+   e.preventDefault();if(!data||!canSplit||moneyLock.current)return;
    const allocations=mode==="items"?data.lines.flatMap(line=>Array.from({length:parts},(_,i)=>{
      const qty=displayedAllocation(line.id,i+1);
      return qty>0?{lineId:line.id,shareIndex:i+1,quantity:qty}:null;
@@ -72,26 +78,27 @@ export function CashierCheckDetails({id,area="cashier"}:{id:string;area?:"cashie
       ||Array.from({length:parts},(_,i)=>i+1).some(i=>!allocations.some(a=>a.shareIndex===i)))){
      setError(f9(locale,"emptyShare"));return;
    }
-   setBusy("split");setError("");setNotice("");
+   moneyLock.current=true;setBusy("split");setError("");setNotice("");
    try{
      await jsonRequest("/api/finance/checks/"+id+"/split",{method:"POST",
        body:JSON.stringify({mode,count:mode==="single"?1:parts,version:data.check.version,allocations})});
      setNotice(f9(locale,"saveSplit"));await load(true);
    }catch(e){setError(e instanceof Error?e.message:f9(locale,"actionFailed"));await load(true);}
-   finally{setBusy("");}
+   finally{moneyLock.current=false;setBusy("");}
  }
  async function openShift(){
-   setBusy("shift");setError("");
+   if(moneyLock.current)return;
+   moneyLock.current=true;setBusy("shift");setError("");
    const minor=parseAFN(float);
-   if(minor===null){setError(f9(locale,"invalid"));setBusy("");return;}
+   if(minor===null){setError(f9(locale,"invalid"));moneyLock.current=false;setBusy("");return;}
    try{await jsonRequest("/api/finance/shifts/open",{method:"POST",body:JSON.stringify({openingFloatMinor:minor})});
      setNotice(f9(locale,"shiftOpen"));await load(true);}
    catch(e){setError(e instanceof Error?e.message:f9(locale,"actionFailed"));}
-   finally{setBusy("");}
+   finally{moneyLock.current=false;setBusy("");}
  }
  async function pay(e:FormEvent){
-   e.preventDefault();if(!data||!canPost||busy)return;
-   setBusy("payment");setNotice("");setError("");
+   e.preventDefault();if(!data||!canPost||busy||moneyLock.current)return;
+   moneyLock.current=true;setBusy("payment");setNotice("");setError("");
    const payload={version:data.check.version,shareId,method,amountMinor,receivedMinor,
      externalReference:method==="manual_transfer"?reference.trim():"",verifiedExternally:verified,
      note,idempotencyKey:paymentKey};
@@ -103,18 +110,20 @@ export function CashierCheckDetails({id,area="cashier"}:{id:string;area?:"cashie
      e instanceof Error?e.message:f9(locale,"actionFailed"));
      // Retain the same idempotency key: replay can safely recover an accepted payment.
      await load(true);
-   }finally{setBusy("");}
+   }finally{moneyLock.current=false;setBusy("");}
  }
  async function settle(){
-   if(!data||data.dueMinor!==0||data.check.status==="settled"||busy)return;
-   if(!window.confirm(f9(locale,"settleConfirm")))return;
-   setBusy("settle");setError("");setNotice("");
+   if(!data||data.dueMinor!==0||data.check.status==="settled"||busy||moneyLock.current)return;
+   if(!(await confirm({title:f9(locale,"settle"),description:f9(locale,"settleConfirm"),
+     confirmLabel:f9(locale,"settle"),cancelLabel:f9(locale,"cancel"),danger:true})))return;
+   if(moneyLock.current)return;
+   moneyLock.current=true;setBusy("settle");setError("");setNotice("");
    try{
      const x=await jsonRequest<{receiptId:string}>("/api/finance/checks/"+id+"/settle",{
        method:"POST",body:JSON.stringify({version:data.check.version})});
      router.replace(base+"/receipts/"+x.receiptId);
    }catch(e){setError(e instanceof Error?e.message:f9(locale,"actionFailed"));await load(true);}
-   finally{setBusy("");}
+   finally{moneyLock.current=false;setBusy("");}
  }
  return <div className="content-stack finance-console finance-detail">
    <div className="finance-detail-header">
@@ -126,7 +135,7 @@ export function CashierCheckDetails({id,area="cashier"}:{id:string;area?:"cashie
  "/app/billing/adjustments?checkId="+encodeURIComponent(id)}>↺ {locale==="en"?"Adjustments & refunds":locale==="ps-AF"?"سمونونه او بېرته ورکړې":"اصلاحات و بازپرداخت"}</Link>
  <button type="button" className="button" onClick={()=>void load()}><RefreshCw size={17}/>{f9(locale,"refresh")}</button></div>
    </div>
-   {loading&&!data?<div className="settings-card list-skeleton"><span/><span/><span/></div>:
+   {loading&&!data?<LoadingSkeleton rows={3} label={f9(locale,"checks")} className="settings-card"/>:
     data&&<>
       <div className="finance-due-bar">
         <div><div className="eyebrow">{f9(locale,"balance")}</div>
@@ -138,9 +147,7 @@ export function CashierCheckDetails({id,area="cashier"}:{id:string;area?:"cashie
         </div>
       </div>
       {locked&&<div className="finance-info"><ShieldCheck size={20}/>{f9(locale,"financialGuard")}</div>}
-      {notice&&<div role="status" className="success-banner"><Check size={18}/>{notice}</div>}
-      {error&&<div role="alert" className="form-error">{error}
-        <button className="text-link" type="button" onClick={()=>void load()}>{f9(locale,"reload")}</button></div>}
+      {error&&<InlineFeedback message={error} retry={()=>void load()} onRetryLabel={f9(locale,"reload")}/>}
       <nav className="finance-detail-tabs" aria-label={f9(locale,"check")}>
         {(["items","split","payments","activity"] as const).map(k=>
          <button key={k} type="button" className={tab===k?"selected":""}

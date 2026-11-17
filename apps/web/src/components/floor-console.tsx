@@ -10,6 +10,10 @@ import type {DiningTable,FloorBoard,Page,Section,Waiter} from "@/lib/floor-types
 import {FloorBoardGrid,FloorDetails} from "./floor-board";
 import {FloorManage} from "./floor-manage";
 import {SectionForm,TableForm,VisitForm,FinishForm} from "./floor-forms";
+import {useInteraction} from "./ui/interaction-provider";
+import {useDialogFocus} from "./ui/use-dialog-focus";
+import {InlineFeedback} from "./ui/interaction-controls";
+import {LoadingSkeleton} from "./ui/design-system";
 export type FloorTab="board"|"manage";
 type Popup={type:"new-section"}|{type:"edit-section";section:Section}|{type:"new-table"}|
  {type:"edit-table";table:DiningTable}|{type:"open";table:DiningTable}|{type:"finish";table:DiningTable};
@@ -19,6 +23,8 @@ function errMessage(error:unknown,locale:"fa-AF"|"ps-AF"|"en"){
 }
 export function FloorConsole({tab}:{tab:FloorTab}){
  const {workspace}=useWorkspace(),locale=workspace.locale;
+ const {confirm,notify}=useInteraction();
+ const mutationLock=useRef(false);
  const [board,setBoard]=useState<FloorBoard|null>(null);
  const [sections,setSections]=useState<Page<Section>|null>(null),[tables,setTables]=useState<Page<DiningTable>|null>(null);
  const [waiters,setWaiters]=useState<Waiter[]>([]);
@@ -27,6 +33,8 @@ export function FloorConsole({tab}:{tab:FloorTab}){
  const [popup,setPopup]=useState<Popup|null>(null);
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const versionRef=useRef(-1);
+ const popupDialogRef=useDialogFocus<HTMLElement>(!!popup,()=>{if(!busy){setPopup(null);setSelectedId(null);}});
+ useEffect(()=>{if(notice){notify(notice,"success");setNotice("");}},[notice,notify]);
  const load=useCallback(async(silent=false)=>{
   if(!silent)setLoading(true);
   setError("");
@@ -65,14 +73,14 @@ export function FloorConsole({tab}:{tab:FloorTab}){
  useEffect(()=>{setSelectedId(null);setPopup(null);setError("");},[tab]);
  const current=board?.tables.find(t=>t.id===selectedId)??null;
  async function submit(endpoint:string,method:"POST"|"PATCH",payload:Record<string,unknown>,success:string,after?:()=>void){
-  setBusy(true);setError("");setNotice("");
+  if(mutationLock.current)return;mutationLock.current=true;setBusy(true);setError("");setNotice("");
   try{
    const result=await jsonRequest<{created?:boolean}>(endpoint,{method,body:JSON.stringify(payload)});
    setPopup(null);setSelectedId(null);
    setNotice(result.created===false?f4(locale,"openExisting"):success);
    after?.();await load(true);
   }catch(e){setError(errMessage(e,locale));}
-  finally{setBusy(false);}
+  finally{mutationLock.current=false;setBusy(false);}
  }
  function savePopup(payload:Record<string,unknown>){
   if(!popup)return Promise.resolve();
@@ -83,13 +91,15 @@ export function FloorConsole({tab}:{tab:FloorTab}){
   if(popup.type==="open")return submit("/api/floor/visits/tables/"+popup.table.id+"/open","POST",payload,f4(locale,"created"));
   return submit("/api/floor/visits/"+popup.table.visitId+"/finish","POST",payload,f4(locale,"finishedMessage"));
  }
- function archive(kind:"sections"|"tables",id:string,version:number){
-  if(!window.confirm(f4(locale,"confirmArchive")))return;
-  void submit("/api/floor/"+kind+"/"+id+"/archive","POST",{version},f4(locale,"archivedMessage"));
+ async function archive(kind:"sections"|"tables",id:string,version:number){
+  if(busy||!(await confirm({title:f4(locale,"archive"),description:f4(locale,"confirmArchive"),
+    confirmLabel:f4(locale,"archive"),cancelLabel:f4(locale,"cancel"),danger:true})))return;
+  await submit("/api/floor/"+kind+"/"+id+"/archive","POST",{version},f4(locale,"archivedMessage"));
  }
- function markReady(table:DiningTable){
-  if(!window.confirm(f4(locale,"markReadyConfirm")))return;
-  void submit("/api/floor/tables/"+table.id+"/ready","POST",{version:table.version},f4(locale,"readyMessage"));
+ async function markReady(table:DiningTable){
+  if(busy||!(await confirm({title:f4(locale,"markReady"),description:f4(locale,"markReadyConfirm"),
+    confirmLabel:f4(locale,"markReady"),cancelLabel:f4(locale,"cancel")})))return;
+  await submit("/api/floor/tables/"+table.id+"/ready","POST",{version:table.version},f4(locale,"readyMessage"));
  }
  const allSections=board?.sections??[],activeSections=allSections.filter(s=>s.active);
  const knownWaiters=waiters;
@@ -104,10 +114,8 @@ export function FloorConsole({tab}:{tab:FloorTab}){
     aria-current={tab==="manage"?"page":undefined}><Layers3 size={18}/>{f4(locale,"manage")}</Link>
    <Link href="/app/tables/qr" className="context-tab"><QrCode size={18}/>QR</Link>
   </nav>
-  {notice&&<p className="success-banner" role="status">{notice}</p>}
-  {error&&<div role="alert" className="form-error">{error}
-    <button type="button" className="text-link" onClick={()=>void load()}>{f4(locale,"retry")}</button></div>}
-  {!board&&loading?<div className="settings-card list-skeleton"><span/><span/><span/></div>:board&&<>
+  {error&&<InlineFeedback message={error} retry={()=>void load()} onRetryLabel={f4(locale,"retry")}/>}
+  {!board&&loading?<LoadingSkeleton rows={3} label={f4(locale,"loading")} className="settings-card"/>:board&&<>
    {tab==="board"?<FloorBoardGrid data={board} locale={locale} onChoose={t=>setSelectedId(t.id)}/>:
     <FloorManage locale={locale} sections={sections} tables={tables} waiters={knownWaiters} archived={archived}
       busy={busy} loading={loading} sectionPage={sectionPage} tablePage={tablePage}
@@ -116,18 +124,18 @@ export function FloorConsole({tab}:{tab:FloorTab}){
         else setError(f4(locale,"noSections"));}}
       editSection={s=>setPopup({type:"edit-section",section:s})}
       editTable={t=>setPopup({type:"edit-table",table:t})}
-      archiveSection={s=>archive("sections",s.id,s.version)}
-      archiveTable={t=>archive("tables",t.id,t.version)}/>}
+      archiveSection={s=>{void archive("sections",s.id,s.version);}}
+      archiveTable={t=>{void archive("tables",t.id,t.version);}}/>}
 
   </>}
   {current&&!popup&&board&&<FloorDetails table={current} locale={locale} role={board.role} actorId={board.actorId}
     busy={busy} onSeat={()=>setPopup({type:"open",table:current})}
     onFinish={()=>setPopup({type:"finish",table:current})}
-    onReady={()=>markReady(current)} onEdit={()=>setPopup({type:"edit-table",table:current})}
+    onReady={()=>{void markReady(current);}} onEdit={()=>setPopup({type:"edit-table",table:current})}
     onClose={()=>setSelectedId(null)}/>}
   {popup&&<div role="presentation" className="dialog-backdrop floor-modal-backdrop"
     onMouseDown={e=>{if(e.target===e.currentTarget&&!busy){setPopup(null);setSelectedId(null);}}}>
-   <section role="dialog" aria-modal="true" aria-labelledby="floor-modal-title" className="floor-modal">
+   <section ref={popupDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="floor-modal-title" className="floor-modal">
     {(popup.type==="new-section"||popup.type==="edit-section")?
      <SectionForm locale={locale} busy={busy} close={()=>{setPopup(null);setSelectedId(null);}} save={savePopup}
        initial={popup.type==="edit-section"?popup.section:undefined}/>:

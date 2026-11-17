@@ -1,11 +1,13 @@
 import "./globals.css";
 import "./design-system.css";
 import "./workspace-navigation.css";
+import "./interaction-system.css";
+import {InteractionProvider} from "@/components/ui/interaction-provider";
 import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "DineFlow | Restaurant workspace",
   description: "Secure restaurant workspace for service teams."
 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="fa-AF" dir="rtl" suppressHydrationWarning><body>{children}</body></html>;
+  return <html lang="fa-AF" dir="rtl" suppressHydrationWarning><body><InteractionProvider>{children}</InteractionProvider></body></html>;
 }

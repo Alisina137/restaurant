@@ -4,6 +4,9 @@ on:
     branches: [main, "phase-*"]
   pull_request:
     branches: [main]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   checks:
     runs-on: ubuntu-latest
@@ -47,6 +50,7 @@ jobs:
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm ui:verify
       - run: pnpm nav:verify
+      - run: pnpm interaction:verify
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build:web
