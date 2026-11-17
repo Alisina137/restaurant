@@ -74,7 +74,8 @@ export function AdjustmentConsole({area="cashier",initialCheckId=""}:{area?:"cas
    {version:a.version,decision,note:reviewNote.trim()},"decision");
  }
  async function refund(a:Adjustment){
-  if(busy||mutationLock.current||!(await confirm({title:p10(locale,"refund"),description:p10(locale,"confirm"),
+  if(busy||mutationLock.current||!(await confirm({title:p10(locale,"refund"),
+    description:p10(locale,"confirm")+" · "+money(a.amountMinor,locale),
     confirmLabel:p10(locale,"execute"),cancelLabel:ux(locale,"cancel"),danger:true})))return;
   await apply("/api/finance/adjustments/"+a.id+"/refund",{
    version:a.version,method,externalReference:method==="manual_transfer"?reference.trim():"",
