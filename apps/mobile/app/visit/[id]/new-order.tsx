@@ -11,7 +11,7 @@ import {fetchIdentity,type Identity} from "../../../src/api";
 import {o5} from "../../../src/order-copy";
 import {m25,type Mobile25Key} from "../../../src/mobile25-copy";
 import {type MenuData,type MenuItem,type CartLine,type OrderDraft,price,nameOf,cartPrice} from "../../../src/order-types";
-import {freshDraft,readDraft,saveDraft,clearDraft} from "../../../src/order-drafts";
+import {freshDraft,readDraft,saveDraft,clearDraft,readSubmissionPending,markSubmissionPending,clearSubmissionPending} from "../../../src/order-drafts";
 import {addCartLine,reviewCart,issueForLine,setLineQuantity,removeLine,setOrderNote} from "../../../src/mobile25-cart";
 import {MenuCard,ItemOptionsModal,useMenuCookie} from "../../../src/order-ui";
 import {LiveNotice,LoadingPanel,EmptyPanel,Pill} from "../../../src/mobile23-ui";
@@ -32,6 +32,7 @@ export default function NewOrder(){
  const [pick,setPick]=useState<Pick|null>(null);
  const [loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false);
  const [sending,setSending]=useState(false),[blocked,setBlocked]=useState(false);
+ const [uncertain,setUncertain]=useState(false),uncertainRef=useRef(false);
  const [error,setError]=useState(""),[notice,setNotice]=useState(""),[lastUpdated,setLastUpdated]=useState<number|null>(null);
  const [saveStatus,setSaveStatus]=useState<"saving"|"saved"|"failed">("saved");
  const ctxRef=useRef<Context|null>(null),generation=useRef(0),mounted=useRef(false);
@@ -58,14 +59,17 @@ export default function NewOrder(){
    if(table.visitId!==id||table.assignedWaiterId!==identity.user.id)
     throw new FloorRequestError(409,"VISIT_LOCKED","Visit assignment changed");
    const updated={identity,menu,tableName:table.label};
-   let cached:OrderDraft|null=null;
-   if(restored.current!==id&&!sent.current)
+   let cached:OrderDraft|null=null,pending=false;
+   if(restored.current!==id&&!sent.current){
     cached=await readDraft(identity.user.id,identity.tenantId,id);
+    if(cached)pending=await readSubmissionPending(identity.user.id,identity.tenantId,id,cached.idempotencyKey);
+   }
    if(!mounted.current||n!==generation.current)return;
    ctxRef.current=updated;setCtx(updated);setBlocked(false);
    if(restored.current!==id){
     restored.current=id;
     if(cached){setDraft(cached);setNotice(m25(locale,"restored"));}
+    uncertainRef.current=pending;setUncertain(pending);
    }
    if(itemId&&preselected.current!==id+":"+itemId){
     const item=menu.items.find(x=>x.id===itemId);
@@ -92,6 +96,7 @@ export default function NewOrder(){
   if(!ctx?.identity.tenantId||restored.current!==id||sent.current||sendingRef.current)return;
   const revision=editRevision.current;
   const timer=setTimeout(()=>{
+   if(sent.current||sendingRef.current)return;
    void saveDraft(ctx.identity.user.id,ctx.identity.tenantId!,id!,draft).then(()=>{
     if(mounted.current&&revision===editRevision.current)setSaveStatus("saved");
    }).catch(()=>{
@@ -101,7 +106,7 @@ export default function NewOrder(){
   return()=>clearTimeout(timer);
  },[ctx,draft,id]);
  function change(edit:(old:OrderDraft)=>OrderDraft){
-  if(sendingRef.current||blocked)return;
+  if(sendingRef.current||uncertainRef.current||blocked)return;
   setDraft(old=>{
    const next=edit(old);
    if(next!==old){editRevision.current++;setSaveStatus("saving");}
@@ -110,7 +115,7 @@ export default function NewOrder(){
   setNotice("");setError("");
  }
  function add(line:CartLine){
-  if(sendingRef.current)return;
+  if(sendingRef.current||uncertainRef.current)return;
   const current=pick?.index;
   if(current===undefined&&draft.lines.length>=40){
    const next=addCartLine(draft,line);
@@ -120,18 +125,18 @@ export default function NewOrder(){
   setTab("cart");setPick(null);
  }
  function choose(item:MenuItem,index?:number){
-  if(sendingRef.current||blocked||item.soldOut)return;
+  if(sendingRef.current||uncertainRef.current||blocked||item.soldOut)return;
   setPick({item,index});
  }
  function remove(index:number){
-  if(sendingRef.current)return;
+  if(sendingRef.current||uncertainRef.current)return;
   Alert.alert(m25(locale,"remove"),m25(locale,"removeConfirm"),[
    {text:m25(locale,"cancel"),style:"cancel"},
    {text:m25(locale,"remove"),style:"destructive",onPress:()=>change(old=>removeLine(old,index))}
   ]);
  }
  async function save(){
-  if(!ctx?.identity.tenantId||!id||sendingRef.current)return;
+  if(!ctx?.identity.tenantId||!id||sendingRef.current||uncertainRef.current)return;
   setSaveStatus("saving");
   try{await saveDraft(ctx.identity.user.id,ctx.identity.tenantId,id,draft);
    setSaveStatus("saved");setNotice(m25(locale,"saveSuccess"));setError("");
