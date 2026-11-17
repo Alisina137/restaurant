@@ -50,7 +50,7 @@ function hasRole(role: string): role is StaffRole { return isStaffRole(role); }
 const weekdays=["mon","tue","wed","thu","fri","sat","sun"] as const;
 type ServiceHours=Record<string,null|{open:string;close:string}>;
 function validClock(value:unknown):value is string {
- return typeof value==="string"&&/^([01]\\d|2[0-3]):[0-5]\\d$/.test(value);
+ return typeof value==="string"&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 function parseOpeningHours(value:unknown):ServiceHours {
  if(!value||typeof value!=="object"||Array.isArray(value))
