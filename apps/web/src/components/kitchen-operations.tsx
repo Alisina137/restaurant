@@ -209,7 +209,8 @@ export function KitchenOperations({tab}:{tab:Tab}){
    else endpoint="/api/orders/tickets/"+row.ticketId+"/notify";
    if(lineId){endpoint="/api/orders/tickets/"+row.ticketId+"/lines/"+lineId+"/ready";}
    try{await jsonRequest(endpoint,{method:"POST",body:JSON.stringify(body)});
-     setNotice(k6(locale,"lineReady"));await load(true);
+     setNotice(k6(locale,kind==="start"?"preparing":kind==="handoff"?"handedOff":
+       kind==="notify"?"notifyAgain":"lineReady"));await load(true);
    }catch(e){setError(e instanceof Phase2Error&&e.code==="VERSION_CONFLICT"?
      k6(locale,"needsRefresh"):e instanceof Error?e.message:k6(locale,"error"));
      await load(true);}
