@@ -24,8 +24,8 @@ export function SectionForm({locale,busy,close,save,initial}:{initial?:Section}&
   <label className="field"><span>{f4(locale,"sectionName")} *</span><input value={name} required minLength={2} maxLength={40} onChange={e=>setName(e.target.value)}/></label>
   <label className="field"><span>{f4(locale,"displayOrder")}</span><input type="number" min={-9999} max={9999} value={sort}
    onChange={e=>setSort(Number(e.target.value))}/></label>
-  {occupied&&<p className="floor-hint">{f21(locale,"tableBlocked")}</p>}
-  <label className="menu-check"><input type="checkbox" disabled={occupied} checked={active}
+  <p className="p21-form-note">{f21(locale,"sectionHint")}</p>
+  <label className="menu-check"><input type="checkbox" checked={active}
      onChange={e=>setActive(e.target.checked)}/>{f4(locale,"active")}</label>
   <Actions locale={locale} busy={busy} close={close} create={!initial}/></form>;
 }
@@ -55,7 +55,9 @@ export function TableForm({locale,busy,close,save,initial,sections,waiters}:{ini
    <label className="field floor-full"><span>{f4(locale,"notes")}</span>
      <textarea rows={2} maxLength={240} value={notes} onChange={e=>setNotes(e.target.value)}/></label>
   </div>
-  <label className="menu-check"><input type="checkbox" checked={active} onChange={e=>setActive(e.target.checked)}/>{f4(locale,"active")}</label>
+  {occupied&&<p className="floor-hint">{f21(locale,"tableBlocked")}</p>}
+  <label className="menu-check"><input type="checkbox" checked={active} disabled={occupied}
+    onChange={e=>setActive(e.target.checked)}/>{f4(locale,"active")}</label>
   <Actions locale={locale} busy={busy} close={close} create={!initial}/></form>;
 }
 export function VisitForm({locale,busy,close,save,table,manager}:{table:DiningTable;manager:boolean}&Common){
