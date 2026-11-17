@@ -31,9 +31,9 @@ export function inboxIsValid(value:unknown):value is ReadyInbox{
  if(!value||typeof value!=="object")return false;
  const data=value as Partial<ReadyInbox>;
  return Array.isArray(data.items)&&data.items.length<=20&&
-  Number.isSafeInteger(data.total)&&data.total!>=0&&
-  Number.isSafeInteger(data.unread)&&data.unread!>=0&&
-  Number.isSafeInteger(data.page)&&data.page!>=1&&
+  Number.isSafeInteger(data.total)&&Number(data.total)>=0&&
+  Number.isSafeInteger(data.unread)&&Number(data.unread)>=0&&
+  Number.isSafeInteger(data.page)&&Number(data.page)>=1&&
   data.perPage===20&&data.items.every(item=>
    item&&typeof item.id==="string"&&typeof item.roundId==="string"&&
    typeof item.tableLabel==="string"&&
