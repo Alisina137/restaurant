@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "./db";
 import { catalogRevision, menuCategory, menuItem, menuItemGroup,
   menuModifierGroup, menuModifierOption } from "./schema";
@@ -11,6 +11,34 @@ async function currentRevision(locationId:string){
     .from(catalogRevision).where(eq(catalogRevision.locationId,locationId)).limit(1);
   return row??{version:0,changedAt:null};
 }
+/** All management counters are filtered by the active tenant and location; no fake totals. */
+catalogRouter.get("/summary",route(async(req,res)=>{
+  const scope=await scopeFor(req,true),{tenantId:t,locationId:l}=scope;
+  const [items,categories,groups]=await Promise.all([
+    db.execute(sql`SELECT COUNT(*)::int AS total,
+       COUNT(*) FILTER (WHERE published)::int AS published,
+       COUNT(*) FILTER (WHERE NOT published)::int AS draft,
+       COUNT(*) FILTER (WHERE sold_out)::int AS soldout
+      FROM menu_items WHERE tenant_id=${t} AND location_id=${l} AND archived_at IS NULL`),
+    db.execute(sql`SELECT COUNT(*)::int AS total,
+       COUNT(*) FILTER (WHERE published)::int AS published
+      FROM menu_categories WHERE tenant_id=${t} AND location_id=${l} AND archived_at IS NULL`),
+    db.execute(sql`SELECT COUNT(*)::int AS total FROM menu_modifier_groups
+      WHERE tenant_id=${t} AND location_id=${l} AND archived_at IS NULL`)
+  ]);
+  const row=(result:typeof items)=>((result as unknown as {rows:Record<string,unknown>[]}).rows[0]??{});
+  const countValue=(value:unknown)=>{
+    const n=Number(value??0);
+    if(!Number.isSafeInteger(n)||n<0)fail(409,"COUNT_LIMIT","Invalid menu counter.");
+    return n;
+  };
+  const i=row(items),c=row(categories),g=row(groups);
+  res.setHeader("Cache-Control","private, no-store, max-age=0");
+  res.json({items:{total:countValue(i.total),published:countValue(i.published),
+    draft:countValue(i.draft),soldOut:countValue(i.soldout)},
+    categories:{total:countValue(c.total),published:countValue(c.published)},
+    modifierGroups:countValue(g.total),revision:await currentRevision(l)});
+}));
 catalogRouter.get("/revision",route(async(req,res)=>{
   const scope=await scopeFor(req,false);
   res.setHeader("Cache-Control","no-store");
