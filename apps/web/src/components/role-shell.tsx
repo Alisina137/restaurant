@@ -4,7 +4,7 @@ import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import Link from "next/link";
 import {usePathname,useRouter} from "next/navigation";
 import {
-  ChevronDown,ChevronLeft,ChevronRight,ChevronsLeft,ChevronsRight,
+  ChevronDown,ChevronLeft,ChevronRight,
   CircleUserRound,LogOut,Menu,PanelLeftClose,PanelLeftOpen,UtensilsCrossed,X
 } from "lucide-react";
 import {direction,t,webAreaFor,type Locale,type WebArea} from "@dineflow/shared";
@@ -31,6 +31,7 @@ export function RoleShell({children}:{children:React.ReactNode}){
   const [pending,setPending]=useState(true);
   const [offline,setOffline]=useState(false);
   const [collapsed,setCollapsed]=useState(false);
+  const [smallScreen,setSmallScreen]=useState(false);
   const [drawerOpen,setDrawerOpen]=useState(false);
   const [openGroups,setOpenGroups]=useState<Record<string,boolean>>({});
   const [navReady,setNavReady]=useState(false);
@@ -105,6 +106,12 @@ export function RoleShell({children}:{children:React.ReactNode}){
     setOpenGroups(prev=>({...prev,[id]:!expanded}));
   }
   useEffect(()=>{setDrawerOpen(false);},[pathname]);
+  useEffect(()=>{
+    const media=window.matchMedia("(max-width: 768px)");
+    const sync=()=>setSmallScreen(media.matches);
+    sync();media.addEventListener("change",sync);
+    return()=>media.removeEventListener("change",sync);
+  },[]);
   // The small-screen menu is a real modal drawer: escape, focus trap, restore focus and scroll lock.
   useEffect(()=>{
     if(!drawerOpen)return;
@@ -123,6 +130,7 @@ export function RoleShell({children}:{children:React.ReactNode}){
       if(event.key!=="Tab")return;
       const nodes=focusable();if(!nodes.length)return;
       const firstNode=nodes[0],lastNode=nodes[nodes.length-1];
+      if(!firstNode||!lastNode)return;
       if(event.shiftKey&&(document.activeElement===firstNode||!sidebar?.contains(document.activeElement))){
         event.preventDefault();lastNode.focus();
       }else if(!event.shiftKey&&(document.activeElement===lastNode||!sidebar?.contains(document.activeElement))){
@@ -182,18 +190,18 @@ export function RoleShell({children}:{children:React.ReactNode}){
       </div>
       <nav className="sidebar-nav workspace-sidebar-nav" aria-label={navigationText}>
         {navigation.map(group=>{
-          const expanded=collapsed||(openGroups[group.id]??group.id===activeGroupId);
+          const expanded=(!smallScreen&&collapsed)||(openGroups[group.id]??group.id===activeGroupId);
           const anyActive=group.items.some(item=>navItemMatches(pathname,item));
           const GroupIcon=group.icon;
           return <section key={group.id} className={"workspace-nav-group"+(anyActive?" group-active":"")}
               aria-label={group.label}>
             <button type="button" className="workspace-nav-group-toggle"
-              aria-expanded={collapsed?true:expanded} aria-controls={"workspace-group-"+group.id}
+              aria-expanded={expanded} aria-controls={"workspace-group-"+group.id}
               onClick={()=>toggleGroup(group.id,expanded)} title={group.label}>
               <GroupIcon size={18} strokeWidth={1.9}/><span>{group.label}</span>
               <ChevronDown size={16} className={"workspace-group-chevron"+(expanded?" open":"")}/>
             </button>
-            {expanded&&<div className="workspace-nav-items" id={"workspace-group-"+group.id}>
+            <div className="workspace-nav-items" id={"workspace-group-"+group.id} hidden={!expanded}>
               {group.items.map(item=>{
                 const ItemIcon=item.icon;
                 const selected=navItemMatches(pathname,item);
@@ -205,7 +213,7 @@ export function RoleShell({children}:{children:React.ReactNode}){
                   <span>{item.label}</span>
                 </Link>;
               })}
-            </div>}
+            </div>
           </section>;
         })}
       </nav>
