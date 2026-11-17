@@ -42,7 +42,7 @@ for(const term of ['.p22-summary','.p22-member','.p22-permissions-table',
 }
 for(const term of ['owner-ci@example.test','new-owner-ci@example.test',
  'p22-manager-','/staff/overview','/staff?','/invitations?',
- 'lastOwner','status=expired','status=pending','role=manager',
+ 'lastOwner','status=expired','status=pending','role=owner',
  'expectedRole','openingHours','VERSION_CONFLICT','managerCanInvite',
  'managerCookie','/resend','/revoke','/settings']){
  if(term==='lastOwner')continue;
