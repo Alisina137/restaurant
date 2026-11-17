@@ -67,7 +67,6 @@ export default function TableDetails(){
  const approvalCount=data?.approvals?.total??null;
  const orderCount=visitOrderCount(data?.orders?.rounds??null);
  const displayName=table?.assignedWaiterName??m24(locale,"unassigned");
- const unauthorized=error instanceof String?false:false;
  useEffect(()=>{
   if(table)setParty(String(Math.min(table.seats,2)));
  },[table?.id,table?.seats]);
@@ -92,7 +91,9 @@ export default function TableDetails(){
  async function mutation(kind:Action,task:()=>Promise<unknown>,success:string){
   if(operationRef.current)return;
   operationRef.current=true;setAction(kind);setMutationError("");setNotice("");
-  try{await task();setShowPin(false);setNotice(success);await refresh(true);}
+  try{const result=await task();setShowPin(false);
+   const repeated=kind==="seat"&&!!result&&typeof result==="object"&&"created" in result&&result.created===false;
+   setNotice(repeated?m24(locale,"alreadySeated"):success);await refresh(true);}
   catch(e){setMutationError(actionError(e));await refresh(true);}
   finally{operationRef.current=false;setAction(null);}
  }
@@ -107,7 +108,6 @@ export default function TableDetails(){
      const result=await floorRequest<{created:boolean;visit:{id:string}}>(
       "/api/floor/visits/tables/"+encodeURIComponent(table.id)+"/open",
       {method:"POST",body:{partySize:Number(party)}});
-     if(!result.created)setNotice(m24(locale,"alreadySeated"));
     },m24(locale,"seated"));
    }}]);
  }
@@ -259,7 +259,7 @@ export default function TableDetails(){
         size={21} color={theme.brand}/></View>
        <View style={styles.roundBody}>
         <Text style={[styles.roundTitle,{textAlign:rtl?"right":"left"}]}>
-         {m24(locale,"round")} #{r.roundNumber} · {o5(locale,r.status as "new"|"preparing"|"ready")}</Text>
+         {m24(locale,"round")} #{r.roundNumber} · {o5(locale,r.status as "accepted"|"voided")}</Text>
         <Text style={[styles.roundMeta,{textAlign:rtl?"right":"left"}]}>
          {new Date(r.createdAt).toLocaleString(locale,{hour:"2-digit",minute:"2-digit"})}
          {" · "}{price(r.totalMinor,locale)}</Text></View>
