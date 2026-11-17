@@ -2,6 +2,7 @@ import "./globals.css";
 import "./design-system.css";
 import "./workspace-navigation.css";
 import "./interaction-system.css";
+import "./auth-experience.css";
 import {InteractionProvider} from "@/components/ui/interaction-provider";
 import type { Metadata } from "next";
 export const metadata: Metadata = {
