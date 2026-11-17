@@ -97,8 +97,8 @@ async function main(){
  assert.equal(managed.permissions.canManagePrivilegedRoles,false);
  assert.equal(managed.permissions.canInvite,false,"Owner invitation policy disables manager invites immediately");
  assert.equal(managed.members.active,baseline.members.active+2);
- assert.equal(managed.members.byRole.manager,baseline.members.byRole.manager+1);
- assert.equal(managed.members.byRole.waiter,baseline.members.byRole.waiter+1);
+ assert.equal(managed.members.byRole.manager,(baseline.members.byRole.manager??0)+1);
+ assert.equal(managed.members.byRole.waiter,(baseline.members.byRole.waiter??0)+1);
  assert.equal((await request(api+"/invitations","POST",{
   email:"blocked-"+suffix+"@example.test",role:"waiter",message:"hello"},managerCookie)).status,403);
  assert.equal((await request(api+"/staff?role=pirate","GET",undefined,owner)).status,400);
