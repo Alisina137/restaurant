@@ -65,8 +65,8 @@ export function RestaurantSettings({tab}:{tab:Tab}){
  const invalidHours=useMemo(()=>form?days.some(day=>{
   const entry=form.openingHours[day];
   return !!entry&&(entry.open>=entry.close||
-   !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(entry.open)||
-   !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(entry.close));
+   !/^([01]\d|2[0-3]):[0-5]\d$/.test(entry.open)||
+   !/^([01]\d|2[0-3]):[0-5]\d$/.test(entry.close));
  }):false,[form]);
  const load=useCallback(async(silent=false)=>{
   const id=++requestId.current;
