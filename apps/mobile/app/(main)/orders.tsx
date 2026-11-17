@@ -11,6 +11,7 @@ import {price,type OrderSummary,type Page} from "../../src/order-types";
 import {m23} from "../../src/mobile23-copy";
 import {LiveNotice,LoadingPanel,EmptyPanel,Pager,ScreenHeader,SectionHeading,Pill} from "../../src/mobile23-ui";
 import {useLiveScreen} from "../../src/use-live-screen";
+import {orderTab} from "../../src/mobile23-data";
 type Status="active"|"ready"|"completed";
 const statuses:Status[]=["active","ready","completed"];
 export default function Orders(){
@@ -18,7 +19,7 @@ export default function Orders(){
  const params=useLocalSearchParams<{tab?:string}>();
  const [status,setStatus]=useState<Status>("active"),[page,setPage]=useState(1);
  useEffect(()=>{
-  const next=statuses.includes(params.tab as Status)?params.tab as Status:"active";
+  const next=orderTab(params.tab);
   setStatus(next);setPage(1);
  },[params.tab]);
  const loader=useCallback(()=>floorRequest<Page<OrderSummary>>(
