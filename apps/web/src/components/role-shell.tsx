@@ -1,185 +1,266 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChefHat, CircleUserRound, LayoutDashboard, LogOut, ReceiptText, ShieldCheck, UtensilsCrossed, UsersRound, Settings2, BookOpenText, Armchair, ClipboardList, Timer, CheckCircle2, History, Wallet, Clock3, Percent, Bell, RotateCcw, BarChart3, CreditCard, Headphones, FileSearch, ClipboardCheck } from "lucide-react";
-import { direction, t, webAreaFor, type Locale, type WebArea } from "@dineflow/shared";
-import { authClient } from "@/lib/auth-client";
-import { ApiError, getContext, type WorkspaceContext } from "@/lib/context";
-import { WorkspaceProvider } from "./workspace-provider";
-import { p2 } from "@/lib/phase2-copy";
-import { m3 } from "@/lib/menu-copy";
-import { f4 } from "@/lib/floor-copy";
-import { ow } from "@/lib/order-web-copy";
-import { k6 } from "@/lib/kitchen-copy";
-import {f9} from "@/lib/finance-copy";
-import {sr8} from "@/lib/staff-service-copy";
-import {p12} from "@/lib/phase12-copy";
 
-const rootPages: Record<WebArea, { route: string; label: "overview" | "live" | "openChecks"; icon: typeof LayoutDashboard }> = {
-  app: { route: "/app/overview", label: "overview", icon: LayoutDashboard },
-  kitchen: { route: "/kitchen/live", label: "live", icon: ChefHat },
-  cashier: { route: "/cashier/checks", label: "openChecks", icon: ReceiptText },
-  platform: { route: "/platform/overview", label: "overview", icon: ShieldCheck }
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
+import Link from "next/link";
+import {usePathname,useRouter} from "next/navigation";
+import {
+  ChevronDown,ChevronLeft,ChevronRight,ChevronsLeft,ChevronsRight,
+  CircleUserRound,LogOut,Menu,PanelLeftClose,PanelLeftOpen,UtensilsCrossed,X
+} from "lucide-react";
+import {direction,t,webAreaFor,type Locale,type WebArea} from "@dineflow/shared";
+import {authClient} from "@/lib/auth-client";
+import {ApiError,getContext,type WorkspaceContext} from "@/lib/context";
+import {WorkspaceProvider} from "./workspace-provider";
+import {activeNavLocation,getWorkspaceNavigation,navItemMatches} from "@/lib/workspace-navigation";
+
+const rootRoutes:Record<WebArea,string>={
+  app:"/app/overview",kitchen:"/kitchen/live",cashier:"/cashier/checks",platform:"/platform/overview"
 };
-export function RoleShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const area = pathname.split("/")[1] as WebArea;
-  const page = rootPages[area];
-  const [workspace, setWorkspace] = useState<WorkspaceContext | null>(null);
-  const [loadError, setLoadError] = useState("");
-  const [pending, setPending] = useState(true);
+function label(locale:Locale,en:string,fa:string,ps:string){
+  return locale==="en"?en:locale==="ps-AF"?ps:fa;
+}
+const collapseKey=(area:WebArea)=>"dineflow:nav:collapsed:"+area;
+const groupsKey=(area:WebArea)=>"dineflow:nav:groups:"+area;
+
+export function RoleShell({children}:{children:React.ReactNode}){
+  const pathname=usePathname(),router=useRouter();
+  const area=pathname.split("/")[1] as WebArea;
+  const root=rootRoutes[area];
+  const [workspace,setWorkspace]=useState<WorkspaceContext|null>(null);
+  const [loadError,setLoadError]=useState("");
+  const [pending,setPending]=useState(true);
   const [offline,setOffline]=useState(false);
+  const [collapsed,setCollapsed]=useState(false);
+  const [drawerOpen,setDrawerOpen]=useState(false);
+  const [openGroups,setOpenGroups]=useState<Record<string,boolean>>({});
+  const [navReady,setNavReady]=useState(false);
+  const [signingOut,setSigningOut]=useState(false);
+  const [signOutError,setSignOutError]=useState(false);
+  const sidebarRef=useRef<HTMLElement|null>(null);
+  const menuButtonRef=useRef<HTMLButtonElement|null>(null);
+  const locale:Locale=workspace?.locale??"fa-AF";
+  const rtl=direction(locale)==="rtl";
+  const navigation=useMemo(()=>root?getWorkspaceNavigation(area,locale):[],[area,locale,root]);
+  const active=useMemo(()=>activeNavLocation(pathname,navigation),[pathname,navigation]);
+  const activeGroupId=active?.group.id;
+
   useEffect(()=>{
     const sync=()=>setOffline(navigator.onLine===false);
     sync();window.addEventListener("online",sync);window.addEventListener("offline",sync);
-    return ()=>{window.removeEventListener("online",sync);window.removeEventListener("offline",sync);};
+    return()=>{window.removeEventListener("online",sync);window.removeEventListener("offline",sync);};
   },[]);
-  const refresh = useCallback(async () => {
+  const refresh=useCallback(async()=>{
     setLoadError("");
-    try {
-      const result = await getContext();
-      if (webAreaFor(result.role) !== area) {
-        router.replace(result.defaultRoute);
-        return;
-      }
+    try{
+      const result=await getContext();
+      if(webAreaFor(result.role)!==area){router.replace(result.defaultRoute);return;}
       setWorkspace(result);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) router.replace("/login?expired=1");
-      else if (error instanceof ApiError && error.status === 403) setLoadError("NO_MEMBERSHIP");
+    }catch(error){
+      if(error instanceof ApiError&&error.status===401)router.replace("/login?expired=1");
+      else if(error instanceof ApiError&&error.status===403)setLoadError("NO_MEMBERSHIP");
       else setLoadError("CONNECTION");
-    } finally { setPending(false); }
-  }, [area, router]);
-  useEffect(() => { void refresh(); }, [refresh]);
-  const locale: Locale = workspace?.locale ?? "fa-AF";
-  useEffect(() => {
-    document.documentElement.dir = direction(locale);
-    document.documentElement.lang = locale;
-    localStorage.setItem("dineflow-locale", locale);
-  }, [locale]);
-  async function signOut() {
-    await authClient.signOut();
-    router.replace("/login");
+    }finally{setPending(false);}
+  },[area,router]);
+  useEffect(()=>{void refresh();},[refresh]);
+  useEffect(()=>{
+    document.documentElement.dir=direction(locale);
+    document.documentElement.lang=locale;
+    localStorage.setItem("dineflow-locale",locale);
+  },[locale]);
+
+  // Keep the desktop rail preference and individual section states across routes/reloads.
+  useEffect(()=>{
+    let stored:Record<string,boolean>={};
+    try{
+      setCollapsed(localStorage.getItem(collapseKey(area))==="1");
+      const raw=localStorage.getItem(groupsKey(area));
+      if(raw){
+        const parsed:unknown=JSON.parse(raw);
+        if(parsed&&typeof parsed==="object"&&!Array.isArray(parsed))
+          for(const [key,value] of Object.entries(parsed))if(typeof value==="boolean")stored[key]=value;
+      }
+    }catch{/* Private browsing or disabled storage: use sensible defaults. */}
+    if(activeGroupId)stored[activeGroupId]=true;
+    setOpenGroups(stored);setNavReady(true);
+  // Area changes remount the workspace; do not reset a user's open groups on every route.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[area]);
+  useEffect(()=>{
+    if(!navReady||!activeGroupId)return;
+    setOpenGroups(prev=>prev[activeGroupId]?prev:{...prev,[activeGroupId]:true});
+  },[pathname,activeGroupId,navReady]);
+  useEffect(()=>{
+    if(!navReady)return;
+    try{localStorage.setItem(groupsKey(area),JSON.stringify(openGroups));}
+    catch{/* Navigation still works without storage. */}
+  },[area,openGroups,navReady]);
+  function toggleRail(){
+    setCollapsed(prev=>{
+      const next=!prev;
+      try{localStorage.setItem(collapseKey(area),next?"1":"0");}catch{}
+      return next;
+    });
   }
-  if (!page) return <div className="center-viewport">Invalid workspace.</div>;
-  const Icon = page.icon;
-  return <div className="workspace-layout" dir={direction(locale)}>
-    <a href="#main-content" className="skip-content-link">{locale==="en"?"Skip to main content":locale==="ps-AF"?"اصلي منځپانګې ته لاړ شئ":"رفتن به محتوای اصلی"}</a>
-    <aside className="sidebar" aria-label="Workspace navigation">
-      <Link className="sidebar-brand" href={page.route}><span className="brand-mark"><UtensilsCrossed size={20} /></span><strong>DineFlow</strong></Link>
-      <div className="sidebar-caption">{t(locale, "workspace")}</div>
-      <nav className="sidebar-nav">
-        <Link className={"nav-link" + ((pathname === page.route || area==="cashier"&&pathname.startsWith("/cashier/checks/")) ? " selected" : "")} href={page.route}
-          aria-current={pathname === page.route ? "page" : undefined} title={t(locale, page.label)}>
-          <Icon size={20} strokeWidth={1.9} /><span>{t(locale, page.label)}</span>
+  function toggleGroup(id:string,expanded:boolean){
+    setOpenGroups(prev=>({...prev,[id]:!expanded}));
+  }
+  useEffect(()=>{setDrawerOpen(false);},[pathname]);
+  // The small-screen menu is a real modal drawer: escape, focus trap, restore focus and scroll lock.
+  useEffect(()=>{
+    if(!drawerOpen)return;
+    const media=window.matchMedia("(max-width: 768px)");
+    if(!media.matches){setDrawerOpen(false);return;}
+    const previousFocus=document.activeElement as HTMLElement|null;
+    const previousOverflow=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    const sidebar=sidebarRef.current;
+    const focusable=()=>Array.from(sidebar?.querySelectorAll<HTMLElement>(
+      'a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])'
+    )??[]).filter(el=>el.getClientRects().length>0);
+    const first=focusable()[0];first?.focus();
+    const keydown=(event:KeyboardEvent)=>{
+      if(event.key==="Escape"){event.preventDefault();setDrawerOpen(false);return;}
+      if(event.key!=="Tab")return;
+      const nodes=focusable();if(!nodes.length)return;
+      const firstNode=nodes[0],lastNode=nodes[nodes.length-1];
+      if(event.shiftKey&&(document.activeElement===firstNode||!sidebar?.contains(document.activeElement))){
+        event.preventDefault();lastNode.focus();
+      }else if(!event.shiftKey&&(document.activeElement===lastNode||!sidebar?.contains(document.activeElement))){
+        event.preventDefault();firstNode.focus();
+      }
+    };
+    const resize=()=>{if(!media.matches)setDrawerOpen(false);};
+    window.addEventListener("keydown",keydown);
+    window.addEventListener("resize",resize);
+    return()=>{
+      document.body.style.overflow=previousOverflow;
+      window.removeEventListener("keydown",keydown);
+      window.removeEventListener("resize",resize);
+      if(previousFocus?.isConnected)previousFocus.focus();
+    };
+  },[drawerOpen]);
+
+  async function signOut(){
+    if(signingOut)return;
+    setSigningOut(true);setSignOutError(false);
+    try{await authClient.signOut();router.replace("/login");}
+    catch{setSignOutError(true);}
+    finally{setSigningOut(false);}
+  }
+  if(!root)return <div className="center-viewport">Invalid workspace.</div>;
+  const currentTitle=active?.item.label??t(locale,"workspace");
+  const closeText=label(locale,"Close navigation","بستن فهرست","لړ بندول");
+  const openText=label(locale,"Open navigation","باز کردن فهرست","لړ پرانیستل");
+  const navigationText=label(locale,"Workspace navigation","فهرست فضای کاری","د کاري ځای لړ");
+  const accountPath="/"+area+"/account";
+  const currentAccount=pathname===accountPath||pathname.startsWith(accountPath+"/");
+  return <div className="workspace-layout" dir={direction(locale)}
+      data-collapsed={collapsed?"true":"false"} data-mobile-open={drawerOpen?"true":"false"}>
+    <a href="#main-content" className="skip-content-link">
+      {label(locale,"Skip to main content","رفتن به محتوای اصلی","اصلي منځپانګې ته لاړ شئ")}
+    </a>
+    {drawerOpen&&<button type="button" tabIndex={-1} aria-label={closeText}
+      className="workspace-drawer-scrim" onClick={()=>setDrawerOpen(false)}/>}
+    <aside id="workspace-navigation" ref={sidebarRef}
+      className="sidebar workspace-sidebar" aria-label={navigationText}
+      role={drawerOpen?"dialog":"complementary"} aria-modal={drawerOpen?"true":undefined}>
+      <div className="workspace-sidebar-top">
+        <Link className="sidebar-brand" href={root} title="DineFlow"
+          aria-label="DineFlow" onClick={()=>setDrawerOpen(false)}>
+          <span className="brand-mark"><UtensilsCrossed size={20}/></span>
+          <strong>DineFlow</strong>
         </Link>
-        {area==="kitchen"&&<>
-          <Link href="/kitchen/preparing" title={ow(locale,"preparing")}
-            className={"nav-link"+(pathname==="/kitchen/preparing"?" selected":"")}
-            aria-current={pathname==="/kitchen/preparing"?"page":undefined}>
-            <Timer size={20}/><span>{ow(locale,"preparing")}</span></Link>
-          <Link href="/kitchen/ready" title={ow(locale,"ready")}
-            className={"nav-link"+(pathname==="/kitchen/ready"?" selected":"")}
-            aria-current={pathname==="/kitchen/ready"?"page":undefined}>
-            <CheckCircle2 size={20}/><span>{ow(locale,"ready")}</span></Link>
-          <Link href="/kitchen/history" title={k6(locale,"history")}
-            className={"nav-link"+(pathname==="/kitchen/history"?" selected":"")}
-            aria-current={pathname==="/kitchen/history"?"page":undefined}>
-            <History size={20}/><span>{k6(locale,"history")}</span></Link>
-        </>}
-        {area==="cashier"&&<>
-          <Link href="/cashier/adjustments" className={"nav-link"+(pathname.startsWith("/cashier/adjustments")?" selected":"")}>
-            <RotateCcw size={20}/><span>{locale==="en"?"Adjustments":locale==="ps-AF"?"سمونونه":"اصلاحات"}</span></Link>
-          <Link href="/cashier/transactions" title={f9(locale,"transactions")}
-            className={"nav-link"+(pathname.startsWith("/cashier/transactions")?" selected":"")}
-            aria-current={pathname.startsWith("/cashier/transactions")?"page":undefined}>
-            <Wallet size={20}/><span>{f9(locale,"transactions")}</span></Link>
-          <Link href="/cashier/shifts" title={f9(locale,"shifts")}
-            className={"nav-link"+(pathname.startsWith("/cashier/shifts")?" selected":"")}
-            aria-current={pathname.startsWith("/cashier/shifts")?"page":undefined}>
-            <Clock3 size={20}/><span>{f9(locale,"shifts")}</span></Link>
-          <Link href="/cashier/receipts" title={f9(locale,"receipts")}
-            className={"nav-link"+(pathname.startsWith("/cashier/receipts")?" selected":"")}
-            aria-current={pathname.startsWith("/cashier/receipts")?"page":undefined}>
-            <ReceiptText size={20}/><span>{f9(locale,"receipts")}</span></Link>
-        </>}
-        {area==="app"&&<>
-          <Link href="/app/pilot" className={"nav-link"+(pathname.startsWith("/app/pilot")?" selected":"")} aria-current={pathname.startsWith("/app/pilot")?"page":undefined}>
-            <ClipboardCheck size={20}/><span>{locale==="en"?"Pilot readiness":locale==="ps-AF"?"د ازمایښتي پړاو چمتووالی":"آمادگی آزمایش عملی"}</span></Link>
-          <Link href="/app/subscription" className={"nav-link"+(pathname.startsWith("/app/subscription")?" selected":"")}>
-            <CreditCard size={20}/><span>{p12(locale,"subscription")}</span></Link>
-          <Link href="/app/support" className={"nav-link"+(pathname.startsWith("/app/support")?" selected":"")}>
-            <Headphones size={20}/><span>{p12(locale,"support")}</span></Link>
-          <Link href="/app/reports" className={"nav-link"+(pathname.startsWith("/app/reports")?" selected":"")}
-            aria-current={pathname.startsWith("/app/reports")?"page":undefined}>
-            <BarChart3 size={20} strokeWidth={1.9}/>
-            <span>{locale==="en"?"Reports & insights":locale==="ps-AF"?"راپورونه او شننې":"گزارش‌ها و تحلیل‌ها"}</span>
-          </Link>
-          <Link href="/app/billing/adjustments" className={"nav-link"+(pathname.startsWith("/app/billing/adjustments")?" selected":"")}>
-            <RotateCcw size={20}/><span>{locale==="en"?"Adjustments & refunds":locale==="ps-AF"?"سمونونه او بېرته ورکړې":"اصلاحات و بازپرداخت"}</span></Link>
-          <Link href="/app/service/requests" title={sr8(locale,"requests")}
-            className={"nav-link"+(pathname.startsWith("/app/service/")?" selected":"")}
-            aria-current={pathname.startsWith("/app/service/")?"page":undefined}>
-            <Bell size={20}/><span>{sr8(locale,"requests")}</span></Link>
-          <Link href="/app/orders/live" title={ow(locale,"orders")}
-            className={"nav-link"+(pathname.startsWith("/app/orders/")?" selected":"")}
-            aria-current={pathname.startsWith("/app/orders/")?"page":undefined}>
-            <ClipboardList size={20} strokeWidth={1.9}/><span>{ow(locale,"orders")}</span></Link>
-          <Link href="/app/menu/items" title={m3(locale,"menu")}
-            className={"nav-link"+(pathname.startsWith("/app/menu/")?" selected":"")}
-            aria-current={pathname.startsWith("/app/menu/")?"page":undefined}>
-            <BookOpenText size={20} strokeWidth={1.9}/><span>{m3(locale,"menu")}</span></Link>
-          <Link href="/app/tables/board" title={f4(locale,"tables")}
-            className={"nav-link"+(pathname.startsWith("/app/tables/")?" selected":"")}
-            aria-current={pathname.startsWith("/app/tables/")?"page":undefined}>
-            <Armchair size={20} strokeWidth={1.9}/><span>{f4(locale,"tables")}</span></Link>
-          <Link href="/app/billing/checks" title={f9(locale,"billing")}
-            className={"nav-link"+(pathname.startsWith("/app/billing/")?" selected":"")}
-            aria-current={pathname.startsWith("/app/billing/")?"page":undefined}>
-            <Wallet size={20}/><span>{f9(locale,"billing")}</span></Link>
-          <Link href="/app/staff/directory" title={p2(locale,"team")}
-            className={"nav-link"+(pathname.startsWith("/app/staff/")?" selected":"")}
-            aria-current={pathname.startsWith("/app/staff/")?"page":undefined}>
-            <UsersRound size={20} strokeWidth={1.9}/><span>{p2(locale,"team")}</span></Link>
-          <Link href="/app/settings/restaurant" title={p2(locale,"settings")}
-            className={"nav-link"+(pathname.startsWith("/app/settings/")?" selected":"")}
-            aria-current={pathname.startsWith("/app/settings/")?"page":undefined}>
-            <Settings2 size={20} strokeWidth={1.9}/><span>{p2(locale,"settings")}</span></Link>
-        </>}
-        {area==="platform"&&<>
-          <Link href="/platform/pilots" className={"nav-link"+(pathname.startsWith("/platform/pilots")?" selected":"")} aria-current={pathname.startsWith("/platform/pilots")?"page":undefined}>
-            <ClipboardCheck size={20}/><span>{locale==="en"?"Pilot approvals":locale==="ps-AF"?"ازمایښتي تاییدونه":"تأیید آزمایش عملی"}</span></Link>
-          <Link href="/platform/subscriptions" className={"nav-link"+(pathname.startsWith("/platform/subscriptions")?" selected":"")}>
-            <CreditCard size={20}/><span>{p12(locale,"subscription")}</span></Link>
-          <Link href="/platform/support" className={"nav-link"+(pathname.startsWith("/platform/support")?" selected":"")}>
-            <Headphones size={20}/><span>{p12(locale,"support")}</span></Link>
-          <Link href="/platform/audit" className={"nav-link"+(pathname.startsWith("/platform/audit")?" selected":"")}>
-            <FileSearch size={20}/><span>{p12(locale,"audit")}</span></Link>
-          <Link href="/platform/settings" className={"nav-link"+(pathname.startsWith("/platform/settings")?" selected":"")}>
-            <Settings2 size={20}/><span>{p12(locale,"settings")}</span></Link>
-          <Link href="/platform/restaurants" title={p2(locale,"businesses")}
-          className={"nav-link"+(pathname.startsWith("/platform/restaurants")?" selected":"")}
-          aria-current={pathname.startsWith("/platform/restaurants")?"page":undefined}>
-          <Building2 size={20} strokeWidth={1.9}/><span>{p2(locale,"businesses")}</span></Link></>}
+        <button type="button" className="workspace-sidebar-close" aria-label={closeText}
+          title={closeText} onClick={()=>setDrawerOpen(false)}><X size={20}/></button>
+        <button type="button" className="workspace-sidebar-collapse" onClick={toggleRail}
+          aria-label={collapsed?label(locale,"Expand sidebar","باز کردن نوار کناری","اړخیز لړ پراخول"):
+            label(locale,"Collapse sidebar","جمع کردن نوار کناری","اړخیز لړ راټولول")}
+          title={collapsed?label(locale,"Expand sidebar","باز کردن نوار کناری","اړخیز لړ پراخول"):
+            label(locale,"Collapse sidebar","جمع کردن نوار کناری","اړخیز لړ راټولول")}>
+          {collapsed?<PanelLeftOpen size={20}/>:<PanelLeftClose size={20}/>}
+        </button>
+      </div>
+      <nav className="sidebar-nav workspace-sidebar-nav" aria-label={navigationText}>
+        {navigation.map(group=>{
+          const expanded=collapsed||(openGroups[group.id]??group.id===activeGroupId);
+          const anyActive=group.items.some(item=>navItemMatches(pathname,item));
+          const GroupIcon=group.icon;
+          return <section key={group.id} className={"workspace-nav-group"+(anyActive?" group-active":"")}
+              aria-label={group.label}>
+            <button type="button" className="workspace-nav-group-toggle"
+              aria-expanded={collapsed?true:expanded} aria-controls={"workspace-group-"+group.id}
+              onClick={()=>toggleGroup(group.id,expanded)} title={group.label}>
+              <GroupIcon size={18} strokeWidth={1.9}/><span>{group.label}</span>
+              <ChevronDown size={16} className={"workspace-group-chevron"+(expanded?" open":"")}/>
+            </button>
+            {expanded&&<div className="workspace-nav-items" id={"workspace-group-"+group.id}>
+              {group.items.map(item=>{
+                const ItemIcon=item.icon;
+                const selected=navItemMatches(pathname,item);
+                return <Link key={item.href} href={item.href}
+                  className={"nav-link workspace-nav-link"+(selected?" selected":"")}
+                  aria-label={item.label} title={item.label} aria-current={selected?"page":undefined}
+                  onClick={()=>setDrawerOpen(false)}>
+                  <ItemIcon size={20} strokeWidth={1.9} aria-hidden="true"/>
+                  <span>{item.label}</span>
+                </Link>;
+              })}
+            </div>}
+          </section>;
+        })}
       </nav>
-      <div className="sidebar-bottom">
-        <Link className={"nav-link" + (pathname.endsWith("/account") ? " selected" : "")} href={"/" + area + "/account"}>
-          <CircleUserRound size={20} /><span>{t(locale, "account")}</span>
+      <div className="sidebar-bottom workspace-sidebar-footer">
+        <Link className={"nav-link workspace-nav-link"+(currentAccount?" selected":"")}
+          href={accountPath} aria-label={t(locale,"account")} aria-current={currentAccount?"page":undefined}
+          title={t(locale,"account")} onClick={()=>setDrawerOpen(false)}>
+          <CircleUserRound size={20} aria-hidden="true"/><span>{t(locale,"account")}</span>
         </Link>
-        <button className="nav-link nav-action" type="button" onClick={() => void signOut()}><LogOut size={20} /><span>{t(locale, "signOut")}</span></button>
+        <button className="nav-link nav-action workspace-nav-link" type="button"
+          disabled={signingOut} title={t(locale,"signOut")} aria-label={t(locale,"signOut")}
+          onClick={()=>void signOut()}>
+          <LogOut size={20} aria-hidden="true"/><span>{signingOut?t(locale,"loading"):t(locale,"signOut")}</span>
+        </button>
+        {signOutError&&<p className="workspace-sidebar-error" role="alert">{t(locale,"offline")}</p>}
       </div>
     </aside>
-    <div className="workspace-column">
+    <div className="workspace-column" inert={drawerOpen}>
       <header className="workspace-header">
-        <div className="header-heading"><span className="header-label">{t(locale, "workspace")}</span><strong>{workspace?.tenantName ?? "DineFlow"}</strong></div>
-        <div className="header-actions"><span className="online-indicator" /><span className="desktop-only">{workspace?.user.name ?? ""}</span><Link className="avatar-button" href={"/" + area + "/account"} aria-label={t(locale, "account")}><CircleUserRound size={24} /></Link></div>
+        <div className="workspace-header-left">
+          <button type="button" className="workspace-mobile-menu" ref={menuButtonRef}
+            aria-label={openText} title={openText} aria-expanded={drawerOpen}
+            aria-controls="workspace-navigation" onClick={()=>setDrawerOpen(true)}>
+            <Menu size={23}/>
+          </button>
+          <div className="header-heading">
+            <div className="workspace-crumbs" aria-label={label(locale,"Location","موقعیت","ځای")}>
+              <span>{workspace?.tenantName??"DineFlow"}</span>
+              {rtl?<ChevronLeft size={14} aria-hidden="true"/>:<ChevronRight size={14} aria-hidden="true"/>}
+              <span>{active?.group.label??t(locale,"workspace")}</span>
+            </div>
+            <strong>{currentAccount?t(locale,"account"):currentTitle}</strong>
+          </div>
+        </div>
+        <div className="header-actions">
+          <span className={"online-indicator"+(offline?" is-offline":"")}
+            title={offline?label(locale,"No network","شبکه قطع است","شبکه نشته"):
+              label(locale,"Network connected","شبکه وصل است","شبکه نښلول شوې")} aria-hidden="true"/>
+          <span className="desktop-only">{workspace?.user.name??""}</span>
+          <Link className="avatar-button" href={accountPath} aria-label={t(locale,"account")}
+            title={t(locale,"account")}><CircleUserRound size={24}/></Link>
+        </div>
       </header>
-      {offline&&<div className="workspace-offline" role="status" aria-live="polite">{locale==="en"?"You are offline. Changes may not be saved; reconnect and refresh.":locale==="ps-AF"?"انټرنېټ نشته. بدلونونه ښايي خوندي نه شي؛ بېرته ونښلئ او تازه کړئ.":"شما آفلاین هستید. تغییرات ممکن است ذخیره نشوند؛ دوباره وصل شوید و صفحه را تازه کنید."}</div>}
+      {offline&&<div className="workspace-offline" role="status" aria-live="polite">
+        {label(locale,"You are offline. Changes may not be saved; reconnect and refresh.",
+          "شما آفلاین هستید. تغییرات ممکن است ذخیره نشوند؛ دوباره وصل شوید و صفحه را تازه کنید.",
+          "انټرنېټ نشته. بدلونونه ښايي خوندي نه شي؛ بېرته ونښلئ او تازه کړئ.")}
+      </div>}
       <main className="workspace-main" id="main-content" tabIndex={-1} aria-busy={pending}>
-        {pending ? <div className="shell-loading" aria-live="polite"><span className="spinner" />{t(locale, "loading")}</div> :
-          loadError ? <section className="error-panel" role="alert"><h2>{t(locale, loadError === "NO_MEMBERSHIP" ? "noMembership" : "offline")}</h2><button className="button button-primary" onClick={() => { setPending(true); void refresh(); }}>{t(locale, "retry")}</button></section> :
-          workspace ? <WorkspaceProvider.Provider value={{ workspace, setWorkspace }}>{children}</WorkspaceProvider.Provider> : null}
+        {pending?<div className="shell-loading" aria-live="polite"><span className="spinner"/>{t(locale,"loading")}</div>:
+        loadError?<section className="error-panel" role="alert">
+          <h2>{t(locale,loadError==="NO_MEMBERSHIP"?"noMembership":"offline")}</h2>
+          <button className="button button-primary" onClick={()=>{setPending(true);void refresh();}}>{t(locale,"retry")}</button>
+        </section>:
+        workspace?<WorkspaceProvider.Provider value={{workspace,setWorkspace}}>{children}</WorkspaceProvider.Provider>:null}
       </main>
     </div>
   </div>;
