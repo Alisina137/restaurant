@@ -78,8 +78,10 @@ async function main(){
  const live=await expect<{item:Item}>(await request("/api/menu/items/"+createdItem.id,"GET",undefined,owner));
  assert.equal(live.item.published,true);
  assert.equal(live.item.version,2);
- assert.equal((await request(url,"PATCH",{published:false,version:1},owner)).status,409,
-   "Stale version must fail");
+ const stale=await request(url,"PATCH",{published:false,version:1},owner);
+ assert.equal(stale.status,409,"Stale version must fail");
+ assert.equal((await stale.json() as {code:string}).code,"VERSION_CONFLICT",
+   "Stale published item must report an optimistic locking conflict");
  const guest=await expect<{items:{id:string}[]}>(await request("/api/menu/catalog","GET",undefined,waiter));
  assert.ok(guest.items.some(x=>x.id===createdItem.id),"Published item is visible to staff catalog");
  assert.equal((await request("/api/menu/categories/"+created.id,"PATCH",
