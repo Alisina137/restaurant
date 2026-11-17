@@ -3,7 +3,7 @@
 import {type FormEvent,useRef,useState} from "react";
 import Link from "next/link";
 import {ArrowLeft,CheckCircle2,Mail,ShieldCheck,UtensilsCrossed} from "lucide-react";
-import {direction} from "@dineflow/shared";
+import {direction,t} from "@dineflow/shared";
 import {authClient} from "@/lib/auth-client";
 import {au} from "@/lib/auth-ux-copy";
 import {AuthLanguage,useAuthLocale} from "@/components/ui/auth-ui";
