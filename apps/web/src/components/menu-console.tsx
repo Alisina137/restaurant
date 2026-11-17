@@ -28,6 +28,9 @@ const noData:EditorData={categories:[],groups:[],revision:{version:0}};
 function apiError(e:unknown,locale:Locale){
   if(e instanceof Phase2Error&&e.code==="VERSION_CONFLICT")return m3(locale,"versionConflict");
   if(e instanceof Phase2Error&&e.code==="DUPLICATE_SKU")return m3(locale,"duplicateSku");
+  if(e instanceof Phase2Error&&e.code==="CATEGORY_UNPUBLISHED")return m20(locale,"missingCategory");
+  if(e instanceof Phase2Error&&e.code==="CATEGORY_IN_USE")return m20(locale,"categoryInUse");
+  if(e instanceof Phase2Error&&e.code==="INVALID_MODIFIER")return m20(locale,"modifierInvalid");
   return e instanceof Error?e.message:m3(locale,"error");
 }
 export function MenuConsole({tab}: {tab:MenuTab}){
@@ -41,7 +44,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
     [status,setStatus]=useState("all"),[category,setCategory]=useState(""),[archived,setArchived]=useState(false);
   const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[loadingEditor,setLoadingEditor]=useState(false);
   const [error,setError]=useState(""),[notice,setNotice]=useState("");
-  const [popup,setPopup]=useState<Popup|null>(null),[preview,setPreview]=useState<Catalog|null>(null),[previewOpen,setPreviewOpen]=useState(false);
+  const [popup,setPopup]=useState<Popup|null>(null),[preview,setPreview]=useState<Catalog|null>(null),[previewOpen,setPreviewOpen]=useState(false),[previewError,setPreviewError]=useState("");
   const [selected,setSelected]=useState<string[]>([]),[reason,setReason]=useState("");
   const revision=useRef<number>(0);
   const requestId=useRef(0);
@@ -124,7 +127,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
       await jsonRequest("/api/menu/items/"+row.id+"/publication",{
         method:"PATCH",body:JSON.stringify({version:row.version,published})});
       setNotice(m20(locale,"publishedSuccess"));await load(true);
-    }catch(e){setError(apiError(e,locale));await load(true);}
+    }catch(e){await load(true);setError(apiError(e,locale));}
     finally{mutationLock.current=false;setBusy(false);}
   }
   async function setCategoryPublished(row:Category,published:boolean){
@@ -140,7 +143,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
         method:"PATCH",body:JSON.stringify({nameFa:row.nameFa,namePs:row.namePs,nameEn:row.nameEn,
         description:row.description,sortOrder:row.sortOrder,published,version:row.version})});
       setNotice(m20(locale,"publishedSuccess"));await load(true);
-    }catch(e){setError(apiError(e,locale));await load(true);}
+    }catch(e){await load(true);setError(apiError(e,locale));}
     finally{mutationLock.current=false;setBusy(false);}
   }
   async function archive(kind:"item"|"category"|"group",row:{id:string;version:number}){
@@ -180,8 +183,8 @@ export function MenuConsole({tab}: {tab:MenuTab}){
   }
   async function openPreview(){
     if(previewOpen)return;
-    setPreviewOpen(true);setPreview(null);setError("");
-    try{setPreview(await jsonRequest<Catalog>("/api/menu/catalog"));}catch(e){setError(apiError(e,locale));}
+    setPreviewOpen(true);setPreview(null);setPreviewError("");
+    try{setPreview(await jsonRequest<Catalog>("/api/menu/catalog"));}catch(e){setPreviewError(apiError(e,locale));}
   }
   const menuItems=rows?.items??[],availableRows=menuItems.filter(r=>!archived);
   const allChecked=availableRows.length>0&&availableRows.every(r=>selected.includes(r.id));
@@ -352,6 +355,10 @@ export function MenuConsole({tab}: {tab:MenuTab}){
         <div className="menu-dialog-head"><div><span className="eyebrow">DINEFLOW</span>
           <h2 id="catalog-preview-title">{m3(locale,"preview")}</h2><p className="muted">{m3(locale,"previewHint")}</p></div>
           <button className="icon-action" aria-label={m3(locale,"cancel")} onClick={()=>setPreviewOpen(false)}><X/></button></div>
+        {previewError&&<InlineFeedback message={previewError} retry={()=>void jsonRequest<Catalog>("/api/menu/catalog")
+          .then(value=>{setPreview(value);setPreviewError("");})
+          .catch(e=>setPreviewError(apiError(e,locale)))}
+          onRetryLabel={m20(locale,"reload")}/>}
         {preview?<div className="menu-preview-content">
           <div className="p20-preview-summary">
             <span>{m20(locale,"previewCount")}: <strong>{preview.items.length}</strong></span>
@@ -364,7 +371,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
                 <div><strong>{nameFor(item,locale)}</strong><p className="muted">{item.description}</p>
                   <b>{money(item.priceMinor,locale)}</b> {item.soldOut&&<span className="data-badge disabled">{m3(locale,"soldout")}</span>}
                 </div></div>)}</div></section>):<Empty icon={ImageOff} text={m20(locale,"previewEmpty")}/>}</div>:
-          <div className="list-skeleton"><span/><span/><span/></div>}
+          previewError?null:<div className="list-skeleton"><span/><span/><span/></div>}
       </section></div>}
   </div>;
 }
