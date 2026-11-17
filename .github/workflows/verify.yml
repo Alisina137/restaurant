@@ -53,6 +53,7 @@ jobs:
       - run: pnpm interaction:verify
       - run: pnpm auth:verify
       - run: pnpm dashboard:verify
+      - run: pnpm menu20:verify
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build:web
@@ -84,6 +85,7 @@ jobs:
       - run: pnpm --filter @dineflow/api exec tsx src/phase13-ci.ts
       - run: pnpm --filter @dineflow/api exec tsx src/phase14-ci.ts
       - run: pnpm --filter @dineflow/api exec tsx src/phase19-ci.ts
+      - run: pnpm --filter @dineflow/api exec tsx src/phase20-ci.ts
       - name: API logs after failure
         if: failure()
         run: cat /tmp/dineflow-api.log || true

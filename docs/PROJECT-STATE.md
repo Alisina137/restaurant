@@ -93,8 +93,14 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - Added `pnpm dashboard:verify` and seeded `phase19-ci.ts` (PostgreSQL ledger reconciliation, role/tenant isolation and period validations). See `docs/PHASE-19-ACCEPTANCE.md` for manual acceptance.
 - Real operator cash reconciliation, hardware/device visual QA and Phase 14 supervised pilot sign-offs **remain outstanding**.
 
+## Phase 20 status
+- Menu manager now includes a live tenant/location-scoped catalog summary, published and draft readiness, quick optimistic-version-controlled meal and category publishing, improved inventory selection and confirmations, filters, editable multilingual categories/modifiers and a staff guest-visible preview with revision and retry.
+- The new meal publication endpoint retains the same category and modifier checks as the editor; all publishing/availability updates remain scoped and audited. No migration/new dependencies.
+- `pnpm menu20:verify` and the seeded `apps/api/src/phase20-ci.ts` regression were added to CI. See `docs/PHASE-20-ACCEPTANCE.md` for manual menu publication, device, photo and QR validation.
+- Production approval still requires actual restaurant pilot evidence, accounting and hardware QA from Phase 14.
+
 ## Next phase
-Phase 20: menu management UI, publishing and availability workflows. Production release remains blocked until real pilot acceptance.
+Phase 21: tables and floor management UI, occupancy, seating, assignments and operational workflow polishing.
 
 ## Local commands
 ```powershell

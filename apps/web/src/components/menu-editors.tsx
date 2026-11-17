@@ -1,9 +1,10 @@
 "use client";
 import { type FormEvent, useState } from "react";
-import { ImagePlus, Plus, Trash2, UploadCloud, X, CheckCircle2 } from "lucide-react";
+import { ImagePlus, Plus, Trash2, UploadCloud, X, CheckCircle2, ShieldCheck, Info } from "lucide-react";
 import { type Locale } from "@dineflow/shared";
 import { API_URL } from "@/lib/auth-client";
 import { m3 } from "@/lib/menu-copy";
+import {m20} from "@/lib/menu20-copy";
 import { allergens, moneyInput, parseMoney, type Category, type Group, type ItemDetail } from "@/lib/menu-types";
 type Finish=(payload:Record<string,unknown>)=>Promise<void>;
 type Common={locale:Locale;busy:boolean;close:()=>void;submit:Finish};
@@ -21,6 +22,7 @@ export function CategoryEditor({locale,busy,close,submit,initial}:{initial?:Cate
   async function save(e:FormEvent){e.preventDefault();await submit({...form,...initial?{version:initial.version}:{}});}
   return <form className="menu-editor" onSubmit={e=>void save(e)}>
     <ModalHeader title={m3(locale,"categoryInfo")} close={close} locale={locale}/>
+    <p className="p20-editor-helper"><Info size={17}/>{m20(locale,"languageInfo")}</p>
     <Names value={form} locale={locale} update={(key,value)=>setForm(f=>({...f,[key]:value}))}/>
     <label className="field"><span>{m3(locale,"description")}</span>
       <textarea maxLength={500} rows={3} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))}/></label>
@@ -58,6 +60,7 @@ export function GroupEditor({locale,busy,close,submit,initial}:{initial?:Group}&
   }
   return <form className="menu-editor" onSubmit={e=>void save(e)}>
     <ModalHeader title={m3(locale,"groupInfo")} close={close} locale={locale}/>
+    <p className="p20-editor-helper"><Info size={17}/>{m20(locale,"modifierInfo")}</p>
     <Names value={name} locale={locale} update={(k,v)=>setName(p=>({...p,[k]:v}))}/>
     <div className="menu-form-grid">
       <label className="field"><span>{m3(locale,"groupMode")}</span><select value={mode} onChange={e=>{
@@ -104,7 +107,7 @@ export function ItemEditor({locale,busy,close,submit,initial,categories,groups}:
   const [uploading,setUploading]=useState(false),[uploadError,setUploadError]=useState(""),[err,setErr]=useState("");
   const selectedCategory=categories.find(c=>c.id===form.categoryId);
   async function upload(file:File|undefined){
-    if(!file)return;
+    if(!file||uploading||busy)return;
     setUploadError("");
     if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>5*1024*1024){
       setUploadError(m3(locale,"imageHint"));return;
@@ -125,17 +128,22 @@ export function ItemEditor({locale,busy,close,submit,initial,categories,groups}:
     if(priceMinor===null){setErr(m3(locale,"price")+" · 0.00–10000000.00");return;}
     if(form.published&&!selectedCategory?.published){setErr(m3(locale,"mustPublishCategory"));return;}
     if(!form.categoryId){setErr(m3(locale,"categoryRequired"));return;}
+    const selected=groups.filter(g=>form.groupIds.includes(g.id));
+    const invalid=selected.find(g=>g.options.filter(o=>o.active).length<g.maxSelections||
+      g.options.filter(o=>o.active).length<g.minSelections);
+    if(form.published&&invalid){setErr(m20(locale,"modifierInvalid"));return;}
     await submit({...form,priceMinor,...form.preparationMinutes?{preparationMinutes:form.preparationMinutes}:{preparationMinutes:null},
       ...(initial?{version:initial.version}:{}),imageId:form.imageId});
   }
   return <form className="menu-editor" onSubmit={e=>void save(e)}>
     <ModalHeader title={m3(locale,"itemInfo")} close={close} locale={locale}/>
+    <p className="p20-editor-helper"><Info size={17}/>{m20(locale,"languageInfo")}</p>
     <Names locale={locale} value={form} update={(key,value)=>setForm(s=>({...s,[key]:value}))}/>
     <div className="menu-form-grid">
       <label className="field"><span>{m3(locale,"category")} *</span>
         <select required value={form.categoryId} onChange={e=>setForm(s=>({...s,categoryId:e.target.value}))}>
           <option value="">{m3(locale,"noCategory")}</option>{categories.map(c=><option key={c.id} value={c.id}>
-            {c.nameFa}{c.published?"":" · "+m3(locale,"draft")}</option>)}</select></label>
+            {(locale==="en"?c.nameEn:locale==="ps-AF"?c.namePs:c.nameFa)||c.nameFa}{c.published?"":" · "+m3(locale,"draft")}</option>)}</select></label>
       <label className="field"><span>{m3(locale,"sku")}</span><input dir="ltr" pattern="[A-Za-z0-9_-]{2,50}"
         maxLength={50} value={form.sku} onChange={e=>setForm(s=>({...s,sku:e.target.value}))}/></label>
       <label className="field"><span>{m3(locale,"price")}</span><input dir="ltr" type="text" inputMode="decimal" required
@@ -151,8 +159,8 @@ export function ItemEditor({locale,busy,close,submit,initial,categories,groups}:
       {form.imageId?<img src={API_URL+"/api/menu/images/"+form.imageId} alt={m3(locale,"image")}/>:<ImagePlus size={32}/>}</div>
       <div><label className="button button-small menu-upload-label"><UploadCloud size={16}/>
         {uploading?m3(locale,"loading"):m3(locale,"upload")}
-        <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={uploading}
-          onChange={e=>void upload(e.target.files?.[0])}/></label>
+        <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={uploading||busy}
+          onChange={e=>{const file=e.target.files?.[0];e.target.value="";void upload(file);}}/></label>
         {form.imageId&&<button className="button button-small" type="button"
           onClick={()=>setForm(s=>({...s,imageId:null}))}>{m3(locale,"remove")}</button>}
         <p className="muted">{m3(locale,"imageHint")}</p></div></div>
@@ -163,17 +171,24 @@ export function ItemEditor({locale,busy,close,submit,initial,categories,groups}:
       checked={form.allergens.includes(x)} onChange={e=>setForm(s=>({...s,allergens:e.target.checked?[...s.allergens,x]:s.allergens.filter(a=>a!==x)}))}/>
       {x}</label>)}</div>
     <div className="menu-editor-section-heading"><h3>{m3(locale,"modifiers")}</h3></div>
+    <p className="p20-editor-section-note">{m20(locale,"modifierInfo")}</p>
     <div className="menu-checkbox-group">{groups.length?groups.map(g=><label className="menu-check" key={g.id}>
       <input type="checkbox" checked={form.groupIds.includes(g.id)}
         onChange={e=>setForm(s=>({...s,groupIds:e.target.checked?[...s.groupIds,g.id]:s.groupIds.filter(id=>id!==g.id)}))}/>
-      <span>{g.nameFa} <small className="muted">({g.minSelections}–{g.maxSelections})</small></span></label>):
+      <span>{(locale==="en"?g.nameEn:locale==="ps-AF"?g.namePs:g.nameFa)||g.nameFa} <small className="muted">({g.minSelections}–{g.maxSelections})</small></span></label>):
       <p className="muted">{m3(locale,"emptyGroups")}</p>}</div>
+    <div className="p20-editor-status"><ShieldCheck size={19}/>
+      <strong>{m20(locale,form.published?"guestVisible":"staffOnly")}</strong>
+      <span className="p20-editor-section-note">{m20(locale,form.published?"readyForOrders":"draftsExplain")}</span>
+    </div>
     <div className="menu-form-grid">
       <label className="field"><span>{m3(locale,"sort")}</span><input type="number" min={-9999} max={9999} value={form.sortOrder}
         onChange={e=>setForm(s=>({...s,sortOrder:Number(e.target.value)}))}/></label>
       <label className="menu-check"><input type="checkbox" checked={form.published}
+        disabled={!selectedCategory?.published&&!form.published}
         onChange={e=>setForm(s=>({...s,published:e.target.checked}))}/><span>{m3(locale,"show")}</span></label>
     </div>
+    {!selectedCategory?.published&&<p className="p20-editor-helper"><Info size={17}/>{m20(locale,"missingCategory")}</p>}
     {err&&<p role="alert" className="form-error">{err}</p>}
     <ModalActions locale={locale} busy={busy||uploading} close={close} editing={!!initial}/>
   </form>;
