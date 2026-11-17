@@ -175,7 +175,7 @@ export function FloorConsole({tab}:{tab:FloorTab}){
      (popup.type==="new-table"||popup.type==="edit-table")?
      <TableForm locale={locale} busy={busy} close={()=>{setPopup(null);setSelectedId(null);}} save={savePopup}
        initial={popup.type==="edit-table"?popup.table:undefined} sections={allSections} waiters={knownWaiters}/>:
-     popup.type==="open"?<VisitForm locale={locale} busy={busy} close={()=>{setPopup(null);setSelectedId(null);}}
+     popup.type==="open"?<VisitForm locale={locale} busy={busy} manager={board?.role!=="waiter"} close={()=>{setPopup(null);setSelectedId(null);}}
        save={savePopup} table={popup.table}/>:
      <FinishForm locale={locale} busy={busy} close={()=>{setPopup(null);setSelectedId(null);}}
        save={savePopup} table={popup.table}/>}
