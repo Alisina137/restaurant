@@ -49,6 +49,7 @@
 .workspace-group-chevron { flex:none; transition:transform .18s ease; }
 .workspace-group-chevron.open { transform:rotate(180deg); }
 .workspace-nav-items { display:grid; gap:3px; min-width:0; padding-inline-start:6px; }
+.workspace-nav-items[hidden] { display:none !important; }
 .workspace-layout .workspace-nav-link {
   display:flex; flex-direction:row; justify-content:flex-start; align-items:center;
   min-height:43px; height:auto; padding:9px 11px; width:100%; min-width:0;
