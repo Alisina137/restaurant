@@ -80,8 +80,10 @@ async function main(){
   "POST",{version:pin.version},waiter),200);
  assert.equal(rotated.version,pin.version+1);
  assert.notEqual(rotated.pin,pin.pin,"PIN rotation revokes old credential");
- assert.equal((await request("/api/guest/staff/visits/"+visitId+"/pin/rotate",
-  "POST",{version:pin.version},waiter)).status,409,"Stale PIN version forbidden");
+ const stalePin=await expect<{code:string}>(await request(
+  "/api/guest/staff/visits/"+visitId+"/pin/rotate",
+  "POST",{version:pin.version},waiter),409);
+ assert.equal(stalePin.code,"VERSION_CONFLICT","Stale PIN version forbidden");
  const guestApprovals=await expect<{total:number;items:unknown[]}>(await request(
   "/api/guest/staff/approvals?status=pending&tableId="+table.id+"&page=1",
   "GET",undefined,waiter),200);
