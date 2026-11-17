@@ -35,6 +35,7 @@ for(const selector of [".df-confirm-backdrop",".df-toast-stack",".ds-page-contro
 const migrated=[
  "apps/web/src/components/menu-console.tsx",
  "apps/web/src/components/floor-console.tsx",
+ "apps/web/src/components/kitchen-operations.tsx",
  "apps/web/src/components/staff-console.tsx",
  "apps/web/src/components/finance-check-detail.tsx",
  "apps/web/src/components/finance-adjustments.tsx"
