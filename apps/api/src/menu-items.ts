@@ -130,6 +130,36 @@ itemRouter.patch("/:id",route(async(req,res)=>{
   });
   res.json({saved:true});
 }));
+/** Fast publish/unpublish, with the SAME category/modifier validation and version gate as the editor. */
+itemRouter.patch("/:id/publication",route(async(req,res)=>{
+  const scope=await scopeFor(req,true),id=paramId(req),body=bodyObject(req);
+  const target=bool(body.published,"Published"),v=version(body.version);
+  await db.transaction(async tx=>{
+    const [item]=await tx.select().from(menuItem).where(and(eq(menuItem.id,id),
+      eq(menuItem.tenantId,scope.tenantId),eq(menuItem.locationId,scope.locationId),
+      isNull(menuItem.archivedAt))).limit(1);
+    if(!item)fail(404,"NOT_FOUND","Meal not found.");
+    if(item.version!==v)fail(409,"VERSION_CONFLICT","Meal changed. Reload before publishing.");
+    if(item.published===target){
+      // A matching version is an idempotent no-op. Avoid misleading revision and audit noise.
+      return;
+    }
+    const links=await tx.select({groupId:menuItemGroup.groupId}).from(menuItemGroup)
+      .where(eq(menuItemGroup.itemId,id));
+    if(target){
+      const data=parseItem({...item,published:true,groupIds:links.map(x=>x.groupId)});
+      await validateRelations(tx,scope,data);
+    }
+    const [saved]=await tx.update(menuItem).set({published:target,version:v+1,updatedAt:new Date()})
+      .where(and(eq(menuItem.id,id),eq(menuItem.tenantId,scope.tenantId),
+        eq(menuItem.locationId,scope.locationId),eq(menuItem.version,v),isNull(menuItem.archivedAt)))
+      .returning({id:menuItem.id});
+    if(!saved)fail(409,"VERSION_CONFLICT","Meal changed while publishing.");
+    await changed(tx,scope,"menu.item_publication_changed",{itemId:id,from:item.published,to:target});
+  });
+  res.json({saved:true,published:target});
+}));
+
 itemRouter.post("/:id/duplicate",route(async(req,res)=>{
   const scope=await scopeFor(req,true),id=paramId(req),copyId=randomUUID();
   await db.transaction(async tx=>{
