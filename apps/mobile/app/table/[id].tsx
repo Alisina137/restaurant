@@ -433,7 +433,7 @@ const styles=StyleSheet.create({
  requestIcon:{height:38,width:38,backgroundColor:theme.brandSoft,borderRadius:11,
   justifyContent:"center",alignItems:"center"},
  requestBody:{flex:1,gap:5},
- requestTitle:{fontSize:14,fontWeight:"850",color:theme.ink},
+ requestTitle:{fontSize:14,fontWeight:"800",color:theme.ink},
  requestMeta:{fontSize:11,color:theme.muted},
  requestActions:{alignItems:"center",gap:8,flexWrap:"wrap"},
  secondary:{minHeight:43,flexDirection:"row",alignItems:"center",justifyContent:"center",
