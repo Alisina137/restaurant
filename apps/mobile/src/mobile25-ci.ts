@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import {addCartLine,issueForLine,MAX_LINES,removeLine,reviewCart,setLineQuantity,setOrderNote,
  toggleOption,validOptions,validateStoredDraft} from "./mobile25-cart";
 import {m25} from "./mobile25-copy";
-import {freshDraft} from "./order-drafts";
 import type {CartLine,MenuData,MenuItem,MenuGroup,OrderDraft} from "./order-types";
 
 const group:MenuGroup={id:"size",version:1,nameFa:"اندازه",nameEn:"Size",namePs:"اندازه",
