@@ -15,6 +15,16 @@ export function SearchInput({value,onChange,label,placeholder,clearLabel,classNa
       onClick={()=>onChange("")} title={clearLabel} aria-label={clearLabel}><X size={17}/></button>}
   </div>;
 }
+export type FilterOption={value:string;label:string};
+export function FilterSelect({value,onChange,label,options,disabled=false,className=""}:{
+  value:string;onChange:(value:string)=>void;label:string;options:readonly FilterOption[];
+  disabled?:boolean;className?:string;
+}){
+  return <select className={"ds-filter-select "+className} value={value}
+    aria-label={label} disabled={disabled} onChange={event=>onChange(event.target.value)}>
+    {options.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
+  </select>;
+}
 export function PageControls({page,total,perPage,onPageChange,previousLabel,nextLabel,
   pageLabel,ofLabel,busy=false,className=""}:{
   page:number;total:number;perPage:number;onPageChange:(next:number)=>void;
