@@ -58,6 +58,7 @@ jobs:
       - run: pnpm staff22:verify
       - run: pnpm mobile23:verify
       - run: pnpm mobile24:verify
+      - run: pnpm mobile25:verify
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build:web
