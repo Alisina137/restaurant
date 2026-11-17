@@ -1,6 +1,6 @@
 "use client";
 
-import {type FormEvent,useRef,useState} from "react";
+import {type FormEvent,useEffect,useRef,useState} from "react";
 import {useRouter} from "next/navigation";
 import Link from "next/link";
 import {ArrowLeft,ArrowRight,LockKeyhole,UtensilsCrossed,ShieldCheck} from "lucide-react";
@@ -17,7 +17,8 @@ export default function LoginPage(){
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[needVerify,setNeedVerify]=useState(false);
  const [resending,setResending]=useState(false),[verificationNotice,setVerificationNotice]=useState("");
  const submitting=useRef(false);
- const expired=typeof window!=="undefined"&&new URLSearchParams(window.location.search).get("expired")==="1";
+ const [expired,setExpired]=useState(false);
+ useEffect(()=>{setExpired(new URLSearchParams(window.location.search).get("expired")==="1");},[]);
  const inviteNext=typeof window!=="undefined"?
     validInviteRedirect(new URLSearchParams(window.location.search).get("next")):null;
  async function submit(event:FormEvent<HTMLFormElement>){
