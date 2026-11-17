@@ -9,6 +9,7 @@ import {useLocale} from "../../src/locale";
 import {FloorRequestError,floorRequest} from "../../src/floor-api";
 import {type Board} from "../../src/floor";
 import {useLiveScreen} from "../../src/use-live-screen";
+import {floorMetrics} from "../../src/mobile23-data";
 import {ScreenHeader,LiveNotice,MetricCard,QuickLink,EmptyPanel,SectionHeading,LoadingPanel} from "../../src/mobile23-ui";
 import {m23} from "../../src/mobile23-copy";
 type Alert={id:string;roundId:string;tableLabel:string;lastNotifiedAt:string};
@@ -39,8 +40,7 @@ export default function Home(){
  const {locale}=useLocale(),rtl=direction(locale)==="rtl";
  const loader=useCallback(loadHome,[]);
  const {data,loading,refreshing,error,lastUpdated,refresh}=useLiveScreen("waiter-home",loader,12000);
- const mine=useMemo(()=>data?.board.tables.filter(table=>table.status==="occupied"&&
-  table.assignedWaiterId===data.board.actorId).length??null,[data]);
+ const mine=useMemo(()=>data?floorMetrics(data.board).myOccupied:null,[data]);
  const openTable=()=>router.push("/(main)/tables");
  const openOrders=()=>router.push("/(main)/orders");
  return <ScrollView style={styles.root} contentContainerStyle={styles.content}
