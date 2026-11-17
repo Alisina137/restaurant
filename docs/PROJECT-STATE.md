@@ -84,7 +84,7 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 
 ## Phase 18 status
 - Implemented email-based password reset (one-hour single-use tokens via Better Auth), web forgot/reset routes, authenticated profile name and password changes, session/device management and revocation, and responsive login/registration/invitation/onboarding interfaces.
-- Secure invite-only redirect validation, explicit email verification, 3-language auth UX, role/tenant-aware account settings, owner draft progress and user-facing failure/recovery states. Added `pnpm auth:verify` to CI.
+- Secure invite-only redirect validation, explicit email verification, 3-language auth UX, role/tenant-aware account settings, owner draft progress and user-facing failure/recovery states. Waiter Expo gained recovery entry, name editing and password/session security controls; real-phone recovery links require a web callback origin. Added `pnpm auth:verify` to CI.
 - See `docs/PHASE-18-ACCEPTANCE.md`; actual external mail delivery, manual device/RTL and recovery tests require operator verification. **This is not commercial deployment approval.**
 
 ## Next phase
