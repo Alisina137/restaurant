@@ -87,8 +87,14 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - Secure invite-only redirect validation, explicit email verification, 3-language auth UX, role/tenant-aware account settings, owner draft progress and user-facing failure/recovery states. Waiter Expo gained recovery entry, name editing and password/session security controls; real-phone recovery links require a web callback origin. Added `pnpm auth:verify` to CI.
 - See `docs/PHASE-18-ACCEPTANCE.md`; actual external mail delivery, manual device/RTL and recovery tests require operator verification. **This is not commercial deployment approval.**
 
+## Phase 19 status
+- Implemented a true live owner/manager restaurant dashboard at `/app/overview`. Dedicated management-only tenant-scoped API provides real 7/30-day settled sales, posted net collections, refunds, matching previous periods, top settled menu items, kitchen and guest queues, service performance and attention links.
+- The dashboard retains a collapsible setup checklist, supports RTL/LTR languages, visibly distinguishes finance metrics to prevent double counting, handles offline/retry/stale responses and refreshes no more often than once every 30 seconds per visible tab.
+- Added `pnpm dashboard:verify` and seeded `phase19-ci.ts` (PostgreSQL ledger reconciliation, role/tenant isolation and period validations). See `docs/PHASE-19-ACCEPTANCE.md` for manual acceptance.
+- Real operator cash reconciliation, hardware/device visual QA and Phase 14 supervised pilot sign-offs **remain outstanding**.
+
 ## Next phase
-Phase 19: advanced restaurant dashboard and operational KPIs. Real restaurant pilot/production gates from Phase 14 remain outstanding.
+Phase 20: menu management UI, publishing and availability workflows. Production release remains blocked until real pilot acceptance.
 
 ## Local commands
 ```powershell
