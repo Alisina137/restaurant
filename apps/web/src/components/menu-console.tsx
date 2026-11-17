@@ -16,6 +16,7 @@ import {useInteraction} from "./ui/interaction-provider";
 import {InlineFeedback,SearchInput,PageControls} from "./ui/interaction-controls";
 import {LoadingSkeleton} from "./ui/design-system";
 import {ux} from "@/lib/interaction-copy";
+import {useDialogFocus} from "./ui/use-dialog-focus";
 
 export type MenuTab="items"|"categories"|"modifiers"|"availability";
 const tabs=[{key:"items",icon:UtensilsCrossed},{key:"categories",icon:Layers3},
@@ -40,6 +41,9 @@ export function MenuConsole({tab}: {tab:MenuTab}){
   const [popup,setPopup]=useState<Popup|null>(null),[preview,setPreview]=useState<Catalog|null>(null),[previewOpen,setPreviewOpen]=useState(false);
   const [selected,setSelected]=useState<string[]>([]),[reason,setReason]=useState("");
   const revision=useRef<number>(0);
+  const mutationLock=useRef(false);
+  const popupDialogRef=useDialogFocus<HTMLElement>(!!popup,()=>{if(!busy)setPopup(null);});
+  const previewDialogRef=useDialogFocus<HTMLElement>(previewOpen,()=>setPreviewOpen(false));
   useEffect(()=>{if(notice){notify(notice,"success");setNotice("");}},[notice,notify]);
   const load=useCallback(async(silent=false)=>{
     if(!silent)setLoading(true);
@@ -76,7 +80,8 @@ export function MenuConsole({tab}: {tab:MenuTab}){
   },[load]);
   useEffect(()=>{setPage(1);setSelected([]);setPopup(null);setArchived(false);},[tab]);
   async function savePopup(payload:Record<string,unknown>){
-    if(!popup)return;
+    if(!popup||mutationLock.current)return;
+    mutationLock.current=true;
     const kind=popup.kind;
     const plural=kind==="item"?"items":kind==="category"?"categories":"groups";
     const current=popup.value;
@@ -87,7 +92,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
       setPopup(null);setNotice(m3(locale,kind==="item"?"itemUpdated":kind==="category"?"categoryUpdated":"groupUpdated"));
       await load(true);
     }catch(e){setError(apiError(e,locale));}
-    finally{setBusy(false);}
+    finally{mutationLock.current=false;setBusy(false);}
   }
   async function editItem(row:ItemRow){
     setLoadingEditor(true);setError("");
@@ -98,8 +103,10 @@ export function MenuConsole({tab}: {tab:MenuTab}){
     finally{setLoadingEditor(false);}
   }
   async function archive(kind:"item"|"category"|"group",row:{id:string;version:number}){
-    if(busy||!(await confirm({title:m3(locale,"archive"),description:m3(locale,"archiveConfirm"),
+    if(busy||mutationLock.current||!(await confirm({title:m3(locale,"archive"),description:m3(locale,"archiveConfirm"),
       confirmLabel:m3(locale,"archive"),cancelLabel:m3(locale,"cancel"),danger:true})))return;
+    if(mutationLock.current)return;
+    mutationLock.current=true;
     const plural=kind==="item"?"items":kind==="category"?"categories":"groups";
     setBusy(true);setError("");setNotice("");
     try{
@@ -107,24 +114,26 @@ export function MenuConsole({tab}: {tab:MenuTab}){
       setNotice(m3(locale,kind==="item"?"itemArchived":kind==="category"?"categoryArchived":"groupArchived"));
       await load(true);
     }catch(e){setError(apiError(e,locale));}
-    finally{setBusy(false);}
+    finally{mutationLock.current=false;setBusy(false);}
   }
   async function duplicate(row:ItemRow){
-    setBusy(true);setError("");setNotice("");
+    if(mutationLock.current)return;
+    mutationLock.current=true;setBusy(true);setError("");setNotice("");
     try{await jsonRequest("/api/menu/items/"+row.id+"/duplicate",{method:"POST",body:"{}"});
       setNotice(m3(locale,"duplicateDone"));setPage(1);await load(true);
-    }catch(e){setError(apiError(e,locale));}finally{setBusy(false);}
+    }catch(e){setError(apiError(e,locale));}finally{mutationLock.current=false;setBusy(false);}
   }
   async function availability(entries:ItemRow[],soldOut:boolean){
-    if(!entries.length)return;
-    setBusy(true);setError("");setNotice("");
+    if(!entries.length||mutationLock.current)return;
+    mutationLock.current=true;setBusy(true);setError("");setNotice("");
     try{
       await jsonRequest("/api/menu/items/availability/bulk",{method:"POST",
         body:JSON.stringify({changes:entries.map(x=>({id:x.id,version:x.version,soldOut,reason:soldOut?reason:""}))})});
       setSelected([]);setReason("");setNotice(m3(locale,"saved"));await load(true);
-    }catch(e){setError(apiError(e,locale));}finally{setBusy(false);}
+    }catch(e){setError(apiError(e,locale));}finally{mutationLock.current=false;setBusy(false);}
   }
   async function openPreview(){
+    if(previewOpen)return;
     setPreviewOpen(true);setPreview(null);setError("");
     try{setPreview(await jsonRequest<Catalog>("/api/menu/catalog"));}catch(e){setError(apiError(e,locale));}
   }
@@ -250,7 +259,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
     </section>}
     {popup&&<div className="dialog-backdrop menu-dialog-backdrop" role="presentation"
       onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setPopup(null);}}>
-      <section className="menu-dialog" role="dialog" aria-modal="true" aria-labelledby="menu-dialog-title">
+      <section ref={popupDialogRef} tabIndex={-1} className="menu-dialog" role="dialog" aria-modal="true" aria-labelledby="menu-dialog-title">
         {popup.kind==="category"?<CategoryEditor key={popup.value?.id??"category-new"} locale={locale} busy={busy}
           initial={popup.value} close={()=>setPopup(null)} submit={savePopup}/>:
          popup.kind==="group"?<GroupEditor key={popup.value?.id??"group-new"} locale={locale} busy={busy}
@@ -262,7 +271,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
       </section></div>}
     {previewOpen&&<div className="dialog-backdrop menu-dialog-backdrop" role="presentation"
       onMouseDown={e=>{if(e.target===e.currentTarget)setPreviewOpen(false);}}>
-      <section className="menu-dialog menu-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="catalog-preview-title">
+      <section ref={previewDialogRef} tabIndex={-1} className="menu-dialog menu-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="catalog-preview-title">
         <div className="menu-dialog-head"><div><span className="eyebrow">DINEFLOW</span>
           <h2 id="catalog-preview-title">{m3(locale,"preview")}</h2><p className="muted">{m3(locale,"previewHint")}</p></div>
           <button className="icon-action" aria-label={m3(locale,"cancel")} onClick={()=>setPreviewOpen(false)}><X/></button></div>
