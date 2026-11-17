@@ -32,7 +32,7 @@ export function FloorBoardGrid({data,locale,onChoose}:Props){
   sections:data.sections.filter(s=>s.active).length
  }),[data]);
  const availableWaiters=useMemo(()=>Array.from(new Map(data.tables.filter(t=>t.assignedWaiterId)
-  .map(t=>[t.assignedWaiterId!,t.assignedWaiterName??t.assignedWaiterId!])).entries())
+  .map(t=>[t.assignedWaiterId!,t.assignedWaiterName??t.assignedWaiterId!] as const)).entries())
   .sort((a,b)=>a[1].localeCompare(b[1])),[data.tables]);
  const visible=useMemo(()=>data.tables.filter(t=>{
   const q=query.trim().toLocaleLowerCase();
