@@ -15,7 +15,8 @@
 ## Required environment
 - In `apps/api/.env`, configure `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `TRUSTED_ORIGINS` and `PUBLIC_WEB_URL` to accurate trusted hosts.
 - For real verification and password-reset email, use `RESEND_API_KEY` and `MAIL_FROM` with a verified sender. In local development, `DEV_EMAIL_DELIVERY=console` prints **sensitive** verification/reset links in the API terminal; do **not** enable it in production and do not share those links.
-- Existing web `NEXT_PUBLIC_API_URL` must point at the API origin. The configured `PUBLIC_WEB_URL` must match the public callback origin. No migration needed.
+- Existing web `NEXT_PUBLIC_API_URL` must point at the API origin. The configured `PUBLIC_WEB_URL` must match the public callback origin.
+- To request password recovery on a real waiter phone, set `EXPO_PUBLIC_WEB_URL` in `apps/mobile/.env` to a **phone-accessible, trusted HTTPS web origin** and restart Expo. Local LAN testing can derive port 3000 from an accessible port-4000 API address. Do not use localhost as a callback for an external Android phone. No migration needed.
 
 ## Automated verification
 1. `pnpm auth:verify` — password recovery, permission gates, redirect allowlist, user-profile operations, session security, 3-language copy and route/style checks.
