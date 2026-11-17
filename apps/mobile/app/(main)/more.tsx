@@ -52,6 +52,12 @@ export default function More(){
      <Text style={styles.label}>{t(locale,"profile")} · {t(locale,"language")}</Text>
      <Ionicons name={rtl?"chevron-back":"chevron-forward"} size={19} color={theme.muted}/>
    </Pressable>
+   <Pressable onPress={()=>router.push("/security")} accessibilityRole="button"
+     style={[styles.row,{flexDirection:rtl?"row-reverse":"row"}]}>
+     <Ionicons name="shield-checkmark-outline" size={25} color={theme.brand}/>
+     <Text style={styles.label}>{locale==="en"?"Password & devices":locale==="fa-AF"?"رمز عبور و دستگاه‌ها":"پټنوم او وسایل"}</Text>
+     <Ionicons name={rtl?"chevron-back":"chevron-forward"} size={19} color={theme.muted}/>
+   </Pressable>
    <View style={styles.card}>
      <Text style={[styles.cardTitle,{textAlign:rtl?"right":"left"}]}>{o5(locale,"notificationSettings")}</Text>
      <Text style={[styles.meta,{textAlign:rtl?"right":"left"}]}>{o5(locale,"alertPreference")}</Text>
