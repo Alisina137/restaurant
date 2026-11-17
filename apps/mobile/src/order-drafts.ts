@@ -15,8 +15,9 @@ const queue=new Map<string,Promise<void>>();
 function serial<T>(p:string,task:()=>Promise<T>):Promise<T>{
  const prev=queue.get(p)??Promise.resolve();
  const next=prev.catch(()=>{}).then(task);
- queue.set(p,next.then(()=>{},()=>{}));
- void next.finally(()=>{if(queue.get(p)===next)queue.delete(p);}).catch(()=>{});
+ const settled=next.then(()=>{},()=>{});
+ queue.set(p,settled);
+ void settled.finally(()=>{if(queue.get(p)===settled)queue.delete(p);});
  return next;
 }
 async function readCommitted(p:string):Promise<OrderDraft|null>{
