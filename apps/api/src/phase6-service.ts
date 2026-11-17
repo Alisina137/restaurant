@@ -211,6 +211,17 @@ serviceRouter.get("/notifications",route(async(req,res)=>{
  res.setHeader("Cache-Control","no-store");
  res.json({items,total:totals[0]?.total??0,unread:unreadTotal[0]?.total??0,page,perPage:20});
 }));
+// Only notifications still belonging to the authenticated, assigned waiter may be marked.
+serviceRouter.post("/notifications/read-all",route(async(req,res)=>{
+ const scope=await orderScope(req);waiterOnly(scope);
+ const eligible=db.select({id:staffNotification.id}).from(staffNotification)
+   .innerJoin(diningVisit,eq(staffNotification.visitId,diningVisit.id))
+   .where(and(notificationScope(scope),isNull(staffNotification.readAt)));
+ const rows=await db.update(staffNotification).set({readAt:new Date()})
+   .where(inArray(staffNotification.id,eligible)).returning({id:staffNotification.id});
+ res.setHeader("Cache-Control","no-store");
+ res.json({read:true,count:rows.length});
+}));
 serviceRouter.post("/notifications/:id/read",route(async(req,res)=>{
  const scope=await orderScope(req);waiterOnly(scope);
  const id=orderId(req);

@@ -151,3 +151,9 @@ pnpm dev:web
 pnpm dev:mobile
 ```
 Ensure `apps/api/.env`, `apps/web/.env.local`, `apps/mobile/.env` exist and contain the required values, as documented in the example files.
+
+## Phase 26 status (implementation branch)
+- Native waiter notification inbox now uses role/assignment-safe server pagination and unread state, confirmed mark-one/mark-all, real ticket deep links, foreground-only 12-second polling, last verified sync and stale/read-only retry. The waiter badge is scoped to the signed-in account and tenant. No OS push capability is claimed or simulated.
+- Profile and security remain server-authoritative: updated premium account/restaurant/role screen, editable name, persisted Dari/Pashto/English preference, protected password and session revocation, focus/foreground refresh, empty/offline/retry states and app version.
+- Per-account/device opt-in ready-food vibration replaces global consent. A top-level network/server indicator records actual request failures and offers GET-only retry; accepted order submission keeps its Phase 25 durable idempotency workflow, and no financial/account action is silently queued offline.
+- Added a waiter-assignment-restricted, idempotent read-all endpoint, P26 static/pure mobile tests and disposable PostgreSQL role/state regression. See `docs/PHASE-26-ACCEPTANCE.md`. **Physical Expo Go testing, notifications foreground/background behavior, RTL and Phase 14 restaurant pilot sign-off remain pending; do not claim production launch readiness.**

@@ -1,12 +1,13 @@
-import {useEffect,useRef,useState} from "react";
-import {ActivityIndicator,Alert,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from "react-native";
+import {useCallback,useRef,useState} from "react";
+import {ActivityIndicator,Alert,AppState,Pressable,RefreshControl,ScrollView,StyleSheet,Text,TextInput,View} from "react-native";
 import {Ionicons} from "@expo/vector-icons";
-import {router} from "expo-router";
+import {router,useFocusEffect} from "expo-router";
 import {direction} from "@dineflow/shared";
 import {authClient} from "../src/auth-client";
 import {useLocale} from "../src/locale";
 import {ma} from "../src/auth-copy";
 import {theme} from "../src/theme";
+import {m26} from "../src/mobile26-copy";
 
 type SessionInfo={token:string;userAgent?:string|null;updatedAt:string|Date;expiresAt:string|Date};
 function formatDate(value:Date|string,locale:string){
@@ -19,18 +20,25 @@ export default function Security(){
  const [busy,setBusy]=useState(""),[message,setMessage]=useState(""),[error,setError]=useState("");
  const [loading,setLoading]=useState(true),[sessions,setSessions]=useState<SessionInfo[]>([]);
  const [currentToken,setCurrentToken]=useState("");
- const lock=useRef(false);
+ const lock=useRef(false),requestId=useRef(0);
  async function refresh(){
+  const sequence=++requestId.current;
   setLoading(true);
   try{
    const [list,active]=await Promise.all([authClient.listSessions(),authClient.getSession()]);
    if(list.error||active.error)throw new Error("SESSIONS_FAILED");
-   setSessions((list.data??[]) as SessionInfo[]);
+   if(sequence!==requestId.current)return;
+   if(!active.data?.session){setSessions([]);router.replace("/sign-in");return;}
+   setError("");setSessions((list.data??[]) as SessionInfo[]);
    setCurrentToken(active.data?.session.token??"");
-  }catch{setError(ma(locale,"loadFailed"));}
-  finally{setLoading(false);}
+  }catch{if(sequence===requestId.current)setError(ma(locale,"loadFailed"));}
+  finally{if(sequence===requestId.current)setLoading(false);}
  }
- useEffect(()=>{void refresh();},[]);
+ useFocusEffect(useCallback(()=>{
+  void refresh();
+  const sub=AppState.addEventListener("change",state=>{if(state==="active")void refresh();});
+  return()=>{requestId.current++;sub.remove();};
+ },[locale]));
  function begin(action:string){
   if(lock.current)return false;
   lock.current=true;setBusy(action);setMessage("");setError("");return true;
@@ -77,7 +85,8 @@ export default function Security(){
  }
  const disableChange=!!busy||!oldPassword||newPassword.length<12||newPassword.length>128||
   newPassword!==confirmPassword;
- return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.root}>
+ return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.root}
+  refreshControl={<RefreshControl tintColor={theme.brand} refreshing={loading} onRefresh={()=>void refresh()}/>}>
   <Pressable accessibilityRole="button" onPress={()=>router.back()} style={[styles.back,{flexDirection:rtl?"row-reverse":"row"}]}>
    <Ionicons name={rtl?"arrow-forward":"arrow-back"} size={22} color={theme.brand}/>
    <Text style={styles.backText}>{ma(locale,"profile")}</Text>
@@ -114,9 +123,10 @@ export default function Security(){
     <Ionicons name="shield-checkmark-outline" size={23} color={theme.brand}/>
     <Text style={styles.section}>{ma(locale,"sessions")}</Text>
    </View>
+   {!!error&&sessions.length>0&&<Text style={styles.staleHint}>{m26(locale,"stale")}</Text>}
    <View style={styles.actionRow}>
     <Pressable accessibilityRole="button" disabled={loading||!!busy} onPress={()=>void refresh()} style={styles.smallButton}>
-     <Ionicons name="refresh-outline" size={18} color={theme.brand}/><Text style={styles.smallText}>{ma(locale,"loading")}</Text>
+     <Ionicons name="refresh-outline" size={18} color={theme.brand}/><Text style={styles.smallText}>{ma(locale,"retry")}</Text>
     </Pressable>
     <Pressable accessibilityRole="button"
      disabled={!!busy||loading||!sessions.some(s=>s.token!==currentToken)}
@@ -169,5 +179,6 @@ const styles=StyleSheet.create({
  sessionDetail:{fontSize:11,color:theme.muted,lineHeight:18},
  sessionAction:{padding:8},
  error:{fontSize:13,color:theme.danger,lineHeight:20},
- success:{fontSize:13,color:theme.brand,fontWeight:"700",lineHeight:20}
+ success:{fontSize:13,color:theme.brand,fontWeight:"700",lineHeight:20},
+ staleHint:{fontSize:12,color:theme.danger,lineHeight:19}
 });
