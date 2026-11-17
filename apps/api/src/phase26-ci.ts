@@ -13,11 +13,15 @@ async function req(path:string,method="GET",cookie?:string){
   body:method==="POST"?"{}":undefined});
 }
 async function login(email:string){
- const result=await fetch(URL+"/api/auth/sign-in/email",{method:"POST",
-  headers:{Origin:"http://localhost:3000","Content-Type":"application/json"},
-  body:JSON.stringify({email,password})});
- assert.equal(result.status,200,"Failed sign-in "+email+" "+await result.text());
- return result.headers.getSetCookie().map(c=>c.split(";")[0]).join("; ");
+ for(let i=0;i<7;i++){
+  const result=await fetch(URL+"/api/auth/sign-in/email",{method:"POST",
+   headers:{Origin:"http://localhost:3000","Content-Type":"application/json"},
+   body:JSON.stringify({email,password})});
+  if(result.status===429){await new Promise(done=>setTimeout(done,11_000));continue;}
+  assert.equal(result.status,200,"Failed sign-in "+email+" "+await result.text());
+  return result.headers.getSetCookie().map(c=>c.split(";")[0]).join("; ");
+ }
+ throw new Error("P26 sign-in remained rate limited");
 }
 async function main(){
  const waiter=await login("waiter-ci@example.test");
