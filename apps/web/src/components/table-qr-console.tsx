@@ -42,7 +42,7 @@ export function TableQRConsole(){
    if(lock.current||!row.active)return;
    if(rotate&&!(await confirm({title:sg7(locale,"rotate"),
      description:f21(locale,"qrRotateWarn"),confirmLabel:sg7(locale,"rotate"),
-     cancelLabel:sg7(locale,"cancel"),danger:true})))return;
+     cancelLabel:f4(locale,"cancel"),danger:true})))return;
    if(lock.current)return;
    lock.current=true;setBusy(row.id);setError("");setNotice("");
    try{
