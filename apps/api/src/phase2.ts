@@ -227,18 +227,60 @@ staffRouter.patch("/settings", route(async (req, res) => {
   res.setHeader("Cache-Control","private, no-store, max-age=0");
   res.json({ saved: true });
 }));
+/** Real membership and invitation summary. Managers can review it but cannot change owner-only policy. */
+staffRouter.get("/staff/overview",route(async(req,res)=>{
+  const data=await scopedUser(req,res);if(!data)return;
+  const [members,pending,settings]=await Promise.all([
+    db.select({role:tenantMembership.role,status:tenantMembership.status,total:count()})
+      .from(tenantMembership).where(eq(tenantMembership.tenantId,data.tenantId))
+      .groupBy(tenantMembership.role,tenantMembership.status),
+    db.select({total:count(),failed:sql<number>`count(*) FILTER (WHERE ${staffInvitation.deliveryStatus}='failed')::int`})
+      .from(staffInvitation).where(and(eq(staffInvitation.tenantId,data.tenantId),
+        eq(staffInvitation.status,"pending"),sql`${staffInvitation.expiresAt} > now()`)),
+    db.select({managerCanInvite:restaurantSetting.managerCanInvite})
+      .from(restaurantSetting).where(eq(restaurantSetting.tenantId,data.tenantId)).limit(1)
+  ]);
+  const byRole:Record<StaffRole,number>={owner:0,manager:0,waiter:0,kitchen:0,cashier:0};
+  let active=0,disabled=0;
+  for(const row of members){
+    if(row.status==="active"){
+      active+=row.total;
+      if(hasRole(row.role))byRole[row.role]+=row.total;
+    }else if(row.status==="disabled")disabled+=row.total;
+  }
+  res.setHeader("Cache-Control","private, no-store, max-age=0");
+  res.json({members:{active,disabled,total:active+disabled,byRole},
+    invitations:{pending:pending[0]?.total??0,failedDelivery:pending[0]?.failed??0},
+    policy:{managerCanInvite:settings[0]?.managerCanInvite??false},
+    permissions:{canInvite:data.context.role==="owner"||!!settings[0]?.managerCanInvite,
+      canManagePrivilegedRoles:data.context.role==="owner",
+      allowedInviteRoles:data.context.role==="owner"?
+        ["owner","manager","waiter","kitchen","cashier"]:["waiter","kitchen","cashier"]}});
+}));
 staffRouter.get("/staff", route(async (req, res) => {
   const data = await scopedUser(req, res); if (!data) return;
   const page = Math.max(1, Math.min(500, Number(req.query.page) || 1)), perPage = 10;
-  const [rows, totals] = await Promise.all([
-    db.select({ id: tenantMembership.id, role: tenantMembership.role, status: tenantMembership.status,
-      createdAt: tenantMembership.createdAt, email: user.email, name: user.name, userId: user.id })
-      .from(tenantMembership).innerJoin(user, eq(tenantMembership.userId, user.id))
-      .where(eq(tenantMembership.tenantId, data.tenantId))
-      .orderBy(asc(user.name), asc(tenantMembership.id)).limit(perPage).offset((page - 1) * perPage),
-    db.select({ total: count() }).from(tenantMembership).where(eq(tenantMembership.tenantId, data.tenantId))
+  const q=typeof req.query.q==="string"?req.query.q.trim():"";
+  const role=typeof req.query.role==="string"?req.query.role:"all";
+  const status=typeof req.query.status==="string"?req.query.status:"all";
+  if(q.length>80||!(role==="all"||hasRole(role))||!["all","active","disabled"].includes(status)){
+    fail(res,400,"INVALID_FILTER","Choose a valid staff filter.");return;
+  }
+  const where=and(eq(tenantMembership.tenantId,data.tenantId),
+    role==="all"?undefined:eq(tenantMembership.role,role),
+    status==="all"?undefined:eq(tenantMembership.status,status),
+    q?or(ilike(user.name,"%"+q+"%"),ilike(user.email,"%"+q+"%")):undefined);
+  const [rows,totals]=await Promise.all([
+    db.select({ id:tenantMembership.id,role:tenantMembership.role,status:tenantMembership.status,
+      createdAt:tenantMembership.createdAt,email:user.email,name:user.name,userId:user.id })
+      .from(tenantMembership).innerJoin(user,eq(tenantMembership.userId,user.id))
+      .where(where).orderBy(asc(user.name),asc(tenantMembership.id))
+      .limit(perPage).offset((page-1)*perPage),
+    db.select({total:count()}).from(tenantMembership).innerJoin(user,eq(tenantMembership.userId,user.id))
+      .where(where)
   ]);
-  res.json({ items: rows, total: totals[0]?.total ?? 0, page, perPage });
+  res.setHeader("Cache-Control","private, no-store, max-age=0");
+  res.json({items:rows,total:totals[0]?.total??0,page,perPage});
 }));
 staffRouter.patch("/staff/:id", route(async (req, res) => {
   const data = await scopedUser(req, res); if (!data) return;
