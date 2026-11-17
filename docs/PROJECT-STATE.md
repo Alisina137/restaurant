@@ -106,8 +106,16 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - New responsive/RTL premium styling and three-language copy. No new migrations/packages. `pnpm floor21:verify` and seeded `phase21-ci.ts` are in CI.
 - See `docs/PHASE-21-ACCEPTANCE.md` for code/DB checks and outstanding mobile, live waiter, physical QR and cashier-service pilot verification. **Phase 14 production pilot gates remain pending.**
 
+## Phase 22 status
+- Rebuilt owner/manager staff experience with real membership counts, active role breakdown, pending and failed invitation totals, role-aware management, safe editing and confirm/revoke/resend workflows. The role matrix describes actual server capabilities, not fake permission toggles.
+- `/api/tenant/staff/overview` and scoped/filtered paginated `/staff` and `/invitations` endpoints supply accurate counts and live records. Staff updates can reject stale role/status via optimistic expected values, preserving owner and tenant safeguards.
+- Restaurant settings now includes owner-editable informational weekly opening hours using existing JSONB, contact and receipt details, language/timezone and manager invitation policy. Save uses `expectedUpdatedAt` to reject stale owner changes; old clients remain compatible.
+- Responsive premium styling in English/Dari/Pashto, RTL, defensive loading/error/retry and role/access guidance. No packages or schema migration.
+- New `pnpm staff22:verify` and PostgreSQL-backed `phase22-ci.ts` in CI. See `docs/PHASE-22-ACCEPTANCE.md` for remaining production email, printed receipt and device verification.
+- Phase 14 supervised operator pilot remains **outstanding**.
+
 ## Next phase
-Phase 22: staff directory, invitations, role administration and restaurant settings.
+Phase 23: mobile workspace redesign.
 
 ## Local commands
 ```powershell

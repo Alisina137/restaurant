@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { fromNodeHeaders } from "better-auth/node";
-import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { isLocale, isStaffRole, type StaffRole } from "@dineflow/shared";
 import { auth } from "./auth";
@@ -46,6 +46,30 @@ function validEmail(v: unknown): v is string { return typeof v === "string" && v
 function tokenHash(raw: string) { return createHash("sha256").update(raw).digest("hex"); }
 function dateAfterHours(h: number) { return new Date(Date.now() + h * 3_600_000); }
 function hasRole(role: string): role is StaffRole { return isStaffRole(role); }
+/** Hours are informational only; the ordering policy is enforced elsewhere. Do not invent a reservation gate. */
+const weekdays=["mon","tue","wed","thu","fri","sat","sun"] as const;
+type ServiceHours=Record<string,null|{open:string;close:string}>;
+function validClock(value:unknown):value is string {
+ return typeof value==="string"&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+function parseOpeningHours(value:unknown):ServiceHours {
+ if(!value||typeof value!=="object"||Array.isArray(value))
+  throw new MenuError(400,"INVALID_HOURS","Opening hours must be a day-by-day schedule.");
+ const data=value as Record<string,unknown>,out:ServiceHours={};
+ if(Object.keys(data).some(day=>!weekdays.includes(day as typeof weekdays[number])))
+  throw new MenuError(400,"INVALID_HOURS","Opening hours include an unknown day.");
+ for(const [day,entry] of Object.entries(data)){
+  if(entry===null){out[day]=null;continue;}
+  if(!entry||typeof entry!=="object"||Array.isArray(entry))
+   throw new MenuError(400,"INVALID_HOURS","Choose closed or set opening and closing times.");
+  const time=entry as Record<string,unknown>;
+  if(Object.keys(time).some(key=>key!=="open"&&key!=="close")||
+    !validClock(time.open)||!validClock(time.close)||time.open>=time.close)
+   throw new MenuError(400,"INVALID_HOURS","Opening time must be earlier than closing time in 24-hour format.");
+  out[day]={open:time.open,close:time.close};
+ }
+ return out;
+}
 type Draft = { name: string; slug: string; locationName: string; city: string; phone: string; address: string;
   timezone: string; locale: "fa-AF"|"ps-AF"|"en"; orderingPolicy: "waiter_approval"|"direct_to_kitchen";
   receiptFooter: string; acceptedTerms: boolean };
@@ -160,6 +184,7 @@ staffRouter.get("/settings", route(async (req, res) => {
   const [setting] = await db.select().from(restaurantSetting).where(eq(restaurantSetting.tenantId, data.tenantId)).limit(1);
   const [branch] = await db.select().from(location).where(eq(location.tenantId, data.tenantId)).limit(1);
   const [org] = await db.select().from(tenant).where(eq(tenant.id, data.tenantId)).limit(1);
+  res.setHeader("Cache-Control","private, no-store, max-age=0");
   res.json({ setting: setting ?? null, location: branch ?? null, restaurant: org ?? null });
 }));
 staffRouter.patch("/settings", route(async (req, res) => {
@@ -169,34 +194,93 @@ staffRouter.patch("/settings", route(async (req, res) => {
   const phone = str(body.phone, 30), address = str(body.address, 200), timezone = str(body.timezone, 60);
   const locale = body.locale, receiptFooter = str(body.receiptFooter, 160);
   if (name.length < 2 || name.length > 100 || locationName.length < 2 || city.length < 2 ||
+      locationName.length > 80 || city.length > 80 ||
       !isLocale(locale) || (!Intl.supportedValuesOf("timeZone").includes(timezone) && timezone !== "Asia/Kabul") ||
       phone.length > 30 || address.length > 200 || receiptFooter.length > 160 ||
       typeof body.managerCanInvite !== "boolean") {
     fail(res, 400, "INVALID_SETTINGS", "Please correct the restaurant settings."); return;
   }
+  // Old clients may omit these fields; do not silently erase a configured timetable.
+  const hours=body.openingHours===undefined?undefined:parseOpeningHours(body.openingHours);
+  const expected=body.expectedUpdatedAt;
+  if(expected!==undefined&&(typeof expected!=="string"||
+    !Number.isFinite(Date.parse(expected))||expected.length>40))
+    throw new MenuError(400,"INVALID_VERSION","Refresh restaurant settings before saving.");
   await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT tenant_id FROM restaurant_settings WHERE tenant_id=${data.tenantId} FOR UPDATE`);
+    const [current]=await tx.select({updatedAt:restaurantSetting.updatedAt})
+      .from(restaurantSetting).where(eq(restaurantSetting.tenantId,data.tenantId)).limit(1);
+    if(!current)throw new MenuError(404,"NOT_FOUND","Restaurant settings unavailable.");
+    if(typeof expected==="string"&&current.updatedAt.getTime()!==new Date(expected).getTime())
+      throw new MenuError(409,"VERSION_CONFLICT","Settings changed elsewhere. Reload to review the latest values.");
+    const updatedAt=new Date(Math.max(Date.now(),current.updatedAt.getTime()+1));
     await tx.update(tenant).set({ name }).where(eq(tenant.id, data.tenantId));
     await tx.update(location).set({ name: locationName, city }).where(eq(location.tenantId, data.tenantId));
     await tx.update(restaurantSetting).set({ phone: phone || null, address: address || null, timezone,
-      locale, receiptFooter, managerCanInvite: body.managerCanInvite as boolean, updatedAt: new Date() })
+      locale, receiptFooter, managerCanInvite: body.managerCanInvite as boolean,
+      ...(hours!==undefined?{openingHours:hours}:{}),updatedAt })
       .where(eq(restaurantSetting.tenantId, data.tenantId));
     await tx.insert(auditEvent).values({ id: randomUUID(), userId: data.person.id, tenantId: data.tenantId,
-      action: "tenant.settings_updated", details: { name, locationName, city, timezone, locale } });
+      action: "tenant.settings_updated", details: { name, locationName, city, timezone, locale,
+        openingHoursChanged:hours!==undefined,managerCanInvite:body.managerCanInvite } });
   });
+  res.setHeader("Cache-Control","private, no-store, max-age=0");
   res.json({ saved: true });
+}));
+/** Real membership and invitation summary. Managers can review it but cannot change owner-only policy. */
+staffRouter.get("/staff/overview",route(async(req,res)=>{
+  const data=await scopedUser(req,res);if(!data)return;
+  const [members,pending,settings]=await Promise.all([
+    db.select({role:tenantMembership.role,status:tenantMembership.status,total:count()})
+      .from(tenantMembership).where(eq(tenantMembership.tenantId,data.tenantId))
+      .groupBy(tenantMembership.role,tenantMembership.status),
+    db.select({total:count(),failed:sql<number>`count(*) FILTER (WHERE ${staffInvitation.deliveryStatus}='failed')::int`})
+      .from(staffInvitation).where(and(eq(staffInvitation.tenantId,data.tenantId),
+        eq(staffInvitation.status,"pending"),sql`${staffInvitation.expiresAt} > now()`)),
+    db.select({managerCanInvite:restaurantSetting.managerCanInvite})
+      .from(restaurantSetting).where(eq(restaurantSetting.tenantId,data.tenantId)).limit(1)
+  ]);
+  const byRole:Record<StaffRole,number>={owner:0,manager:0,waiter:0,kitchen:0,cashier:0};
+  let active=0,disabled=0;
+  for(const row of members){
+    if(row.status==="active"){
+      active+=row.total;
+      if(hasRole(row.role))byRole[row.role]+=row.total;
+    }else if(row.status==="disabled")disabled+=row.total;
+  }
+  res.setHeader("Cache-Control","private, no-store, max-age=0");
+  res.json({members:{active,disabled,total:active+disabled,byRole},
+    invitations:{pending:pending[0]?.total??0,failedDelivery:pending[0]?.failed??0},
+    policy:{managerCanInvite:settings[0]?.managerCanInvite??false},
+    permissions:{canInvite:data.context.role==="owner"||!!settings[0]?.managerCanInvite,
+      canManagePrivilegedRoles:data.context.role==="owner",
+      allowedInviteRoles:data.context.role==="owner"?
+        ["owner","manager","waiter","kitchen","cashier"]:["waiter","kitchen","cashier"]}});
 }));
 staffRouter.get("/staff", route(async (req, res) => {
   const data = await scopedUser(req, res); if (!data) return;
   const page = Math.max(1, Math.min(500, Number(req.query.page) || 1)), perPage = 10;
-  const [rows, totals] = await Promise.all([
-    db.select({ id: tenantMembership.id, role: tenantMembership.role, status: tenantMembership.status,
-      createdAt: tenantMembership.createdAt, email: user.email, name: user.name, userId: user.id })
-      .from(tenantMembership).innerJoin(user, eq(tenantMembership.userId, user.id))
-      .where(eq(tenantMembership.tenantId, data.tenantId))
-      .orderBy(asc(user.name), asc(tenantMembership.id)).limit(perPage).offset((page - 1) * perPage),
-    db.select({ total: count() }).from(tenantMembership).where(eq(tenantMembership.tenantId, data.tenantId))
+  const q=typeof req.query.q==="string"?req.query.q.trim():"";
+  const role=typeof req.query.role==="string"?req.query.role:"all";
+  const status=typeof req.query.status==="string"?req.query.status:"all";
+  if(q.length>80||!(role==="all"||hasRole(role))||!["all","active","disabled"].includes(status)){
+    fail(res,400,"INVALID_FILTER","Choose a valid staff filter.");return;
+  }
+  const where=and(eq(tenantMembership.tenantId,data.tenantId),
+    role==="all"?undefined:eq(tenantMembership.role,role),
+    status==="all"?undefined:eq(tenantMembership.status,status),
+    q?or(ilike(user.name,"%"+q+"%"),ilike(user.email,"%"+q+"%")):undefined);
+  const [rows,totals]=await Promise.all([
+    db.select({ id:tenantMembership.id,role:tenantMembership.role,status:tenantMembership.status,
+      createdAt:tenantMembership.createdAt,email:user.email,name:user.name,userId:user.id })
+      .from(tenantMembership).innerJoin(user,eq(tenantMembership.userId,user.id))
+      .where(where).orderBy(asc(user.name),asc(tenantMembership.id))
+      .limit(perPage).offset((page-1)*perPage),
+    db.select({total:count()}).from(tenantMembership).innerJoin(user,eq(tenantMembership.userId,user.id))
+      .where(where)
   ]);
-  res.json({ items: rows, total: totals[0]?.total ?? 0, page, perPage });
+  res.setHeader("Cache-Control","private, no-store, max-age=0");
+  res.json({items:rows,total:totals[0]?.total??0,page,perPage});
 }));
 staffRouter.patch("/staff/:id", route(async (req, res) => {
   const data = await scopedUser(req, res); if (!data) return;
@@ -210,6 +294,8 @@ staffRouter.patch("/staff/:id", route(async (req, res) => {
       const [target] = await tx.select().from(tenantMembership)
         .where(and(eq(tenantMembership.id, (req.params.id ?? "")), eq(tenantMembership.tenantId, data.tenantId))).limit(1);
       if (!target) return "NOT_FOUND";
+      if ((req.body?.expectedRole!==undefined&&req.body.expectedRole!==target.role)||
+          (req.body?.expectedStatus!==undefined&&req.body.expectedStatus!==target.status))return "VERSION_CONFLICT";
       if (data.context.role === "manager" && (target.role === "owner" || target.role === "manager" || role === "owner" || role === "manager")) return "ACCESS_DENIED";
       if (target.userId === data.person.id && status === "disabled") return "SELF_DISABLE";
       if (target.role === "owner" && (role !== "owner" || status === "disabled")) {
@@ -224,8 +310,10 @@ staffRouter.patch("/staff/:id", route(async (req, res) => {
           toRole: role, fromStatus: target.status, toStatus: status } });
       return "OK";
     });
-    if (outcome !== "OK") { fail(res, outcome === "NOT_FOUND" ? 404 : 403, outcome, outcome === "LAST_OWNER" ?
-      "Transfer ownership before disabling the last owner." : "Cannot change this membership."); return; }
+    if (outcome !== "OK") { fail(res, outcome === "NOT_FOUND" ? 404 : outcome==="VERSION_CONFLICT"?409:403,
+      outcome,outcome==="LAST_OWNER"?"Transfer ownership before disabling the last owner.":
+      outcome==="VERSION_CONFLICT"?"Membership changed on another device. Refresh before retrying.":
+      "Cannot change this membership."); return; }
     res.json({ saved: true });
   } catch (err) { throw err; }
 }));
@@ -254,20 +342,39 @@ async function dispatchInvite(id: string, token: string, email: string, tenantNa
     return false;
   }
 }
-staffRouter.get("/invitations", route(async (req, res) => {
-  const data = await scopedUser(req, res); if (!data) return;
-  const page = Math.max(1, Math.min(500, Number(req.query.page) || 1)), perPage = 10;
-  const [rows, totals] = await Promise.all([
-    db.select({ id: staffInvitation.id, email: staffInvitation.email, role: staffInvitation.role,
-      status: staffInvitation.status, deliveryStatus: staffInvitation.deliveryStatus,
-      expiresAt: staffInvitation.expiresAt, createdAt: staffInvitation.createdAt,
-      acceptedAt: staffInvitation.acceptedAt, sendAttempts: staffInvitation.sendAttempts })
-      .from(staffInvitation).where(eq(staffInvitation.tenantId, data.tenantId))
-      .orderBy(desc(staffInvitation.createdAt)).limit(perPage).offset((page - 1) * perPage),
-    db.select({ total: count() }).from(staffInvitation).where(eq(staffInvitation.tenantId, data.tenantId))
+staffRouter.get("/invitations", route(async(req,res)=>{
+  const data=await scopedUser(req,res);if(!data)return;
+  const page=Math.max(1,Math.min(500,Number(req.query.page)||1)),perPage=10;
+  const q=typeof req.query.q==="string"?req.query.q.trim():"";
+  const status=typeof req.query.status==="string"?req.query.status:"all";
+  const delivery=typeof req.query.delivery==="string"?req.query.delivery:"all";
+  const role=typeof req.query.role==="string"?req.query.role:"all";
+  if(q.length>80||!["all","pending","expired","accepted","revoked"].includes(status)||
+    !["all","pending","sent","failed"].includes(delivery)||!(role==="all"||hasRole(role))){
+    fail(res,400,"INVALID_FILTER","Choose a valid invitation filter.");return;
+  }
+  const validPending=sql`${staffInvitation.expiresAt}>now()`,
+    expiredPending=sql`${staffInvitation.expiresAt}<=now()`;
+  const where=and(eq(staffInvitation.tenantId,data.tenantId),
+    status==="all"?undefined:status==="expired"?and(eq(staffInvitation.status,"pending"),expiredPending):
+    status==="pending"?and(eq(staffInvitation.status,"pending"),validPending):
+    eq(staffInvitation.status,status),
+    delivery==="all"?undefined:eq(staffInvitation.deliveryStatus,delivery),
+    role==="all"?undefined:eq(staffInvitation.role,role),
+    q?ilike(staffInvitation.email,"%"+q+"%"):undefined);
+  const [rows,totals]=await Promise.all([
+    db.select({id:staffInvitation.id,email:staffInvitation.email,role:staffInvitation.role,
+      status:staffInvitation.status,deliveryStatus:staffInvitation.deliveryStatus,
+      expiresAt:staffInvitation.expiresAt,createdAt:staffInvitation.createdAt,
+      acceptedAt:staffInvitation.acceptedAt,sendAttempts:staffInvitation.sendAttempts})
+      .from(staffInvitation).where(where)
+      .orderBy(desc(staffInvitation.createdAt),desc(staffInvitation.id))
+      .limit(perPage).offset((page-1)*perPage),
+    db.select({total:count()}).from(staffInvitation).where(where)
   ]);
-  res.json({ items: rows.map((row) => ({ ...row, status: row.status === "pending" && row.expiresAt < new Date() ?
-    "expired" : row.status })), total: totals[0]?.total ?? 0, page, perPage });
+  res.setHeader("Cache-Control","private, no-store, max-age=0");
+  res.json({items:rows.map(row=>({...row,status:row.status==="pending"&&row.expiresAt<=new Date()?
+    "expired":row.status})),total:totals[0]?.total??0,page,perPage});
 }));
 staffRouter.post("/invitations", route(async (req, res) => {
   const data = await mayInvite(req, res); if (!data) return;
