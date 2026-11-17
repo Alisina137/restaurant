@@ -88,7 +88,7 @@ export default function AccountPage(){
    const result=await authClient.updateUser({name:cleaned});
    if(result.error)throw new Error("UPDATE_FAILED");
    const next=await getContext();
-   setWorkspace(next);notify(t(locale,"languageSaved").replace(t(locale,"language"),au(locale,"saveProfile")));
+   setWorkspace(next);notify(au(locale,"profileSaved"));
    // Server's context remains the single source of user identity and permissions.
   }catch{setError(au(locale,"requestFailed"));}
   finally{finish();}
