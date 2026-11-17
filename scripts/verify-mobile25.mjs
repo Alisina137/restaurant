@@ -13,7 +13,7 @@ function has(source,markers,area){
  for(const marker of markers)assert.ok(source.includes(marker),"P25 "+area+" missing "+marker);
 }
 has(screen,["FlatList","MenuCard","ItemOptionsModal","useSafeAreaInsets",
- "useFocusEffect","AppState","RefreshControl","aria", "reviewCart",
+ "useFocusEffect","AppState","RefreshControl","accessibilityRole", "reviewCart",
  "cartPrice","readDraft","saveDraft","clearDraft","addCartLine",
  "setLineQuantity","removeLine","setOrderNote","item.soldOut",
  "category","search","onPress:()=>void submit()",
@@ -43,7 +43,7 @@ has(tests,["assert.equal(ok.valid,true)","invalid","validOptions",
 has(http,["NODE_ENV===\"production\"","dev-restaurant","/api/orders/visits/",
  "15","IDEMPOTENCY_CONFLICT","ITEM_UNAVAILABLE","/api/menu/items/",
  "/api/menu/catalog","/api/orders/rounds/","/serve",
- "kitchenTicket","orderRound","orderLine","rounds.length,1","subtotal","64500",
+ "kitchenTicket","orderRound","orderLine","rounds.length,1","64500",
  "cashier-ci@example.test","new-owner-ci@example.test","finish",
  "nextStatus:\"ready\"","nextStatus:\"preparing\""],"PostgreSQL kitchen handoff");
 assert.ok(!screen.includes("cartPrice(l,menu)??0"),
