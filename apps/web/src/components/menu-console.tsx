@@ -13,7 +13,7 @@ import { money, nameFor, type Category, type Catalog, type EditorData, type Grou
   type ItemRow, type Page } from "@/lib/menu-types";
 import { CategoryEditor, GroupEditor, ItemEditor } from "./menu-editors";
 import {useInteraction} from "./ui/interaction-provider";
-import {InlineFeedback,SearchInput,PageControls} from "./ui/interaction-controls";
+import {InlineFeedback,SearchInput,PageControls,FilterSelect} from "./ui/interaction-controls";
 import {LoadingSkeleton} from "./ui/design-system";
 import {ux} from "@/lib/interaction-copy";
 import {useDialogFocus} from "./ui/use-dialog-focus";
@@ -162,11 +162,12 @@ export function MenuConsole({tab}: {tab:MenuTab}){
         <SearchInput className="menu-search" value={queryInput}
           onChange={value=>{setQueryInput(value);if(!value){setQuery("");setPage(1);}}}
           label={m3(locale,"search")} clearLabel={ux(locale,"clearSearch")}/>
-        <select value={status} aria-label={m3(locale,"filter")} onChange={e=>{setPage(1);setStatus(e.target.value);}}>
-          <option value="all">{m3(locale,"all")}</option><option value="published">{m3(locale,"published")}</option>
-          <option value="draft">{m3(locale,"draft")}</option><option value="soldout">{m3(locale,"soldout")}</option></select>
-        <select value={category} aria-label={m3(locale,"category")} onChange={e=>{setPage(1);setCategory(e.target.value);}}>
-          <option value="">{m3(locale,"byCategory")}</option>{editor.categories.map(c=><option key={c.id} value={c.id}>{nameFor(c,locale)}</option>)}</select>
+        <FilterSelect value={status} label={m3(locale,"filter")}
+          onChange={value=>{setPage(1);setStatus(value);}}
+          options={["all","published","draft","soldout"].map(value=>({value,label:m3(locale,value as "all"|"published"|"draft"|"soldout")}))}/>
+        <FilterSelect value={category} label={m3(locale,"category")}
+          onChange={value=>{setPage(1);setCategory(value);}}
+          options={[{value:"",label:m3(locale,"byCategory")},...editor.categories.map(c=>({value:c.id,label:nameFor(c,locale)}))]}/>
         <button className="button button-small" type="submit"><Search size={16}/>{m3(locale,"apply")}</button>
       </form>
       <ArchiveToggle locale={locale} archived={archived} setArchived={v=>{setArchived(v);setPage(1);}}/>
