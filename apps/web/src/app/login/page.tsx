@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, LockKeyhole, UtensilsCrossed } from "lucide-reac
 import { direction, isLocale, t, type Locale } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
 import { getContext, ApiError } from "@/lib/context";
+import {FormField} from "@/components/ui/design-system";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -66,14 +67,12 @@ export default function LoginPage() {
         <span className="auth-card-icon"><LockKeyhole size={22} /></span>
         <h2>{t(locale, "signIn")}</h2>
         <p className="muted">{t(locale, "signInHelp")}</p>
-        <div className="field">
-          <label htmlFor="signin-email">{t(locale, "email")}</label>
+        <FormField id="signin-email" label={t(locale, "email")}>
           <input id="signin-email" name="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="staff@example.com" dir="ltr" />
-        </div>
-        <div className="field">
-          <label htmlFor="signin-password">{t(locale, "password")}</label>
+        </FormField>
+        <FormField id="signin-password" label={t(locale, "password")}>
           <input id="signin-password" name="password" type="password" autoComplete="current-password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required />
-        </div>
+        </FormField>
         {error && <p className="form-error" role="alert">{error}</p>}
         <button className="button button-primary button-wide" disabled={busy} type="submit">
           <span>{busy ? t(locale, "loading") : t(locale, "signIn")}</span>{busy ? <span className="button-spinner" /> : arrow}
