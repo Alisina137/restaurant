@@ -13,6 +13,7 @@ import {type Page,type OrderSummary,price} from "../../src/order-types";
 import {m23} from "../../src/mobile23-copy";
 import {ScreenHeader,LiveNotice,LoadingPanel,EmptyPanel,Pill,SectionHeading} from "../../src/mobile23-ui";
 import {useLiveScreen} from "../../src/use-live-screen";
+import {floorMetrics,filterFloorTables} from "../../src/mobile23-data";
 type Tab="all"|"mine"|"attention";
 type FloorData={board:Board;ready:Page<OrderSummary>|null;requests:ServiceList|null};
 type Row={kind:"table";table:Table}|{kind:"section";id:string;label:string}|
@@ -36,20 +37,9 @@ export default function Tables(){
  const loader=useCallback(loadTables,[]);
  const {data,loading,refreshing,error,lastUpdated,refresh}=useLiveScreen("floor-live",loader,12000);
  const board=data?.board;
- const counts=useMemo(()=>{
-  const items=board?.tables??[];
-  return {all:items.length,mine:items.filter(t=>t.assignedWaiterId===board?.actorId).length,
-   available:items.filter(t=>t.status==="available").length,
-   occupied:items.filter(t=>t.status==="occupied").length,
-   cleaning:items.filter(t=>t.status==="cleaning").length,
-   disabled:items.filter(t=>t.status==="disabled").length};
- },[board]);
- const visible=useMemo(()=>board?.tables.filter(t=>
-  (tab!=="mine"||t.assignedWaiterId===board.actorId)&&
-  (!status||t.status===status)&&(!section||t.sectionId===section)&&
-  (!query.trim()||[t.label,t.sectionName,t.assignedWaiterName??""].some(v=>
-   v.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))))??[],
- [board,tab,status,section,query]);
+ const counts=useMemo(()=>floorMetrics(board??null),[board]);
+ const visible=useMemo(()=>filterFloorTables(board??null,{tab,status,section,query}),
+  [board,tab,status,section,query]);
  const rows=useMemo<Row[]>(()=>{
   if(!board)return [];
   if(tab==="attention")return [
