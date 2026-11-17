@@ -49,6 +49,7 @@ const en={
  noteLabel:"Cooking instructions",invalidChoices:"Check required modifier selections.",
  proceed:"Continue",draftAuto:"Changes are saved automatically while you work.",
  draftStorage:"Draft storage failed. You can still edit but cannot submit until it is saved.",
+ uncertain:"The kitchen may have received this order. Editing is locked until the same request is confirmed.",retrySame:"Check / retry this order",markerFailed:"Cannot secure the submission key on this device. Order was not sent.",
  viewCart:"Review cart",category:"Categories",
 };
 const fa:Record<keyof typeof en,string>={
@@ -101,6 +102,7 @@ const fa:Record<keyof typeof en,string>={
  noteLabel:"دستور پخت",invalidChoices:"انتخاب‌های ضروری را بررسی کنید.",
  proceed:"ادامه",draftAuto:"تغییرات هنگام کار به‌طور خودکار ذخیره می‌شوند.",
  draftStorage:"ذخیره پیش‌نویس ناموفق بود؛ تا زمان ذخیره موفق ارسال ممکن نیست.",
+ uncertain:"ممکن است آشپزخانه این سفارش را دریافت کرده باشد. تا بررسی همان درخواست، ویرایش قفل است.",retrySame:"بررسی / تکرار همین سفارش",markerFailed:"کلید ارسال در دستگاه ذخیره نشد؛ سفارش فرستاده نشد.",
  viewCart:"بررسی سبد",category:"دسته‌ها",
 };
 const ps:Record<keyof typeof en,string>={
@@ -153,6 +155,7 @@ const ps:Record<keyof typeof en,string>={
  noteLabel:"د پخلي لارښوونې",invalidChoices:"اړین انتخابونه وګورئ.",
  proceed:"دوام",draftAuto:"ستاسو بدلونونه د کار پر مهال په اوتومات ډول ساتل کېږي.",
  draftStorage:"مسوده ونه ساتل شوه؛ تر خوندي کېدو فرمایش نه لېږل کېږي.",
+ uncertain:"ښايي پخلنځي فرمایش ترلاسه کړی وي. تر تایید پورې د همدې غوښتنې بدلون بند دی.",retrySame:"همدا فرمایش وګورئ / بیا هڅه وکړئ",markerFailed:"د لېږلو کلید په وسیله کې خوندي نه شو؛ فرمایش نه دی استول شوی.",
  viewCart:"سبد وګورئ",category:"ډولونه",
 };
 export type Mobile25Key=keyof typeof en;
