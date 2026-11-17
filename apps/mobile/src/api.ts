@@ -1,5 +1,6 @@
 import type { Locale, Role, StaffRole } from "@dineflow/shared";
 import { API_URL, authClient } from "./auth-client";
+import {observedFetch} from "./network-status";
 
 export type Identity = {
   user: { id: string; name: string; email: string };
@@ -8,7 +9,7 @@ export type Identity = {
 };
 export async function authenticatedFetch(path: string, options?: RequestInit) {
   const cookie = await authClient.getCookie();
-  const response = await fetch(API_URL + path, {
+  const response = await observedFetch(API_URL + path, {
     ...options, credentials: "omit",
     headers: { Cookie: cookie ?? "", "Content-Type": "application/json", ...(options?.headers ?? {}) }
   });
