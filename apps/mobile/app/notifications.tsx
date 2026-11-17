@@ -35,7 +35,9 @@ export default function Notifications(){
    if(!inboxIsValid(inbox))throw new Error("INVALID_INBOX");
    return {inbox,scope:identity.user.id+"|"+identity.tenantId};
   }catch(err){
-   if(err instanceof FloorRequestError&&(err.status===401||err.status===403))throw err;
+   if(err instanceof FloorRequestError&&err.status===401)throw err;
+   if(err instanceof FloorRequestError&&err.status===403)
+    throw new FloorRequestError(403,"ACCESS_DENIED",m26(locale,"noAccess"));
    throw new Error(m26(locale,"loadFailed"));
   }
  },[page,tab,locale]);
