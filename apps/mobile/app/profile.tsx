@@ -11,12 +11,19 @@ import {authClient} from "../src/auth-client";
 import {ma} from "../src/auth-copy";
 import {m26} from "../src/mobile26-copy";
 import {useLiveScreen} from "../src/use-live-screen";
+import {FloorRequestError} from "../src/floor-api";
 import {LiveNotice,LoadingPanel} from "../src/mobile23-ui";
 import appConfig from "../app.json";
 
 export default function Profile(){
  const {locale,changeLocale}=useLocale(),rtl=direction(locale)==="rtl",insets=useSafeAreaInsets();
- const loader=useCallback(fetchIdentity,[]);
+ const loader=useCallback(async()=>{
+  try{return await fetchIdentity();}
+  catch(err){
+   if(String(err).includes("401"))throw new FloorRequestError(401,"UNAUTHENTICATED","Sign in again.");
+   throw err;
+  }
+ },[]);
  const {data:identity,loading,refreshing,error,lastUpdated,refresh}=useLiveScreen("waiter-profile",loader,30000);
  const [name,setName]=useState(""),[edited,setEdited]=useState(false);
  const [busy,setBusy]=useState(""),[actionError,setActionError]=useState(""),[success,setSuccess]=useState("");
