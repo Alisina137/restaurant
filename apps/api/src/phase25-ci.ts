@@ -132,8 +132,8 @@ async function main(){
  assert.equal(details.ticket.status,"ready");assert.equal(details.round.totalMinor,64500);
  const delivered=await request("/api/orders/rounds/"+first.round.id+"/serve",
   "POST",{version:first.ticket.version+2},waiter);
- assert.equal(delivered.status,200,await delivered.text(),
-  "Waiter confirms actual food delivery after kitchen-ready");
+ assert.equal(delivered.status,200,
+  "Waiter confirms actual food delivery after kitchen-ready: "+await delivered.text());
  console.info("PASS P25: real table/visit catalog, validation, exact-key request replays and altered hash rejection, duplicate-proof kitchen ticket, immutable prices after stock change, kitchen ready and waiter delivery.");
 }
 main().then(async()=>pool.end()).catch(async e=>{console.error(e);await pool.end();process.exitCode=1;});
