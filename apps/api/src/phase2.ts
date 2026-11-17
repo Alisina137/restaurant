@@ -294,6 +294,8 @@ staffRouter.patch("/staff/:id", route(async (req, res) => {
       const [target] = await tx.select().from(tenantMembership)
         .where(and(eq(tenantMembership.id, (req.params.id ?? "")), eq(tenantMembership.tenantId, data.tenantId))).limit(1);
       if (!target) return "NOT_FOUND";
+      if ((req.body?.expectedRole!==undefined&&req.body.expectedRole!==target.role)||
+          (req.body?.expectedStatus!==undefined&&req.body.expectedStatus!==target.status))return "VERSION_CONFLICT";
       if (data.context.role === "manager" && (target.role === "owner" || target.role === "manager" || role === "owner" || role === "manager")) return "ACCESS_DENIED";
       if (target.userId === data.person.id && status === "disabled") return "SELF_DISABLE";
       if (target.role === "owner" && (role !== "owner" || status === "disabled")) {
@@ -308,8 +310,10 @@ staffRouter.patch("/staff/:id", route(async (req, res) => {
           toRole: role, fromStatus: target.status, toStatus: status } });
       return "OK";
     });
-    if (outcome !== "OK") { fail(res, outcome === "NOT_FOUND" ? 404 : 403, outcome, outcome === "LAST_OWNER" ?
-      "Transfer ownership before disabling the last owner." : "Cannot change this membership."); return; }
+    if (outcome !== "OK") { fail(res, outcome === "NOT_FOUND" ? 404 : outcome==="VERSION_CONFLICT"?409:403,
+      outcome,outcome==="LAST_OWNER"?"Transfer ownership before disabling the last owner.":
+      outcome==="VERSION_CONFLICT"?"Membership changed on another device. Refresh before retrying.":
+      "Cannot change this membership."); return; }
     res.json({ saved: true });
   } catch (err) { throw err; }
 }));
