@@ -14,7 +14,7 @@ const messages = {
   resend:"Resend verification email",resendSent:"If the address is eligible, another verification email has been requested.",
   checkEmailTitle:"Check your email",checkEmailHint:"Verify your email first, then sign in to finish restaurant setup.",
   verificationHelp:"Didn't receive it? Check spam or resend from the verification screen.",
-  fullName:"Full name",nameError:"Enter a name between 2 and 80 characters.",saveProfile:"Save profile",
+  fullName:"Full name",nameError:"Enter a name between 2 and 80 characters.",saveProfile:"Save profile",profileSaved:"Profile updated.",
   accountSettings:"Account settings",editProfile:"Your profile",editProfileHint:"Update the name colleagues see in DineFlow.",
   accountSecurity:"Password & security",securityHint:"Protect your account and manage signed-in devices.",
   changePassword:"Change password",passwordChanged:"Password changed. Other sessions were signed out.",
