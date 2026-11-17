@@ -1,154 +1,149 @@
-import { useCallback, useState } from "react";
-import { ActivityIndicator, AppState, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { direction, t } from "@dineflow/shared";
-import { fetchIdentity, type Identity } from "../../src/api";
-import { authClient } from "../../src/auth-client";
-import { theme } from "../../src/theme";
-import { useLocale } from "../../src/locale";
-import { router, useFocusEffect } from "expo-router";
-import { floorRequest } from "../../src/floor-api";
-import { f, type Board } from "../../src/floor";
-import { o5 } from "../../src/order-copy";
-import {gm7} from "../../src/guest-copy";
-import {sr8} from "../../src/service-copy";
-export default function Home() {
-  const { locale, changeLocale } = useLocale();
-  const [identity, setIdentity] = useState<Identity | null>(null);
-  const [floor, setFloor] = useState<Board | null>(null);
-  const [ordersStat,setOrdersStat]=useState<{active:number;ready:number;served?:number}|null>(null);
-  const [alerts,setAlerts]=useState<{id:string;roundId:string;tableLabel:string;lastNotifiedAt:string}[]|null>(null);
-  const [unreadCount,setUnreadCount]=useState<number|null>(null);
-  const [guestPending,setGuestPending]=useState<number|null>(null);
-  const [servicePending,setServicePending]=useState<number|null>(null);
-  const [busy, setBusy] = useState(true);
-  const [error, setError] = useState("");
-  const rtl = direction(locale) === "rtl";
-  const load = useCallback(async (silent=false) => {
-    if(!silent)setBusy(true); setError("");
-    try {
-      const data = await fetchIdentity();
-      if (data.role !== "waiter") { setError("ACCESS"); setIdentity(null); return; }
-      setIdentity(data);
-      changeLocale(data.locale);
-      try { const [b,stats]=await Promise.all([
-       floorRequest<Board>("/api/floor/tables/board"),
-       floorRequest<{active:number;ready:number}>("/api/orders/my/stats")]);
-       setFloor(b);setOrdersStat(stats);
-       try{const requests=await floorRequest<{active:number}>("/api/service/requests/count");setServicePending(requests.active);}catch{setServicePending(null);}
-       try{const x=await floorRequest<{pending:number}>("/api/guest/staff/approvals/count");setGuestPending(x.pending);}catch{setGuestPending(null);}
-        try{
-          const notices=await floorRequest<{items:{id:string;roundId:string;tableLabel:string;lastNotifiedAt:string}[];unread:number}>(
-           "/api/orders/notifications?unread=1&page=1");
-          setAlerts(notices.items.slice(0,3));setUnreadCount(notices.unread);
-        }catch{setAlerts(null);setUnreadCount(null);}
-      } catch { setFloor(null);setOrdersStat(null);setAlerts(null);setUnreadCount(null);setServicePending(null); }
-    } catch (e) {
-      const message = String(e);
-      if (message.includes("401")) { router.replace("/sign-in"); return; }
-      setError(message.includes("403") ? "MEMBERSHIP" : "NETWORK");
-    } finally { if(!silent)setBusy(false); }
-  }, []);
-  useFocusEffect(useCallback(() => {
-    void load();
-    const timer=setInterval(()=>{if(AppState.currentState==="active")void load(true);},12000);
-    const listener=AppState.addEventListener("change",x=>{if(x==="active")void load(true);});
-    return()=>{clearInterval(timer);listener.remove();};
-  }, [load]));
-  return <ScrollView style={styles.root} contentContainerStyle={styles.content}>
-    <View style={[styles.header, { flexDirection: rtl ? "row-reverse" : "row" }]}>
-      <View><Text style={[styles.small, { textAlign: rtl ? "right" : "left" }]}>DINEFLOW</Text><Text style={styles.headerTitle}>{t(locale, "home")}</Text></View>
-      <View style={styles.roundIcon}><Ionicons name="restaurant-outline" color={theme.brand} size={25} /></View>
-    </View>
-    {busy ? <View style={styles.center}><ActivityIndicator color={theme.brand} size="large" /><Text style={styles.muted}>{t(locale, "loading")}</Text></View> :
-      error ? <View style={styles.panel}><Text style={styles.title}>{error === "ACCESS" ? t(locale, "accessDenied") : error === "MEMBERSHIP" ? t(locale, "noMembership") : t(locale, "offline")}</Text>
-        <Pressable onPress={() => void load()} style={styles.action}><Text style={styles.actionText}>{t(locale, "retry")}</Text></Pressable></View> :
-      identity ? <>
-        <View style={styles.hero}>
-          <View style={[styles.heroBadge, { flexDirection: rtl ? "row-reverse" : "row" }]}><Ionicons name="shield-checkmark" size={15} color="#176D59" /><Text style={styles.heroBadgeText}>{t(locale, "active")}</Text></View>
-          <Text style={[styles.title, { textAlign: rtl ? "right" : "left" }]}>{t(locale, "welcome")}, {identity.user.name}</Text>
-          <Text style={[styles.muted, { textAlign: rtl ? "right" : "left" }]}>{t(locale, "readySubtitle")}</Text>
-        </View>
-        <View style={styles.panel}>
-          <View style={[styles.panelRow, { flexDirection: rtl ? "row-reverse" : "row" }]}><Ionicons name="storefront-outline" color={theme.brand} size={23} /><Text style={styles.sectionTitle}>{t(locale, "restaurant")}</Text></View>
-          <Text style={[styles.panelName, { textAlign: rtl ? "right" : "left" }]}>{identity.tenantName}</Text>
-        </View>
-        <View style={styles.panel}>
-          <View style={[styles.panelRow, { flexDirection: rtl ? "row-reverse" : "row" }]}>
-            <Ionicons name="grid-outline" color={theme.brand} size={23}/>
-            <Text style={styles.sectionTitle}>{f(locale,"myActive")}</Text></View>
-          <Text style={styles.title}>{floor?floor.tables.filter(t=>t.visitId&&t.assignedWaiterId===floor.actorId).length:"—"}</Text>
-          <Pressable accessibilityRole="button" onPress={()=>router.push("/(main)/tables")} style={styles.action}>
-            <Text style={styles.actionText}>{f(locale,"openTables")}</Text></Pressable>
-        </View>
-        <View style={styles.panel}>
-          <View style={[styles.panelRow,{flexDirection:rtl?"row-reverse":"row"}]}>
-            <Ionicons name="notifications-outline" size={24} color={theme.brand}/>
-            <Text style={styles.sectionTitle}>{sr8(locale,"requests")}</Text></View>
-          <Text style={styles.title}>{servicePending??"—"}</Text>
-          <Text style={styles.muted}>{sr8(locale,"attention")}</Text>
-          <Pressable style={styles.action} onPress={()=>router.push("/requests")}>
-            <Text style={styles.actionText}>{sr8(locale,"view")}</Text></Pressable>
-        </View>
-        <View style={styles.panel}>
-          <View style={[styles.panelRow,{flexDirection:rtl?"row-reverse":"row"}]}>
-            <Ionicons name="receipt-outline" color={theme.brand} size={23}/>
-            <Text style={styles.sectionTitle}>{o5(locale,"working")}</Text></View>
-          <Text style={styles.title}>{ordersStat?.active??"—"}</Text>
-          <Text style={styles.muted}>{o5(locale,"readyItems")}: {ordersStat?.ready??"—"}</Text>
-          <Pressable style={styles.action} onPress={()=>router.push("/(main)/orders")}>
-            <Text style={styles.actionText}>{o5(locale,"showActive")}</Text></Pressable>
-        </View>
-        <View style={styles.panel}>
-          <View style={[styles.panelRow,{flexDirection:rtl?"row-reverse":"row"}]}>
-            <Ionicons name="person-circle-outline" size={24} color={theme.brand}/>
-            <Text style={styles.sectionTitle}>{gm7(locale,"approvals")}</Text></View>
-          <Text style={styles.title}>{guestPending??"—"}</Text>
-          <Text style={styles.muted}>{gm7(locale,"approvalDefault")}</Text>
-          <Pressable style={styles.action} accessibilityRole="button" onPress={()=>router.push("/approvals")}>
-            <Text style={styles.actionText}>{gm7(locale,"viewAll")}</Text></Pressable>
-        </View>
-        <View style={styles.panel}>
-          <View style={[styles.panelRow,{flexDirection:rtl?"row-reverse":"row"}]}>
-            <Ionicons name="notifications-outline" size={24} color={theme.brand}/>
-            <Text style={styles.sectionTitle}>{o5(locale,"readyCount")}</Text></View>
-          <Text style={styles.title}>{unreadCount??"—"}</Text>
-          {alerts?.map(alert=><Pressable key={alert.id} style={[styles.alertRow,{flexDirection:rtl?"row-reverse":"row"}]}
-             onPress={()=>router.push({pathname:"/order/[id]",params:{id:alert.roundId}})}>
-              <Ionicons name="checkmark-circle-outline" color={theme.brand} size={19}/>
-              <Text style={styles.alertLabel}>{o5(locale,"table")} {alert.tableLabel} · {o5(locale,"readyAlert")}</Text>
-              <Ionicons name={rtl?"chevron-back":"chevron-forward"} color={theme.muted} size={18}/></Pressable>)}
-          {unreadCount===0&&<Text style={styles.muted}>{o5(locale,"noAttention")}</Text>}
-          <Pressable style={styles.action} onPress={()=>router.push("/notifications")}>
-            <Text style={styles.actionText}>{o5(locale,"viewNotifications")}</Text></Pressable>
-        </View>
-        <View style={styles.panel}>
-          <View style={[styles.panelRow, { flexDirection: rtl ? "row-reverse" : "row" }]}><Ionicons name="lock-closed-outline" color={theme.brand} size={23} /><Text style={styles.sectionTitle}>{t(locale, "secure")}</Text></View>
-          <Text style={[styles.muted, { textAlign: rtl ? "right" : "left" }]}>{t(locale, "secureBody")}</Text>
-        </View>
-      </> : null}
-  </ScrollView>;
+import {useCallback,useMemo} from "react";
+import {Pressable,RefreshControl,ScrollView,StyleSheet,Text,View} from "react-native";
+import {Ionicons} from "@expo/vector-icons";
+import {router} from "expo-router";
+import {direction,t} from "@dineflow/shared";
+import {fetchIdentity,type Identity} from "../../src/api";
+import {theme} from "../../src/theme";
+import {useLocale} from "../../src/locale";
+import {FloorRequestError,floorRequest} from "../../src/floor-api";
+import {type Board} from "../../src/floor";
+import {useLiveScreen} from "../../src/use-live-screen";
+import {floorMetrics} from "../../src/mobile23-data";
+import {ScreenHeader,LiveNotice,MetricCard,QuickLink,EmptyPanel,SectionHeading,LoadingPanel} from "../../src/mobile23-ui";
+import {m23} from "../../src/mobile23-copy";
+type Alert={id:string;roundId:string;tableLabel:string;lastNotifiedAt:string};
+type HomeData={identity:Identity;board:Board;orders:{active:number;ready:number}|null;
+ services:number|null;approvals:number|null;unread:number|null;alerts:Alert[]};
+async function loadHome():Promise<HomeData>{
+ let identity:Identity;
+ try{identity=await fetchIdentity();}
+ catch(err){if(String(err).includes("401"))throw new FloorRequestError(401,"UNAUTHENTICATED","Sign in again.");
+  throw err;}
+ if(identity.role!=="waiter")throw new FloorRequestError(403,"ACCESS_DENIED","ACCESS_DENIED");
+ const [floor,orders,services,approvals,alerts]=await Promise.allSettled([
+  floorRequest<Board>("/api/floor/tables/board"),
+  floorRequest<{active:number;ready:number}>("/api/orders/my/stats"),
+  floorRequest<{active:number}>("/api/service/requests/count"),
+  floorRequest<{pending:number}>("/api/guest/staff/approvals/count"),
+  floorRequest<{items:Alert[];unread:number}>("/api/orders/notifications?unread=1&page=1")
+ ]);
+ if(floor.status==="rejected")throw floor.reason;
+ return {identity,board:floor.value,
+  orders:orders.status==="fulfilled"?orders.value:null,
+  services:services.status==="fulfilled"?services.value.active:null,
+  approvals:approvals.status==="fulfilled"?approvals.value.pending:null,
+  unread:alerts.status==="fulfilled"?alerts.value.unread:null,
+  alerts:alerts.status==="fulfilled"?alerts.value.items.slice(0,3):[]};
 }
-const styles = StyleSheet.create({
-  alertRow:{alignItems:"center",backgroundColor:"#F1F8F4",borderRadius:10,padding:12,gap:9},
-  alertLabel:{flex:1,fontSize:13,fontWeight:"800",color:theme.ink},
-
-  root: { flex: 1, backgroundColor: theme.background },
-  content: { padding: 19, paddingTop: 62, gap: 17, paddingBottom: 42 },
-  header: { alignItems: "center", justifyContent: "space-between", marginBottom: 13 },
-  small: { color: theme.brand, fontSize: 11, fontWeight: "900", letterSpacing: 1.6 },
-  headerTitle: { fontSize: 27, fontWeight: "800", color: theme.ink },
-  roundIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: theme.brandSoft, alignItems: "center", justifyContent: "center" },
-  center: { paddingVertical: 66, gap: 14, alignItems: "center" },
-  muted: { color: theme.muted, fontSize: 14, lineHeight: 23 },
-  hero: { backgroundColor: "#E6F4EC", borderRadius: theme.radius, padding: 24, gap: 14, minHeight: 212 },
-  heroBadge: { alignItems: "center", gap: 7, backgroundColor: "#FFFFFFAA", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 18, alignSelf: "flex-start" },
-  heroBadgeText: { color: theme.brand, fontWeight: "800", fontSize: 12 },
-  title: { color: theme.ink, fontSize: 25, fontWeight: "800", lineHeight: 36 },
-  panel: { borderRadius: theme.radius, backgroundColor: "white", borderWidth: 1, borderColor: theme.border, padding: 21, gap: 13 },
-  panelRow: { alignItems: "center", gap: 10 },
-  sectionTitle: { fontSize: 17, fontWeight: "700", color: theme.ink },
-  panelName: { fontSize: 18, fontWeight: "700", color: theme.ink },
-  action: { backgroundColor: theme.brand, padding: 15, alignItems: "center", borderRadius: 12 },
-  actionText: { color: "white", fontWeight: "800" }
+export default function Home(){
+ const {locale}=useLocale(),rtl=direction(locale)==="rtl";
+ const loader=useCallback(loadHome,[]);
+ const {data,loading,refreshing,error,lastUpdated,refresh}=useLiveScreen("waiter-home",loader,12000);
+ const mine=useMemo(()=>data?floorMetrics(data.board).myOccupied:null,[data]);
+ const openTable=()=>router.push("/(main)/tables");
+ const openOrders=()=>router.push("/(main)/orders");
+ return <ScrollView style={styles.root} contentContainerStyle={styles.content}
+  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={()=>void refresh(true)} tintColor={theme.brand}/>}>
+  <ScreenHeader locale={locale} title={t(locale,"home")} caption="DINEFLOW / WAITER"
+   subtitle={m23(locale,"overviewDescription")} onRefresh={()=>void refresh(true)} refreshing={refreshing}
+   action={<Pressable accessibilityRole="button" accessibilityLabel={m23(locale,"notifications")}
+    onPress={()=>router.push("/notifications")} style={styles.bell}>
+     <Ionicons name="notifications-outline" size={21} color={theme.brand}/>
+     {!!data?.unread&&data.unread>0&&<View style={styles.dot}/>}
+   </Pressable>}/>
+  <LiveNotice locale={locale} error={error==="ACCESS_DENIED"?m23(locale,"noRole"):error}
+   lastUpdated={lastUpdated} hasData={!!data} onRetry={()=>void refresh(true)}/>
+  {loading&&!data?<LoadingPanel locale={locale}/>:
+   data?<>
+    <View style={styles.hero}>
+     <View style={[styles.heroCap,{flexDirection:rtl?"row-reverse":"row"}]}>
+      <View style={[styles.heroTag,{flexDirection:rtl?"row-reverse":"row"}]}>
+       <Ionicons name="radio-button-on" color="#85DBC0" size={13}/>
+       <Text style={styles.heroTagText}>{m23(locale,"shift")}</Text>
+      </View>
+      <Ionicons name="restaurant-outline" color="#B1DACA" size={25}/>
+     </View>
+     <Text style={[styles.heroTitle,{textAlign:rtl?"right":"left"}]}>
+      {t(locale,"welcome")}{data.identity.user.name?", "+data.identity.user.name:""}</Text>
+     <Text style={[styles.heroDescription,{textAlign:rtl?"right":"left"}]}>{m23(locale,"workspace")}</Text>
+     <View style={[styles.heroRestaurant,{flexDirection:rtl?"row-reverse":"row"}]}>
+      <Ionicons name="storefront-outline" size={17} color="#C8EFDB"/>
+      <Text numberOfLines={2} style={styles.heroRestaurantText}>{data.identity.tenantName??m23(locale,"unknown")}</Text>
+     </View>
+    </View>
+    <SectionHeading locale={locale} title={m23(locale,"overview")} icon="pulse-outline"/>
+    <View style={styles.metricGrid}>
+     <View style={styles.metricRow}>
+      <MetricCard locale={locale} value={mine} label={m23(locale,"myTables")}
+       icon="grid-outline" onPress={openTable}/>
+      <MetricCard locale={locale} value={data.orders?.ready??null} label={m23(locale,"readyFood")}
+       icon="checkmark-circle-outline" kind="ready"
+       onPress={()=>router.push({pathname:"/(main)/orders",params:{tab:"ready"}})}/>
+     </View>
+     <View style={styles.metricRow}>
+      <MetricCard locale={locale} value={data.services} label={m23(locale,"openRequests")}
+       icon="notifications-outline" kind={data.services?"attention":"normal"} onPress={()=>router.push("/requests")}/>
+      <MetricCard locale={locale} value={data.approvals} label={m23(locale,"approvals")}
+       icon="people-outline" kind={data.approvals?"attention":"normal"} onPress={()=>router.push("/approvals")}/>
+     </View>
+     <View style={styles.metricRow}>
+      <MetricCard locale={locale} value={data.orders?.active??null} label={m23(locale,"activeOrders")}
+       icon="receipt-outline" onPress={openOrders}/>
+      <MetricCard locale={locale} value={data.unread} label={m23(locale,"unread")}
+       icon="mail-unread-outline" kind={data.unread?"attention":"normal"}
+       onPress={()=>router.push("/notifications")}/>
+     </View>
+    </View>
+    <SectionHeading locale={locale} title={m23(locale,"quickActions")} icon="flash-outline"/>
+    <View style={styles.links}>
+     <QuickLink locale={locale} label={m23(locale,"openMyTables")} description={m23(locale,"fromFloor")}
+      icon="restaurant-outline" onPress={openTable}/>
+     <QuickLink locale={locale} label={m23(locale,"goRequests")} description={m23(locale,"serviceHint")}
+      icon="hand-left-outline" onPress={()=>router.push("/requests")} badge={data.services}/>
+     <QuickLink locale={locale} label={m23(locale,"goApprovals")} description={m23(locale,"approvalsHint")}
+      icon="checkmark-done-circle-outline" onPress={()=>router.push("/approvals")} badge={data.approvals}/>
+     <QuickLink locale={locale} label={m23(locale,"goMenu")} description={m23(locale,"menuDescription")}
+      icon="book-outline" onPress={()=>router.push("/(main)/menu")}/>
+    </View>
+    <SectionHeading locale={locale} title={m23(locale,"alerts")} icon="notifications-outline"
+     actionLabel={m23(locale,"seeNotifications")} onAction={()=>router.push("/notifications")}/>
+    {data.alerts.length?<View style={styles.alertList}>{data.alerts.map(alert=>
+      <QuickLink key={alert.id} locale={locale} label={m23(locale,"readyAlert")+" · "+m23(locale,"table")+" "+alert.tableLabel}
+       description={new Date(alert.lastNotifiedAt).toLocaleTimeString(locale,{hour:"2-digit",minute:"2-digit"})}
+       icon="checkmark-circle-outline" onPress={()=>router.push({pathname:"/order/[id]",params:{id:alert.roundId}})}/>)}
+     </View>:<EmptyPanel locale={locale} icon="checkmark-circle-outline" title={m23(locale,"noAttention")}
+       hint={m23(locale,"noNotifications")}/>}
+    <View style={[styles.security,{flexDirection:rtl?"row-reverse":"row"}]}>
+     <Ionicons name="shield-checkmark-outline" size={19} color={theme.brand}/>
+     <Text style={[styles.securityText,{textAlign:rtl?"right":"left"}]}>{m23(locale,"secureHint")}</Text>
+    </View>
+   </>:<EmptyPanel locale={locale} icon="cloud-offline-outline"
+    title={error==="ACCESS_DENIED"?m23(locale,"noRole"):m23(locale,"disconnected")}
+    onAction={()=>void refresh(true)} actionLabel={m23(locale,"retryData")}/>}
+ </ScrollView>;
+}
+const styles=StyleSheet.create({
+ root:{flex:1,backgroundColor:theme.background},
+ content:{paddingHorizontal:17,paddingBottom:32,gap:15},
+ bell:{width:45,height:45,alignItems:"center",justifyContent:"center",
+  backgroundColor:"#fff",borderRadius:14,borderWidth:1,borderColor:theme.border},
+ dot:{position:"absolute",top:9,right:9,width:9,height:9,borderRadius:6,
+  backgroundColor:theme.danger,borderWidth:1,borderColor:"#fff"},
+ hero:{borderRadius:22,backgroundColor:theme.brandDark,padding:22,gap:10,overflow:"hidden"},
+ heroCap:{alignItems:"center",justifyContent:"space-between"},
+ heroTag:{alignItems:"center",gap:6,paddingHorizontal:12,paddingVertical:7,
+  borderRadius:30,backgroundColor:"#FFFFFF19"},
+ heroTagText:{fontSize:11,fontWeight:"800",color:"#D7F2E6"},
+ heroTitle:{fontSize:23,fontWeight:"900",color:"#fff",lineHeight:32},
+ heroDescription:{fontSize:13,fontWeight:"700",color:"#BFE8D9",lineHeight:21},
+ heroRestaurant:{alignItems:"center",gap:9,backgroundColor:"#FFFFFF12",padding:12,
+  borderRadius:11,marginTop:3},
+ heroRestaurantText:{fontSize:13,fontWeight:"800",color:"#fff",flex:1},
+ metricGrid:{gap:9},
+ metricRow:{flexDirection:"row",gap:10},
+ links:{gap:9},alertList:{gap:8},
+ security:{alignItems:"center",gap:10,backgroundColor:theme.brandSoft,borderRadius:12,
+  borderWidth:1,borderColor:"#D5EADA",padding:13},
+ securityText:{flex:1,fontSize:11,lineHeight:18,color:theme.brand,fontWeight:"700"}
 });

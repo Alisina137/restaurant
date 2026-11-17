@@ -1,173 +1,231 @@
 import {useCallback,useMemo,useState} from "react";
-import {ActivityIndicator,AppState,Pressable,RefreshControl,ScrollView,StyleSheet,Text,TextInput,View} from "react-native";
-import {useFocusEffect,router} from "expo-router";
+import {FlatList,Pressable,RefreshControl,ScrollView,StyleSheet,Text,TextInput,View} from "react-native";
+import {router} from "expo-router";
 import {Ionicons} from "@expo/vector-icons";
-import {direction} from "@dineflow/shared";
-import {floorRequest,FloorRequestError} from "../../src/floor-api";
+import {direction,type Locale} from "@dineflow/shared";
+import {floorRequest} from "../../src/floor-api";
 import {f,type Board,type Status,type Table} from "../../src/floor";
 import {useLocale} from "../../src/locale";
 import {theme} from "../../src/theme";
 import {o5} from "../../src/order-copy";
-import {sr8,type ServiceList} from "../../src/service-copy";
+import {sr8,type ServiceList,type ServiceRequest} from "../../src/service-copy";
 import {type Page,type OrderSummary,price} from "../../src/order-types";
+import {m23} from "../../src/mobile23-copy";
+import {ScreenHeader,LiveNotice,LoadingPanel,EmptyPanel,Pill,SectionHeading} from "../../src/mobile23-ui";
+import {useLiveScreen} from "../../src/use-live-screen";
+import {floorMetrics,filterFloorTables} from "../../src/mobile23-data";
 type Tab="all"|"mine"|"attention";
-const allStates:Status[]=["available","occupied","cleaning","disabled"];
+type FloorData={board:Board;ready:Page<OrderSummary>|null;requests:ServiceList|null};
+type Row={kind:"table";table:Table}|{kind:"section";id:string;label:string}|
+ {kind:"ready";order:OrderSummary}|{kind:"request";request:ServiceRequest};
+const statuses:Status[]=["available","occupied","cleaning","disabled"];
+async function loadTables():Promise<FloorData>{
+ const [board,ready,requests]=await Promise.allSettled([
+  floorRequest<Board>("/api/floor/tables/board"),
+  floorRequest<Page<OrderSummary>>("/api/orders/my?status=ready&page=1"),
+  floorRequest<ServiceList>("/api/service/requests?status=active&page=1")
+ ]);
+ if(board.status==="rejected")throw board.reason;
+ return {board:board.value,
+  ready:ready.status==="fulfilled"?ready.value:null,
+  requests:requests.status==="fulfilled"?requests.value:null};
+}
 export default function Tables(){
  const {locale}=useLocale(),rtl=direction(locale)==="rtl";
- const [data,setData]=useState<Board|null>(null),[ready,setReady]=useState<OrderSummary[]>([]),[requests,setRequests]=useState<ServiceList["items"]>([]),[tab,setTab]=useState<Tab>("all");
- const [filter,setFilter]=useState<Status|null>(null),[query,setQuery]=useState("");
- const [busy,setBusy]=useState(true),[error,setError]=useState("");
- const load=useCallback(async(quiet=false)=>{
-  if(!quiet)setBusy(true);
-  setError("");
-  try{
-   const board=await floorRequest<Board>("/api/floor/tables/board");
-   setData(board);
-   try{
-    const orders=await floorRequest<Page<OrderSummary>>("/api/orders/my?status=ready&page=1");
-    setReady(orders.items);
-   }catch{setReady([]);}
-    try{const r=await floorRequest<ServiceList>("/api/service/requests?status=active&page=1");setRequests(r.items);}catch{setRequests([]);}
+ const [tab,setTab]=useState<Tab>("all"),[status,setStatus]=useState<Status|null>(null),
+  [section,setSection]=useState(""),[query,setQuery]=useState("");
+ const loader=useCallback(loadTables,[]);
+ const {data,loading,refreshing,error,lastUpdated,refresh}=useLiveScreen("floor-live",loader,12000);
+ const board=data?.board;
+ const counts=useMemo(()=>floorMetrics(board??null),[board]);
+ const visible=useMemo(()=>filterFloorTables(board??null,{tab,status,section,query}),
+  [board,tab,status,section,query]);
+ const rows=useMemo<Row[]>(()=>{
+  if(!board)return [];
+  if(tab==="attention")return [
+   ...(data?.requests?.items??[]).map(request=>({kind:"request" as const,request})),
+   ...(data?.ready?.items??[]).map(order=>({kind:"ready" as const,order}))
+  ];
+  const result:Row[]=[];
+  for(const s of board.sections){
+   const items=visible.filter(t=>t.sectionId===s.id);
+   if(items.length){result.push({kind:"section",id:s.id,label:s.name});
+    for(const table of items)result.push({kind:"table",table});}
   }
-  catch(e){
-   if(e instanceof FloorRequestError&&e.status===401){router.replace("/sign-in");return;}
-   setError(e instanceof Error?e.message:f(locale,"offline"));
-  }finally{setBusy(false);}
- },[locale]);
- useFocusEffect(useCallback(()=>{
-  void load();
-  const timer=setInterval(()=>{void load(true);},15000);
-  const subscription=AppState.addEventListener("change",state=>{if(state==="active")void load(true);});
-  return ()=>{clearInterval(timer);subscription.remove();};
- },[load]));
- const visible=useMemo(()=>!data||tab==="attention"?[]:data.tables.filter(t=>
-  (tab!=="mine"||t.assignedWaiterId===data.actorId)&&
-  (!filter||t.status===filter)&&
-  (!query.trim()||[t.label,t.sectionName].some(v=>v.toLowerCase().includes(query.trim().toLowerCase())))),
- [tab,data,filter,query]);
- function switchTab(next:Tab){setTab(next);setFilter(null);}
- return <ScrollView style={styles.screen} contentContainerStyle={styles.content}
-   refreshControl={<RefreshControl refreshing={busy} tintColor={theme.brand} onRefresh={()=>void load()}/>}>
-  <View style={[styles.top,{flexDirection:rtl?"row-reverse":"row"}]}>
-    <View><Text style={[styles.eyebrow,{textAlign:rtl?"right":"left"}]}>DINEFLOW · {f(locale,"live")}</Text>
-      <Text style={[styles.title,{textAlign:rtl?"right":"left"}]}>{f(locale,"title")}</Text></View>
-    <Pressable onPress={()=>void load()} accessibilityRole="button" accessibilityLabel={f(locale,"refresh")} style={styles.iconButton}>
-      <Ionicons name="refresh" size={22} color={theme.brand}/></Pressable>
-  </View>
-  <View style={styles.tabs}>{(["all","mine","attention"] as Tab[]).map(key=>
-    <Pressable key={key} accessibilityRole="tab" accessibilityState={{selected:tab===key}}
-      style={[styles.tab,tab===key&&styles.selected]} onPress={()=>switchTab(key)}>
-      <Text style={[styles.tabText,tab===key&&styles.tabTextActive]}>{f(locale,key)}</Text>
-    </Pressable>)}</View>
-  {tab!=="attention"&&<>
-    <View style={[styles.searchBox,{flexDirection:rtl?"row-reverse":"row"}]}>
-      <Ionicons name="search-outline" size={20} color={theme.muted}/>
-      <TextInput value={query} onChangeText={setQuery} autoCorrect={false} placeholder={f(locale,"search")}
-        placeholderTextColor={theme.muted} style={[styles.search,{textAlign:rtl?"right":"left"}]}/></View>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-      <Pressable onPress={()=>setFilter(null)} style={[styles.chip,!filter&&styles.chipSelected]}>
-        <Text style={[styles.chipText,!filter&&styles.chipTextSelected]}>{f(locale,"all")}</Text></Pressable>
-      {allStates.map(s=><Pressable key={s} onPress={()=>setFilter(s)} style={[styles.chip,filter===s&&styles.chipSelected]}>
-        <Text style={[styles.chipText,filter===s&&styles.chipTextSelected]}>{f(locale,s)}</Text></Pressable>)}
-    </ScrollView>
-  </>}
-  {error&&<View style={styles.error}><Ionicons name="alert-circle-outline" size={22} color={theme.danger}/>
-    <Text style={styles.errorText}>{error}</Text>
-    <Pressable accessibilityRole="button" onPress={()=>void load()}><Text style={styles.retry}>{f(locale,"retry")}</Text></Pressable></View>}
-  {!data&&busy?<View style={styles.center}><ActivityIndicator size="large" color={theme.brand}/><Text style={styles.subtle}>{f(locale,"loading")}</Text></View>:
-   tab==="attention"?<View style={styles.list}>
-      {requests.map(r=><Pressable key={r.id} style={styles.attentionCard}
-       onPress={()=>router.push("/requests")} accessibilityRole="button">
-        <View style={[styles.cardHead,{flexDirection:rtl?"row-reverse":"row"}]}>
-          <Ionicons name="notifications-outline" size={23} color={theme.brand}/>
-          <View style={styles.cardInfo}><Text style={styles.cardName}>
-             {sr8(locale,r.type)} · {sr8(locale,"table")} {r.tableLabel}</Text>
-             <Text style={styles.meta}>{sr8(locale,r.status==="pending"?"pending":"acknowledged")}</Text>
-          </View></View></Pressable>)}
-      {ready.length>0?ready.map(r=><Pressable key={r.id} style={styles.attentionCard}
-       onPress={()=>router.push({pathname:"/order/[id]",params:{id:r.id}})}
-       accessibilityRole="button">
-        <View style={[styles.cardHead,{flexDirection:rtl?"row-reverse":"row"}]}>
-          <View style={styles.alertIcon}><Ionicons name="notifications-outline" size={22} color={theme.brand}/></View>
-          <View style={styles.cardInfo}>
-           <Text style={[styles.cardName,{textAlign:rtl?"right":"left"}]}>{o5(locale,"readyAlert")} · {o5(locale,"table")} {r.tableLabel}</Text>
-           <Text style={[styles.meta,{textAlign:rtl?"right":"left"}]}>
-             {o5(locale,"round")} #{r.roundNumber} · {o5(locale,r.status)}</Text>
-           <Text style={[styles.meta,{textAlign:rtl?"right":"left"}]}>{price(r.totalMinor,locale)}</Text>
-          </View>
-          <Ionicons name={rtl?"chevron-back":"chevron-forward"} size={20} color={theme.brand}/>
-        </View>
-       </Pressable>):requests.length===0?<View style={styles.empty}>
-         <Ionicons name="checkmark-circle-outline" size={40} color={theme.brand}/>
-         <Text style={[styles.subtle,{textAlign:"center"}]}>{o5(locale,"noAttention")}</Text></View>:null}
-      {!!ready.length&&<Pressable style={styles.openOrders}
-       onPress={()=>router.push({pathname:"/(main)/orders",params:{tab:"ready"}})}>
-       <Text style={styles.openOrdersText}>{o5(locale,"showActive")}</Text></Pressable>}
-    </View>:
-   visible.length===0?<View style={styles.empty}><Ionicons name="grid-outline" size={40} color={theme.muted}/>
-     <Text style={[styles.subtle,{textAlign:"center"}]}>{f(locale,tab==="mine"?"noneMine":"empty")}</Text></View>:
-   <View style={styles.list}>{visible.map(table=><TableRow key={table.id} table={table} rtl={rtl} locale={locale}
-     onOpen={()=>router.push({pathname:"/table/[id]",params:{id:table.id}})}/>)}</View>}
-  {data&&tab==="attention"&&<Text style={[styles.footer,{textAlign:rtl?"right":"left"}]}>{o5(locale,"readyInstructions")}</Text>}
- </ScrollView>;
-}
-function TableRow({table,locale,rtl,onOpen}:{table:Table;locale:import("@dineflow/shared").Locale;rtl:boolean;onOpen:()=>void}){
- const tint=table.status==="occupied"?"#AA741D":table.status==="cleaning"?"#6B75AD":
- table.status==="disabled"?theme.muted:theme.brand;
- const background=table.status==="occupied"?"#FFF5E5":table.status==="cleaning"?"#EEF1FB":
- table.status==="disabled"?"#F0F3F1":theme.brandSoft;
- return <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={table.label+" "+f(locale,table.status)}
-   style={[styles.card,{flexDirection:rtl?"row-reverse":"row"}]}>
-   <View style={[styles.tableIcon,{backgroundColor:background}]}><Ionicons name="restaurant-outline" size={23} color={tint}/></View>
-   <View style={styles.cardInfo}>
-     <View style={[styles.cardHead,{flexDirection:rtl?"row-reverse":"row"}]}>
-       <Text numberOfLines={1} style={styles.cardName}>{table.label}</Text>
-       <View style={[styles.badge,{backgroundColor:background}]}><Text style={[styles.badgeText,{color:tint}]}>{f(locale,table.status)}</Text></View>
-     </View>
-     <Text style={[styles.meta,{textAlign:rtl?"right":"left"}]}>{table.sectionName} · {table.visitPartySize??table.seats} {f(locale,table.visitId?"guests":"seats")}</Text>
-     <Text numberOfLines={1} style={[styles.meta,{textAlign:rtl?"right":"left"}]}>{f(locale,"waiter")}: {table.assignedWaiterName??f(locale,"unassigned")}</Text>
+  const known=new Set(board.sections.map(x=>x.id));
+  const remaining=visible.filter(t=>!known.has(t.sectionId));
+  for(const t of remaining)result.push({kind:"table",table:t});
+  return result;
+ },[board,data,tab,visible]);
+ const attentionTotal=(data?.requests?.total??0)+(data?.ready?.total??0);
+ const reset=()=>{setStatus(null);setSection("");setQuery("");};
+ const filtered=!!status||!!section||!!query.trim();
+ const switchTab=(next:Tab)=>{setTab(next);setStatus(null);setSection("");setQuery("");};
+ const header=<View style={styles.headerStack}>
+  <ScreenHeader locale={locale} title={m23(locale,"floor")} caption="DINEFLOW / SERVICE"
+   subtitle={m23(locale,"fromFloor")} onRefresh={()=>void refresh(true)} refreshing={refreshing}/>
+  <LiveNotice locale={locale} error={error} lastUpdated={lastUpdated}
+    hasData={!!data} onRetry={()=>void refresh(true)}/>
+  <View style={styles.summary}>
+   <View style={[styles.summaryItem,{flexDirection:rtl?"row-reverse":"row"}]}>
+    <View style={styles.summaryIcon}><Ionicons name="restaurant-outline" size={18} color={theme.brand}/></View>
+    <View><Text style={styles.summaryNum}>{counts.occupied}</Text><Text style={styles.summaryText}>{f(locale,"occupied")}</Text></View>
    </View>
-   <Ionicons name={rtl?"chevron-back":"chevron-forward"} size={19} color={theme.muted}/>
+   <View style={[styles.summaryItem,{flexDirection:rtl?"row-reverse":"row"}]}>
+    <View style={styles.summaryIcon}><Ionicons name="checkmark-circle-outline" size={18} color={theme.brand}/></View>
+    <View><Text style={styles.summaryNum}>{counts.available}</Text><Text style={styles.summaryText}>{f(locale,"available")}</Text></View>
+   </View>
+   <View style={[styles.summaryItem,{flexDirection:rtl?"row-reverse":"row"}]}>
+    <View style={styles.summaryIcon}><Ionicons name="alert-circle-outline" size={18} color="#A66F28"/></View>
+    <View><Text style={styles.summaryNum}>{attentionTotal}</Text><Text style={styles.summaryText}>{m23(locale,"attention")}</Text></View>
+   </View>
+  </View>
+  <View style={[styles.tabs,{flexDirection:rtl?"row-reverse":"row"}]}>
+   {(["all","mine","attention"] as const).map(key=><Pressable key={key} accessibilityRole="tab"
+    accessibilityState={{selected:tab===key}} onPress={()=>switchTab(key)}
+    style={[styles.tab,tab===key&&styles.tabSelected]}>
+    <Text style={[styles.tabText,tab===key&&styles.tabTextSelected]}>{m23(locale,key)}</Text>
+   </Pressable>)}
+  </View>
+  {tab!=="attention"&&<View style={styles.filterStack}>
+   <View style={[styles.searchBox,{flexDirection:rtl?"row-reverse":"row"}]}>
+    <Ionicons name="search-outline" size={19} color={theme.muted}/>
+    <TextInput value={query} onChangeText={setQuery} placeholder={m23(locale,"searchTables")}
+     accessibilityLabel={m23(locale,"searchTables")} placeholderTextColor={theme.muted}
+     autoCorrect={false} style={[styles.search,{textAlign:rtl?"right":"left"}]}/>
+    {query.length>0&&<Pressable accessibilityRole="button" accessibilityLabel={m23(locale,"clear")}
+      onPress={()=>setQuery("")}><Ionicons name="close-circle" size={20} color={theme.muted}/></Pressable>}
+   </View>
+   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+    <Pill locale={locale} label={m23(locale,"allStates")} count={tab==="all"?counts.all:counts.mine}
+     selected={!status} onPress={()=>setStatus(null)}/>
+    {statuses.map(st=><Pill key={st} locale={locale} label={f(locale,st)} selected={status===st}
+     count={board?.tables.filter(t=>t.status===st&&(tab!=="mine"||t.assignedWaiterId===board.actorId)).length??0}
+     onPress={()=>setStatus(st)}/>)}
+   </ScrollView>
+   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+    <Pill locale={locale} label={m23(locale,"selectSection")} selected={!section} onPress={()=>setSection("")}/>
+    {board?.sections.map(s=><Pill key={s.id} locale={locale} label={s.name}
+     selected={section===s.id} onPress={()=>setSection(s.id)}/>)}
+   </ScrollView>
+   <View style={[styles.results,{flexDirection:rtl?"row-reverse":"row"}]}>
+    <Text style={styles.resultText}>{m23(locale,"matching")} · {visible.length} {m23(locale,"tablesShown")}</Text>
+    {filtered&&<Pressable accessibilityRole="button" style={styles.reset} onPress={reset}>
+      <Ionicons name="refresh-outline" size={16} color={theme.brand}/>
+      <Text style={styles.resetText}>{m23(locale,"resetFilters")}</Text></Pressable>}
+   </View>
+  </View>}
+  {tab==="attention"&&<View style={styles.attentionIntro}>
+   <Text style={[styles.attentionHint,{textAlign:rtl?"right":"left"}]}>{m23(locale,"cleanAndRequests")}</Text>
+   <Pressable accessibilityRole="button" onPress={()=>router.push("/requests")} style={styles.attentionLink}>
+    <Text style={styles.attentionLinkText}>{m23(locale,"goRequests")}</Text>
+    <Ionicons name={rtl?"arrow-back":"arrow-forward"} size={17} color={theme.brand}/></Pressable>
+  </View>}
+ </View>;
+ const render=({item}:{item:Row})=>{
+  if(item.kind==="section")return <SectionHeading locale={locale} title={item.label} icon="layers-outline"/>;
+  if(item.kind==="request")return <Pressable accessibilityRole="button" onPress={()=>router.push("/requests")}
+   style={[styles.card,styles.alertCard,{flexDirection:rtl?"row-reverse":"row"}]}>
+   <View style={styles.alertIcon}><Ionicons name="notifications-outline" size={23} color="#A06B2C"/></View>
+   <View style={styles.cardInfo}><Text style={[styles.cardTitle,{textAlign:rtl?"right":"left"}]}>
+    {sr8(locale,item.request.type)} · {m23(locale,"table")} {item.request.tableLabel}</Text>
+    <Text style={[styles.meta,{textAlign:rtl?"right":"left"}]}>{sr8(locale,item.request.status==="pending"?"pending":"acknowledged")}</Text>
+   </View><Ionicons name={rtl?"chevron-back":"chevron-forward"} size={20} color={theme.brand}/></Pressable>;
+  if(item.kind==="ready")return <Pressable accessibilityRole="button"
+   onPress={()=>router.push({pathname:"/order/[id]",params:{id:item.order.id}})}
+   style={[styles.card,styles.readyCard,{flexDirection:rtl?"row-reverse":"row"}]}>
+   <View style={styles.tableIcon}><Ionicons name="checkmark-circle-outline" size={23} color={theme.brand}/></View>
+   <View style={styles.cardInfo}><Text style={[styles.cardTitle,{textAlign:rtl?"right":"left"}]}>
+    {m23(locale,"readyAlert")} · {m23(locale,"table")} {item.order.tableLabel}</Text>
+    <Text style={[styles.meta,{textAlign:rtl?"right":"left"}]}>{o5(locale,"round")} #{item.order.roundNumber} · {price(item.order.totalMinor,locale)}</Text>
+   </View><Ionicons name={rtl?"chevron-back":"chevron-forward"} size={20} color={theme.brand}/></Pressable>;
+  return <TableRow table={item.table} locale={locale} rtl={rtl}
+   isMine={item.table.assignedWaiterId===board?.actorId}/>;
+ };
+ return <FlatList style={styles.root} data={rows}
+  keyExtractor={item=>item.kind==="table"?"table:"+item.table.id:
+   item.kind==="section"?"section:"+item.id:
+    item.kind==="ready"?"ready:"+item.order.id:"request:"+item.request.id}
+  renderItem={render} ListHeaderComponent={header}
+  contentContainerStyle={styles.content}
+  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={()=>void refresh(true)} tintColor={theme.brand}/>}
+  ListEmptyComponent={loading?<LoadingPanel locale={locale}/>:
+   <EmptyPanel locale={locale} icon={tab==="attention"?"checkmark-circle-outline":"grid-outline"}
+    title={tab==="attention"?m23(locale,"noAttention"):
+     filtered?m23(locale,"emptyFilter"):tab==="mine"?m23(locale,"noMyTables"):m23(locale,"noTables")}
+    hint={tab==="attention"?m23(locale,"readyInstruction"):undefined}
+    onAction={filtered?reset:!data?()=>void refresh(true):undefined}
+    actionLabel={filtered?m23(locale,"resetFilters"):m23(locale,"retry")}/>}
+  ListFooterComponent={tab==="attention"&&attentionTotal>rows.length?<Pressable accessibilityRole="button"
+    onPress={()=>router.push({pathname:"/(main)/orders",params:{tab:"ready"}})}
+    style={styles.footerAction}><Text style={styles.footerActionText}>{m23(locale,"viewReady")}</Text></Pressable>:null}
+ />;
+}
+function TableRow({table,locale,rtl,isMine}:{table:Table;locale:Locale;rtl:boolean;isMine:boolean}){
+ const tint=table.status==="occupied"?"#9D6921":table.status==="cleaning"?"#566FBA":
+  table.status==="disabled"?theme.muted:theme.brand;
+ const background=table.status==="occupied"?"#FFF5E5":table.status==="cleaning"?"#F0F1FC":
+  table.status==="disabled"?"#F1F3F1":theme.brandSoft;
+ return <Pressable onPress={()=>router.push({pathname:"/table/[id]",params:{id:table.id}})}
+  accessibilityRole="button" accessibilityLabel={table.label+", "+f(locale,table.status)}
+  style={[styles.card,{flexDirection:rtl?"row-reverse":"row"}]}>
+  <View style={[styles.tableIcon,{backgroundColor:background}]}>
+   <Ionicons name="restaurant-outline" color={tint} size={22}/></View>
+  <View style={styles.cardInfo}>
+   <View style={[styles.cardTop,{flexDirection:rtl?"row-reverse":"row"}]}>
+    <Text numberOfLines={1} style={[styles.cardTitle,{textAlign:rtl?"right":"left"}]}>{table.label}</Text>
+    <View style={[styles.badge,{backgroundColor:background}]}>
+     <Text style={[styles.badgeText,{color:tint}]}>{f(locale,table.status)}</Text></View>
+   </View>
+   <Text numberOfLines={1} style={[styles.meta,{textAlign:rtl?"right":"left"}]}>
+    {table.sectionName} · {table.visitPartySize??table.seats} {f(locale,table.visitId?"guests":"seats")}</Text>
+   <Text numberOfLines={1} style={[styles.meta,{textAlign:rtl?"right":"left"}]}>
+    {isMine?m23(locale,"mine"):table.assignedWaiterName??f(locale,"unassigned")}</Text>
+  </View>
+  <Ionicons name={rtl?"chevron-back":"chevron-forward"} size={19} color={theme.muted}/>
  </Pressable>;
 }
 const styles=StyleSheet.create({
- attentionCard:{backgroundColor:"#F8FEFA",borderColor:"#A9D8C1",borderWidth:1,borderRadius:15,padding:16,gap:10},
- alertIcon:{width:43,height:43,backgroundColor:theme.brandSoft,borderRadius:12,alignItems:"center",justifyContent:"center"},
- openOrders:{backgroundColor:theme.brand,borderRadius:12,minHeight:49,alignItems:"center",justifyContent:"center"},
- openOrdersText:{color:"white",fontSize:14,fontWeight:"800"},
-
- screen:{flex:1,backgroundColor:theme.background},
- content:{paddingHorizontal:17,paddingTop:60,paddingBottom:115,gap:16},
- top:{alignItems:"center",justifyContent:"space-between"},
- eyebrow:{color:theme.brand,fontSize:11,fontWeight:"900",letterSpacing:1},
- title:{color:theme.ink,fontSize:26,fontWeight:"800",marginTop:6},
- iconButton:{width:44,height:44,backgroundColor:theme.brandSoft,borderRadius:14,alignItems:"center",justifyContent:"center"},
- tabs:{flexDirection:"row",padding:5,gap:4,backgroundColor:"#EAF0EC",borderRadius:14},
- tab:{flex:1,paddingVertical:12,paddingHorizontal:5,alignItems:"center",borderRadius:11},
- selected:{backgroundColor:"#FFF",shadowColor:"#163D2D",shadowOpacity:.08,shadowRadius:8,elevation:2},
- tabText:{fontSize:12,fontWeight:"700",color:theme.muted,textAlign:"center"},
- tabTextActive:{color:theme.brand},
- searchBox:{backgroundColor:"#FFF",height:48,alignItems:"center",borderWidth:1,borderColor:theme.border,borderRadius:13,paddingHorizontal:13,gap:9},
- search:{flex:1,color:theme.ink,fontSize:15},
- filters:{gap:9,alignItems:"center"},
- chip:{paddingVertical:9,paddingHorizontal:15,borderRadius:30,borderWidth:1,borderColor:theme.border,backgroundColor:"#FFF"},
- chipSelected:{backgroundColor:theme.brandSoft,borderColor:"#A5D7BE"},
- chipText:{fontWeight:"700",fontSize:13,color:theme.muted},
- chipTextSelected:{color:theme.brand},
- list:{gap:11},
- card:{borderWidth:1,borderColor:theme.border,backgroundColor:theme.surface,borderRadius:16,alignItems:"center",padding:13,gap:12},
- tableIcon:{width:48,height:48,borderRadius:14,alignItems:"center",justifyContent:"center"},
- cardInfo:{flex:1,gap:5},
- cardHead:{alignItems:"center",justifyContent:"space-between",gap:8},
- cardName:{fontSize:17,fontWeight:"800",color:theme.ink,flexShrink:1},
- badge:{paddingVertical:4,paddingHorizontal:9,borderRadius:12},
- badgeText:{fontWeight:"800",fontSize:11},
- meta:{color:theme.muted,fontSize:12},
- center:{paddingVertical:65,alignItems:"center",gap:14},
- subtle:{fontSize:14,color:theme.muted,lineHeight:23},
- footer:{fontSize:12,color:theme.muted,marginTop:8},
- empty:{minHeight:230,alignItems:"center",justifyContent:"center",gap:13,paddingHorizontal:21},
- error:{backgroundColor:"#FFF0F0",borderWidth:1,borderColor:"#F6CAC9",borderRadius:14,padding:16,gap:10},
- errorText:{color:theme.danger,fontSize:13},
- retry:{fontWeight:"800",color:theme.brand},
+ root:{flex:1,backgroundColor:theme.background},
+ content:{paddingHorizontal:17,paddingBottom:34,gap:11},
+ headerStack:{gap:14,marginBottom:8},
+ summary:{flexDirection:"row",gap:8},
+ summaryItem:{flex:1,minWidth:0,alignItems:"center",gap:7,padding:9,
+  borderColor:theme.border,borderWidth:1,borderRadius:13,backgroundColor:"#fff"},
+ summaryIcon:{width:30,height:30,borderRadius:10,backgroundColor:theme.brandSoft,
+  justifyContent:"center",alignItems:"center"},
+ summaryNum:{fontSize:18,fontWeight:"900",color:theme.ink},
+ summaryText:{fontSize:10,color:theme.muted,fontWeight:"800"},
+ tabs:{padding:4,borderRadius:13,backgroundColor:"#E9F0EB",gap:4},
+ tab:{flex:1,paddingVertical:12,borderRadius:10,alignItems:"center"},
+ tabSelected:{backgroundColor:"#fff",elevation:2},
+ tabText:{fontSize:12,fontWeight:"800",color:theme.muted,textAlign:"center"},
+ tabTextSelected:{color:theme.brand},
+ filterStack:{gap:12},
+ searchBox:{alignItems:"center",gap:10,paddingHorizontal:13,height:49,
+  backgroundColor:"#fff",borderWidth:1,borderColor:theme.border,borderRadius:12},
+ search:{flex:1,color:theme.ink,fontSize:14},
+ chips:{alignItems:"center",gap:8,paddingVertical:3},
+ results:{alignItems:"center",justifyContent:"space-between",gap:8},
+ resultText:{fontSize:11,fontWeight:"800",color:theme.muted},
+ reset:{flexDirection:"row",gap:5,alignItems:"center"},
+ resetText:{fontSize:11,fontWeight:"800",color:theme.brand},
+ attentionIntro:{gap:8,backgroundColor:theme.brandSoft,borderRadius:13,padding:14},
+ attentionHint:{fontSize:12,color:theme.brand,lineHeight:20,fontWeight:"600"},
+ attentionLink:{flexDirection:"row",alignItems:"center",gap:7},
+ attentionLinkText:{fontSize:12,fontWeight:"800",color:theme.brand},
+ card:{backgroundColor:"#fff",borderWidth:1,borderColor:theme.border,borderRadius:15,
+  alignItems:"center",gap:11,padding:13,minHeight:91},
+ alertCard:{backgroundColor:"#FFFCF5",borderColor:"#E7D7BC"},
+ readyCard:{backgroundColor:"#F8FEFA",borderColor:"#B8E1C9"},
+ tableIcon:{height:43,width:43,borderRadius:12,backgroundColor:theme.brandSoft,alignItems:"center",justifyContent:"center"},
+ alertIcon:{height:43,width:43,borderRadius:12,backgroundColor:"#FFF1DD",alignItems:"center",justifyContent:"center"},
+ cardInfo:{flex:1,minWidth:0,gap:6},
+ cardTop:{alignItems:"center",gap:8},
+ cardTitle:{fontSize:15,fontWeight:"800",color:theme.ink,flex:1},
+ meta:{fontSize:11,color:theme.muted,lineHeight:17},
+ badge:{borderRadius:8,paddingVertical:5,paddingHorizontal:8},
+ badgeText:{fontWeight:"800",fontSize:10},
+ footerAction:{minHeight:49,backgroundColor:theme.brand,borderRadius:12,alignItems:"center",justifyContent:"center"},
+ footerActionText:{fontWeight:"800",color:"#fff",fontSize:13},
 });
