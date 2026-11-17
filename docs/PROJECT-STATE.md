@@ -72,8 +72,13 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - A design-contract check is included in CI. See `docs/PHASE-15-ACCEPTANCE.md`.
 - Physical browser/device visual QA and real restaurant pilot gates remain **outstanding**; do not treat this UI work as production approval.
 
+## Phase 16 status
+- The legacy flat sidebar has been replaced with a grouped, role-specific workspace menu, persistent desktop collapsed rail, localized active breadcrumbs, and a keyboard-aware mobile drawer. Navigation stays mounted independently from workspace content and exposes only implemented routes.
+- `pnpm nav:verify` checks destination existence and navigation accessibility contracts in CI. See `docs/PHASE-16-ACCEPTANCE.md`.
+- Browser/device visual QA and the Phase 14 real restaurant release gates are still **not signed off**.
+
 ## Next phase
-Phase 16: grouped role-aware navigation and stable sidebar/header. Continue existing real restaurant pilot evidence before considering commercial launch.
+Phase 17: global feedback components, safe confirmation dialogs, loading and interaction consistency. Production deployment remains blocked pending real pilot acceptance.
 
 ## Local commands
 ```powershell
