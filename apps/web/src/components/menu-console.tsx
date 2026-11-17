@@ -2,13 +2,15 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Archive, ArrowUpRight, Check, ChefHat, CirclePlus, ClipboardList, Copy,
-  ImageOff, Layers3, ListFilter, PackageCheck, RefreshCcw, Search, SlidersHorizontal, Tag,
+  ImageOff, Layers3, ListFilter, PackageCheck, RefreshCcw, Search, SlidersHorizontal, Tag, Eye, EyeOff, RotateCcw,
   UtensilsCrossed, X } from "lucide-react";
 import { type Locale } from "@dineflow/shared";
 import { useWorkspace } from "@/components/workspace-provider";
 import { API_URL } from "@/lib/auth-client";
 import { jsonRequest, Phase2Error } from "@/lib/phase2-api";
 import { m3 } from "@/lib/menu-copy";
+import { m20 } from "@/lib/menu20-copy";
+import {MenuHealth,type MenuSummary} from "./menu-health";
 import { money, nameFor, type Category, type Catalog, type EditorData, type Group, type ItemDetail,
   type ItemRow, type Page } from "@/lib/menu-types";
 import { CategoryEditor, GroupEditor, ItemEditor } from "./menu-editors";
@@ -32,6 +34,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
   const {workspace}=useWorkspace(),locale=workspace.locale;
   const {confirm,notify}=useInteraction();
   const [editor,setEditor]=useState<EditorData>(noData);
+  const [summary,setSummary]=useState<MenuSummary|null>(null);
   const [rows,setRows]=useState<Page<ItemRow>|null>(null),
     [cats,setCats]=useState<Page<Category>|null>(null),[groups,setGroups]=useState<Page<Group>|null>(null);
   const [page,setPage]=useState(1),[queryInput,setQueryInput]=useState(""),[query,setQuery]=useState(""),
@@ -41,29 +44,35 @@ export function MenuConsole({tab}: {tab:MenuTab}){
   const [popup,setPopup]=useState<Popup|null>(null),[preview,setPreview]=useState<Catalog|null>(null),[previewOpen,setPreviewOpen]=useState(false);
   const [selected,setSelected]=useState<string[]>([]),[reason,setReason]=useState("");
   const revision=useRef<number>(0);
+  const requestId=useRef(0);
   const mutationLock=useRef(false);
   const popupDialogRef=useDialogFocus<HTMLElement>(!!popup,()=>{if(!busy)setPopup(null);});
   const previewDialogRef=useDialogFocus<HTMLElement>(previewOpen,()=>setPreviewOpen(false));
   useEffect(()=>{if(notice){notify(notice,"success");setNotice("");}},[notice,notify]);
   const load=useCallback(async(silent=false)=>{
+    const request=++requestId.current;
     if(!silent)setLoading(true);
-    setError("");
-    try {
-      const edit=await jsonRequest<EditorData>("/api/menu/editor");
-      setEditor(edit);revision.current=edit.revision.version;
-      if(tab==="categories"){
-        setCats(await jsonRequest<Page<Category>>("/api/menu/categories?page="+page+(archived?"&archive=1":"")));
-      }else if(tab==="modifiers"){
-        setGroups(await jsonRequest<Page<Group>>("/api/menu/groups?page="+page+(archived?"&archive=1":"")));
-      }else{
-        const p=new URLSearchParams({page:String(page),status:tab==="availability"?"all":status,category,
-          q:query,...(archived&&tab==="items"?{archive:"1"}:{})});
-        setRows(await jsonRequest<Page<ItemRow>>("/api/menu/items?"+p.toString()));
-      }
-    }catch(e){setError(apiError(e,locale));}
-    finally{setLoading(false);}
+    try{
+      const path=tab==="categories"?"/api/menu/categories?page="+page+(archived?"&archive=1":""):
+        tab==="modifiers"?"/api/menu/groups?page="+page+(archived?"&archive=1":""):
+        "/api/menu/items?"+new URLSearchParams({page:String(page),
+          status:tab==="availability"?"all":status,category,q:query,
+          ...(archived&&tab==="items"?{archive:"1"}:{})}).toString();
+      const [edit,counts,list]=await Promise.all([
+        jsonRequest<EditorData>("/api/menu/editor"),
+        jsonRequest<MenuSummary>("/api/menu/summary"),
+        jsonRequest<Page<Category>|Page<Group>|Page<ItemRow>>(path)
+      ]);
+      if(request!==requestId.current)return;
+      setEditor(edit);setSummary(counts);revision.current=edit.revision.version;
+      if(tab==="categories")setCats(list as Page<Category>);
+      else if(tab==="modifiers")setGroups(list as Page<Group>);
+      else setRows(list as Page<ItemRow>);
+      setError("");
+    }catch(e){if(request===requestId.current)setError(apiError(e,locale));}
+    finally{if(request===requestId.current)setLoading(false);}
   },[tab,page,query,status,category,archived,locale]);
-  useEffect(()=>{void load();},[load]);
+  useEffect(()=>{void load();return()=>{requestId.current++;};},[load]);
   useEffect(()=>{
     if(typeof EventSource==="undefined")return;
     const sse=new EventSource(API_URL+"/api/menu/events",{withCredentials:true});
@@ -79,6 +88,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
     return ()=>{sse.removeEventListener("catalog",onChange as EventListener);sse.close();clearInterval(timer);};
   },[load]);
   useEffect(()=>{setPage(1);setSelected([]);setPopup(null);setArchived(false);},[tab]);
+  useEffect(()=>{setSelected([]);setReason("");},[page,query,status,category,archived,tab]);
   async function savePopup(payload:Record<string,unknown>){
     if(!popup||mutationLock.current)return;
     mutationLock.current=true;
@@ -101,6 +111,37 @@ export function MenuConsole({tab}: {tab:MenuTab}){
       setPopup({kind:"item",value:response.item});
     }catch(e){setError(apiError(e,locale));}
     finally{setLoadingEditor(false);}
+  }
+  async function setItemPublished(row:ItemRow,published:boolean){
+    if(mutationLock.current||busy)return;
+    if(!(await confirm({title:m20(locale,published?"publishNow":"unpublishNow"),
+      description:m20(locale,published?"itemPublishConfirm":"itemUnpublishConfirm"),
+      confirmLabel:m20(locale,published?"publishNow":"unpublishNow"),
+      cancelLabel:m3(locale,"cancel"),danger:!published})))return;
+    if(mutationLock.current)return;
+    mutationLock.current=true;setBusy(true);setError("");
+    try{
+      await jsonRequest("/api/menu/items/"+row.id+"/publication",{
+        method:"PATCH",body:JSON.stringify({version:row.version,published})});
+      setNotice(m20(locale,"publishedSuccess"));await load(true);
+    }catch(e){setError(apiError(e,locale));await load(true);}
+    finally{mutationLock.current=false;setBusy(false);}
+  }
+  async function setCategoryPublished(row:Category,published:boolean){
+    if(mutationLock.current||busy)return;
+    if(!(await confirm({title:m20(locale,published?"publishCategory":"unpublishCategory"),
+      description:m20(locale,published?"categoryPublishConfirm":"categoryUnpublishConfirm"),
+      confirmLabel:m20(locale,published?"publishCategory":"unpublishCategory"),
+      cancelLabel:m3(locale,"cancel"),danger:!published})))return;
+    if(mutationLock.current)return;
+    mutationLock.current=true;setBusy(true);setError("");
+    try{
+      await jsonRequest("/api/menu/categories/"+row.id,{
+        method:"PATCH",body:JSON.stringify({nameFa:row.nameFa,namePs:row.namePs,nameEn:row.nameEn,
+        description:row.description,sortOrder:row.sortOrder,published,version:row.version})});
+      setNotice(m20(locale,"publishedSuccess"));await load(true);
+    }catch(e){setError(apiError(e,locale));await load(true);}
+    finally{mutationLock.current=false;setBusy(false);}
   }
   async function archive(kind:"item"|"category"|"group",row:{id:string;version:number}){
     if(busy||mutationLock.current||!(await confirm({title:m3(locale,"archive"),description:m3(locale,"archiveConfirm"),
@@ -125,12 +166,17 @@ export function MenuConsole({tab}: {tab:MenuTab}){
   }
   async function availability(entries:ItemRow[],soldOut:boolean){
     if(!entries.length||mutationLock.current)return;
+    if(!(await confirm({title:m20(locale,soldOut?"applySoldOut":"restoreStock"),
+      description:m20(locale,soldOut?"confirmSoldOut":"confirmAvailable"),
+      confirmLabel:m20(locale,soldOut?"applySoldOut":"restoreStock"),
+      cancelLabel:m3(locale,"cancel"),danger:soldOut})))return;
+    if(mutationLock.current)return;
     mutationLock.current=true;setBusy(true);setError("");setNotice("");
     try{
       await jsonRequest("/api/menu/items/availability/bulk",{method:"POST",
         body:JSON.stringify({changes:entries.map(x=>({id:x.id,version:x.version,soldOut,reason:soldOut?reason:""}))})});
       setSelected([]);setReason("");setNotice(m3(locale,"saved"));await load(true);
-    }catch(e){setError(apiError(e,locale));}finally{mutationLock.current=false;setBusy(false);}
+    }catch(e){setError(apiError(e,locale));await load(true);}finally{mutationLock.current=false;setBusy(false);}
   }
   async function openPreview(){
     if(previewOpen)return;
