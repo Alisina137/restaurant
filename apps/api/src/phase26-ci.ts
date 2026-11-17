@@ -1,6 +1,6 @@
 import "dotenv/config";
 import assert from "node:assert/strict";
-import {and,eq,isNull} from "drizzle-orm";
+import {and,eq} from "drizzle-orm";
 import {db,pool} from "./db";
 import {diningVisit,staffNotification,user} from "./schema";
 if(process.env.NODE_ENV==="production"||!process.env.DEMO_PASSWORD)
@@ -13,9 +13,6 @@ async function req(path:string,method="GET",cookie?:string){
   body:method==="POST"?"{}":undefined});
 }
 async function login(email:string){
- const r=await req("/api/auth/sign-in/email","POST");
- // Always use a password, never rely on the unauthenticated probe above.
- void r;
  const result=await fetch(URL+"/api/auth/sign-in/email",{method:"POST",
   headers:{Origin:"http://localhost:3000","Content-Type":"application/json"},
   body:JSON.stringify({email,password})});
