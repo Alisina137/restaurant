@@ -122,8 +122,16 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - Focus-aware live loader skips background polling, ignores out-of-order responses, redirects expired sessions and retains last good data with explicit stale-network warning. `mobile23-data.ts` selectors are exercised by `pnpm mobile23:verify` (static contracts and native pure function tests). No new migrations or external libraries.
 - See `docs/PHASE-23-ACCEPTANCE.md` for Expo Go hand-testing, real service flows, all locale/device and notification/vibration verification. **Phase 14 supervised pilot remains outstanding.**
 
+## Phase 24 status
+- Redesigned Expo waiter table details with live, role-authorized occupancy and assignment, party size stepper and validated seating, optimistic versioned cleaning, active visit summaries, real order totals/rounds and correct cashier settlement boundaries.
+- Guest visit PIN is masked by default, only revealed on demand for 20 seconds, automatically re-hidden on leaving, and rotated only after a clear security warning with a server-side version check. Table-specific guest order reviews are fully navigable with paged server filtering.
+- Service request lifecycle upgraded with table-specific counts, acknowledgment and resolution from the visit, plus a real paginated status- and table-filtered request queue with notes and confirmation. Cross-role and tenant guardrails remain in the backend.
+- Strengthened waiter order detail handoff: reject duplicate serve/correction actions, safe focused refresh, actual tax/service fee display and server-confirmed open-visit ordering.
+- New `mobile24-ops.ts` selectors, full Dari/Pashto/English copy, `pnpm mobile24:verify` and seeded PostgreSQL integration `phase24-ci.ts`; no new packages or database migrations.
+- See `docs/PHASE-24-ACCEPTANCE.md` for live device, physical QR/PIN, cashier and restaurant QA. **Supervised Phase 14 pilot remains outstanding.**
+
 ## Next phase
-Phase 24: mobile table and visit details, action forms and service workflow redesign.
+Phase 25: mobile order builder, cart/modifiers and kitchen handoff redesign.
 
 ## Local commands
 ```powershell
