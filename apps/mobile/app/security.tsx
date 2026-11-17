@@ -178,5 +178,6 @@ const styles=StyleSheet.create({
  sessionDetail:{fontSize:11,color:theme.muted,lineHeight:18},
  sessionAction:{padding:8},
  error:{fontSize:13,color:theme.danger,lineHeight:20},
- success:{fontSize:13,color:theme.brand,fontWeight:"700",lineHeight:20}
+ success:{fontSize:13,color:theme.brand,fontWeight:"700",lineHeight:20},
+ staleHint:{fontSize:12,color:theme.danger,lineHeight:19}
 });
