@@ -130,8 +130,16 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - New `mobile24-ops.ts` selectors, full Dari/Pashto/English copy, `pnpm mobile24:verify` and seeded PostgreSQL integration `phase24-ci.ts`; no new packages or database migrations.
 - See `docs/PHASE-24-ACCEPTANCE.md` for live device, physical QR/PIN, cashier and restaurant QA. **Supervised Phase 14 pilot remains outstanding.**
 
+## Phase 25 status
+- Rebuilt Expo waiter order builder with a safe-area two-tab Menu / Cart workspace, real menu/category search, dish cards and modifier selection, editable item notes/quantity, accurate estimated total, guarded removal, explicit review/confirm and a real accepted kitchen-ticket route.
+- Local cart validation now checks item publication/stock, version, mandatory and optional modifier groups/options (min/max, no duplicates), 40-line cap, 1–99 quantity, note limits and money ceilings before sending. Invalid dish prices are shown as unavailable rather than zero. User changes reset the idempotency key only when actual cart data changes.
+- Encrypted user/tenant/visit scoped on-device drafts now use a two-slot commit journal with serialized writes and legacy P05 fallback. Submission request keys are durably saved **before HTTP POST** so uncertain sends lock edits and retry the **same cart/key**, avoiding duplicate kitchen tickets even after a visit closes or meal availability changes.
+- Server-authoritative visit/menu preflight, explicit submit confirmation, robust offline/retry/401 states and live kitchen handoff. Dari/Pashto/English copy and RTL styling upgraded; no new migrations or npm packages.
+- `pnpm mobile25:verify` adds native cart validators and static contract tests. `phase25-ci.ts` exercises real tenant/role scoping, replay, duplicate prevention, immutable amount after stock/price change and kitchen new/preparing/ready + waiter serving in disposable PostgreSQL.
+- See `docs/PHASE-25-ACCEPTANCE.md` for real Android multi-step ordering, draft interruption, network ambiguity, currency and accessibility tests. **Phase 14 supervised restaurant pilot remains outstanding.**
+
 ## Next phase
-Phase 25: mobile order builder, cart/modifiers and kitchen handoff redesign.
+Phase 26: mobile notifications, profile and offline resilience.
 
 ## Local commands
 ```powershell

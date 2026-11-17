@@ -1,4 +1,5 @@
 import {useEffect,useState} from "react";
+import {useSafeAreaInsets} from "react-native-safe-area-context";
 import {Image,Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from "react-native";
 import {Ionicons} from "@expo/vector-icons";
 import {direction,type Locale} from "@dineflow/shared";
@@ -6,6 +7,8 @@ import {authClient,API_URL} from "./auth-client";
 import {theme} from "./theme";
 import {nameOf,price,type MenuData,type MenuItem,type CartLine} from "./order-types";
 import {o5} from "./order-copy";
+import {m25} from "./mobile25-copy";
+import {toggleOption,validOptions} from "./mobile25-cart";
 
 export function useMenuCookie(){const [cookie,setCookie]=useState("");
  useEffect(()=>{void authClient.getCookie().then(v=>setCookie(v??""));},[]);
@@ -34,7 +37,7 @@ export function ItemOptionsModal({item,menu,locale,cookie,visible,onClose,onAdd,
  item:MenuItem|null;menu:MenuData;locale:Locale;cookie:string;visible:boolean;onClose:()=>void;
  onAdd:(line:CartLine)=>void;initial?:CartLine;
 }){
- const rtl=direction(locale)==="rtl";
+ const rtl=direction(locale)==="rtl",safe=useSafeAreaInsets();
  const [qty,setQty]=useState(1),[note,setNote]=useState(""),[selected,setSelected]=useState<Record<string,string[]>>({}),[error,setError]=useState("");
  useEffect(()=>{
   if(!item)return;
@@ -45,20 +48,26 @@ export function ItemOptionsModal({item,menu,locale,cookie,visible,onClose,onAdd,
  const groups=item.groupIds.map(id=>menu.groups.find(g=>g.id===id)).filter((x):x is NonNullable<typeof x>=>!!x);
  const currentSelections=groups.map(g=>({groupId:g.id,version:g.version,optionIds:selected[g.id]??[]}));
  const extra=groups.reduce((sum,g)=>sum+(selected[g.id]??[]).reduce((n,id)=>n+(g.options.find(o=>o.id===id)?.deltaMinor??0),0),0);
- function toggle(groupId:string,id:string,single:boolean){
-  setSelected(old=>{
-    const present=old[groupId]??[];
-    const updated=single?(present.includes(id)?[]:[id]):present.includes(id)?present.filter(x=>x!==id):[...present,id];
-    return {...old,[groupId]:updated};
-  });
+ function toggle(groupId:string,id:string){
+  const group=groups.find(g=>g.id===groupId);
+  if(!group)return;
+  const current=selected[groupId]??[];
+  const next=toggleOption(group,current,id);
+  if(next===current){setError(m25(locale,"requiredOptions"));return;}
+  setSelected(old=>({...old,[groupId]:next}));
   setError("");
  }
  function add(){
   if(!item||item.soldOut){setError(o5(locale,"unavailable"));return;}
-  for(const g of groups){const n=(selected[g.id]??[]).length;
-   if(n<g.minSelections||n>g.maxSelections||(g.selectionMode==="single"&&n>1)){
-    setError(o5(locale,"invalid"));return;
-   }}
+  if(groups.length!==item.groupIds.length){setError(m25(locale,"modifierChanged"));return;}
+  if(note.length>250||!Number.isInteger(qty)||qty<1||qty>99){
+   setError(m25(locale,"invalid"));return;
+  }
+  for(const group of groups){
+   if(!validOptions(group,selected[group.id]??[])){
+    setError(m25(locale,"invalidChoices"));return;
+   }
+  }
   onAdd({itemId:item.id,itemVersion:item.version,quantity:qty,note:note.trim(),selections:currentSelections});
   onClose();
  }
@@ -75,10 +84,10 @@ export function ItemOptionsModal({item,menu,locale,cookie,visible,onClose,onAdd,
     {groups.map(group=><View key={group.id} style={styles.group}>
      <View style={[styles.groupHead,{flexDirection:rtl?"row-reverse":"row"}]}>
       <Text style={styles.groupTitle}>{nameOf(group,locale)}</Text>
-      <Text style={styles.groupHint}>{group.minSelections>0?o5(locale,"required"):o5(locale,"optional")} · {group.minSelections}–{group.maxSelections}</Text></View>
-     {group.options.map(option=><Pressable key={option.id} accessibilityRole="checkbox"
+      <Text style={styles.groupHint}>{group.minSelections>0?o5(locale,"required"):o5(locale,"optional")} · {group.minSelections}–{group.maxSelections} · {(selected[group.id]??[]).length} {m25(locale,"selected")}</Text></View>
+     {group.options.map(option=><Pressable key={option.id} accessibilityRole={group.selectionMode==="single"?"radio":"checkbox"}
        accessibilityState={{checked:(selected[group.id]??[]).includes(option.id)}}
-       onPress={()=>toggle(group.id,option.id,group.selectionMode==="single")}
+       onPress={()=>toggle(group.id,option.id)}
        style={[styles.choice,{flexDirection:rtl?"row-reverse":"row"}]}>
       <Ionicons name={(selected[group.id]??[]).includes(option.id)?"checkmark-circle":"ellipse-outline"}
         size={23} color={(selected[group.id]??[]).includes(option.id)?theme.brand:theme.muted}/>
@@ -91,15 +100,15 @@ export function ItemOptionsModal({item,menu,locale,cookie,visible,onClose,onAdd,
      <TextInput multiline maxLength={250} value={note} onChangeText={setNote} placeholder={o5(locale,"specialInstructions")}
        placeholderTextColor={theme.muted} style={[styles.note,{textAlign:rtl?"right":"left"}]}/>
     </View>
-    {!!error&&<Text style={styles.error} role={undefined}>{error}</Text>}
+    {!!error&&<Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
    </ScrollView>
-   <View style={[styles.footer,{flexDirection:rtl?"row-reverse":"row"}]}>
-    <View style={styles.qty}><Pressable onPress={()=>setQty(q=>Math.max(1,q-1))} accessibilityLabel={o5(locale,"decrease")}>
+   <View style={[styles.footer,{flexDirection:rtl?"row-reverse":"row",paddingBottom:Math.max(safe.bottom,10)+12}]}>
+    <View style={styles.qty}><Pressable accessibilityRole="button" disabled={qty<=1} style={qty<=1&&styles.dimmed} onPress={()=>setQty(q=>Math.max(1,q-1))} accessibilityLabel={o5(locale,"decrease")}>
        <Ionicons name="remove-circle-outline" size={30} color={theme.brand}/></Pressable>
       <Text style={styles.qtyText}>{qty}</Text>
-      <Pressable onPress={()=>setQty(q=>Math.min(99,q+1))} accessibilityLabel={o5(locale,"increase")}>
+      <Pressable accessibilityRole="button" disabled={qty>=99} style={qty>=99&&styles.dimmed} onPress={()=>setQty(q=>Math.min(99,q+1))} accessibilityLabel={o5(locale,"increase")}>
        <Ionicons name="add-circle-outline" size={30} color={theme.brand}/></Pressable></View>
-    <Pressable disabled={item.soldOut} style={[styles.addButton,item.soldOut&&{opacity:.5}]} onPress={add}>
+    <Pressable accessibilityRole="button" disabled={item.soldOut} style={[styles.addButton,item.soldOut&&{opacity:.5}]} onPress={add}>
       <Text style={styles.addText}>{o5(locale,"addToCart")} · {price((item.priceMinor+extra)*qty,locale)}</Text></Pressable>
    </View>
   </View></View>
@@ -131,6 +140,7 @@ const styles=StyleSheet.create({
  note:{minHeight:74,maxHeight:150,borderWidth:1,borderColor:theme.border,borderRadius:12,color:theme.ink,padding:12,textAlignVertical:"top"},
  error:{color:theme.danger,fontSize:13},
  footer:{borderTopWidth:1,borderTopColor:theme.border,alignItems:"center",gap:13,paddingHorizontal:17,paddingVertical:18},
+ dimmed:{opacity:.4},
  qty:{flexDirection:"row",gap:9,alignItems:"center"},qtyText:{minWidth:21,textAlign:"center",fontSize:17,fontWeight:"800",color:theme.ink},
  addButton:{backgroundColor:theme.brand,flex:1,minHeight:49,borderRadius:13,alignItems:"center",justifyContent:"center",paddingHorizontal:10},
  addText:{fontSize:12,color:"white",fontWeight:"800",textAlign:"center"},
