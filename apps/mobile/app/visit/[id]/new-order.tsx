@@ -143,51 +143,71 @@ export default function NewOrder(){
   }catch{setSaveStatus("failed");setError(m25(locale,"saveFailed"));}
  }
  function sendConfirmation(){
-  if(!ctx||!review?.valid||blocked||sendingRef.current)return;
+  if(!ctx||(!uncertainRef.current&&(!review?.valid||blocked))||sendingRef.current)return;
   setTab("cart");
-  Alert.alert(m25(locale,"confirmTitle"),
+  Alert.alert(m25(locale,uncertainRef.current?"retrySame":"confirmTitle"),
+   uncertainRef.current?m25(locale,"uncertain"):
    m25(locale,"table")+" "+ctx.tableName+" · "+count+" "+m25(locale,"linePlural")+
    "\n"+m25(locale,"estimated")+": "+estimate+
    "\n\n"+m25(locale,"confirmBody"),[
     {text:m25(locale,"cancel"),style:"cancel"},
-    {text:m25(locale,"confirmYes"),onPress:()=>void submit()}
+    {text:m25(locale,uncertainRef.current?"retrySame":"confirmYes"),onPress:()=>void submit()}
    ]);
  }
  async function submit(){
-  if(sendingRef.current||!id||!ctx?.identity.tenantId||!review?.valid||blocked)return;
+  if(sendingRef.current||!id||!ctx?.identity.tenantId||
+   (!uncertainRef.current&&(!review?.valid||blocked)))return;
   sendingRef.current=true;setSending(true);setError("");setNotice("");
   const snapshot=draft,tenantId=ctx.identity.tenantId,userId=ctx.identity.user.id;
+  let prepared=false,postAttempted=false;
   try{
-   await saveDraft(userId,tenantId,id,snapshot);
-   setSaveStatus("saved");
-   // Reconfirm the same authorized visit and the newest published catalog before POST.
-   const [visit,latest]=await Promise.all([
-    floorRequest<VisitResult>("/api/floor/visits/"+encodeURIComponent(id)),
-    floorRequest<MenuData>("/api/menu/catalog")]);
-   if(visit.visit.status!=="open"||visit.visit.waiterId!==userId)
-    throw new FloorRequestError(409,"VISIT_LOCKED","Visit closed or reassigned.");
-   const latestReview=reviewCart(snapshot,latest);
-   if(mounted.current)setCtx(old=>old?{...old,menu:latest}:old);
-   if(!latestReview.valid){
-    setTab("cart");setError(m25(locale,"validationFailed"));return;
-   }
+   if(!uncertainRef.current){
+    await saveDraft(userId,tenantId,id,snapshot);
+    setSaveStatus("saved");
+    // Never send without validating the newest published menu and the assigned open visit.
+    const [visit,latest]=await Promise.all([
+     floorRequest<VisitResult>("/api/floor/visits/"+encodeURIComponent(id)),
+     floorRequest<MenuData>("/api/menu/catalog")]);
+    if(visit.visit.status!=="open"||visit.visit.waiterId!==userId)
+     throw new FloorRequestError(409,"VISIT_LOCKED","Visit closed or reassigned.");
+    const latestReview=reviewCart(snapshot,latest);
+    if(mounted.current){
+     const next={...ctx,menu:latest};ctxRef.current=next;setCtx(next);
+    }
+    if(!latestReview.valid){
+     setTab("cart");setError(m25(locale,"validationFailed"));return;
+    }
+    // Encrypted, committed exact-key marker BEFORE the irreversible HTTP POST.
+    await markSubmissionPending(userId,tenantId,id,snapshot.idempotencyKey);
+    prepared=true;
+   }else prepared=true;
+   // An uncertain prior POST is replayed unchanged. Server checks idempotency before
+   // checking whether its visit subsequently closed.
+   postAttempted=true;
    const response=await floorRequest<{created:boolean;round:{id:string}}>(
     "/api/orders/visits/"+encodeURIComponent(id)+"/rounds",
     {method:"POST",body:{idempotencyKey:snapshot.idempotencyKey,
       note:snapshot.note,lines:snapshot.lines}});
-   sent.current=true;
-   try{await clearDraft(userId,tenantId,id);}catch{/* The same request key remains safe to replay. */}
+   sent.current=true;uncertainRef.current=false;setUncertain(false);
+   try{await clearDraft(userId,tenantId,id);}catch{/* Reusing the same key can only replay the accepted ticket. */}
    if(mounted.current){
     setNotice(m25(locale,response.created?"accepted":"alreadySent"));
     router.replace({pathname:"/order/[id]",params:{id:response.round.id}});
    }
   }catch(e){
+   const definite=e instanceof FloorRequestError&&e.status>=400&&e.status<500;
+   if(prepared&&definite){
+    try{await clearSubmissionPending(userId,tenantId,id);}catch{}
+    uncertainRef.current=false;if(mounted.current)setUncertain(false);
+   }else if(prepared&&postAttempted){
+    uncertainRef.current=true;if(mounted.current)setUncertain(true);
+   }
    if(!mounted.current)return;
    if(e instanceof FloorRequestError&&e.status===401){router.replace("/sign-in");return;}
    const code=e instanceof FloorRequestError?e.code:"";
    if(knownCodes.some(value=>value===code)){
     setTab("cart");setError(m25(locale,"validationFailed"));
-    // Refresh the displayed catalog without changing the draft or submission key.
+    // Refresh catalog, never silently modify an existing cart or its exact key.
     const currentCtx=ctxRef.current;
     if(currentCtx)void floorRequest<MenuData>("/api/menu/catalog")
      .then(menu=>{if(mounted.current){
@@ -196,8 +216,11 @@ export default function NewOrder(){
    }else if(code==="VISIT_LOCKED"||code==="NOT_ASSIGNED"){
     setBlocked(true);setError(m25(locale,code==="NOT_ASSIGNED"?"notAssigned":"visitClosed"));
    }else if(code==="IDEMPOTENCY_CONFLICT")setError(m25(locale,"keyConflict"));
+   else if(!prepared&&!postAttempted&&!(e instanceof FloorRequestError)){
+    setError(m25(locale,"markerFailed"));
+   }else if(prepared&&postAttempted&&!definite)setError(m25(locale,"ambiguous"));
    else if(e instanceof FloorRequestError)setError(e.message||m25(locale,"sendFailed"));
-   else setError(m25(locale,"ambiguous"));
+   else setError(m25(locale,"sendFailed"));
   }finally{sendingRef.current=false;if(mounted.current)setSending(false);}
  }
  const filtered=useMemo(()=>ctx?.menu.items.filter(item=>
