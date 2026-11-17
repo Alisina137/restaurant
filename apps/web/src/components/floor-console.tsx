@@ -141,9 +141,9 @@ export function FloorConsole({tab}:{tab:FloorTab}){
   <nav className="context-tabs" aria-label={f4(locale,"tables")}>
    <Link href="/app/tables/board" className={"context-tab"+(tab==="board"?" current":"")}
     aria-current={tab==="board"?"page":undefined}><DoorOpen size={18}/>{f4(locale,"board")}</Link>
-   <Link href="/app/tables/manage" className={"context-tab"+(tab==="manage"?" current":"")}
-    aria-current={tab==="manage"?"page":undefined}><Layers3 size={18}/>{f4(locale,"manage")}</Link>
-   <Link href="/app/tables/qr" className="context-tab"><QrCode size={18}/>QR</Link>
+   {board?.role!=="waiter"&&<Link href="/app/tables/manage" className={"context-tab"+(tab==="manage"?" current":"")}
+    aria-current={tab==="manage"?"page":undefined}><Layers3 size={18}/>{f4(locale,"manage")}</Link>}
+   {board?.role!=="waiter"&&<Link href="/app/tables/qr" className="context-tab"><QrCode size={18}/>QR</Link>}
   </nav>
   {error&&<InlineFeedback message={error} retry={()=>void load()} onRetryLabel={f4(locale,"retry")}/>}
   {!board&&loading?<LoadingSkeleton rows={3} label={f4(locale,"loading")} className="settings-card"/>:board&&<>
