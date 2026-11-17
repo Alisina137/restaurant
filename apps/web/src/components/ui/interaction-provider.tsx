@@ -1,7 +1,8 @@
 "use client";
 
-import {createContext,useCallback,useContext,useEffect,useRef,useState,type ReactNode} from "react";
+import {createContext,useCallback,useContext,useEffect,useMemo,useRef,useState,type ReactNode} from "react";
 import {AlertCircle,CheckCircle2,Info,X} from "lucide-react";
+import {usePathname} from "next/navigation";
 
 export type FeedbackTone="success"|"error"|"info";
 export type Confirmation={title:string;description?:string;confirmLabel:string;cancelLabel:string;danger?:boolean};
@@ -14,6 +15,8 @@ function closeCopy(){
   return locale==="ps-AF"?"بندول":locale==="fa-AF"?"بستن":"Dismiss";
 }
 export function InteractionProvider({children}:{children:ReactNode}){
+  const pathname=usePathname();
+  const previousPath=useRef(pathname);
   const [toasts,setToasts]=useState<Notification[]>([]);
   const [dialog,setDialog]=useState<Confirmation|null>(null);
   const nextId=useRef(0);
@@ -43,6 +46,14 @@ export function InteractionProvider({children}:{children:ReactNode}){
     setDialog(null);
     resolve?.(accepted);
   },[]);
+  const api=useMemo<FeedbackApi>(()=>({notify,confirm}),[notify,confirm]);
+  // A confirmation belongs to the screen that requested it: never execute it after navigation.
+  useEffect(()=>{
+    if(previousPath.current!==pathname){
+      previousPath.current=pathname;
+      if(pending.current)settle(false);
+    }
+  },[pathname,settle]);
 
   useEffect(()=>{
     const timeouts=timers.current;
@@ -80,7 +91,7 @@ export function InteractionProvider({children}:{children:ReactNode}){
     };
   },[dialog,settle]);
 
-  return <FeedbackContext.Provider value={{notify,confirm}}>
+  return <FeedbackContext.Provider value={api}>
     {children}
     <div className="df-toast-stack" aria-label="Notifications">
       {toasts.map(toast=>{
