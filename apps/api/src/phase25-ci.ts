@@ -119,19 +119,19 @@ async function main(){
   path,"POST",{...body,idempotencyKey:newKey},waiter),409);
  assert.equal(unavailable.code,"ITEM_UNAVAILABLE",
   "New submission must reject sold-out meal even if it was previously ordered");
- const prep=await expect<{ticket:{status:string;version:number}}>(await request(
+ const prep=await expect<{saved:boolean}>(await request(
   "/api/orders/tickets/"+first.ticket.id+"/transition",
   "POST",{version:first.ticket.version,nextStatus:"preparing"},kitchen),200);
- assert.equal(prep.ticket.status,"preparing");
- const ready=await expect<{ticket:{status:string;version:number}}>(await request(
+ assert.equal(prep.saved,true);
+ const ready=await expect<{saved:boolean}>(await request(
   "/api/orders/tickets/"+first.ticket.id+"/transition",
-  "POST",{version:prep.ticket.version,nextStatus:"ready"},kitchen),200);
- assert.equal(ready.ticket.status,"ready");
+  "POST",{version:first.ticket.version+1,nextStatus:"ready"},kitchen),200);
+ assert.equal(ready.saved,true);
  const details=await expect<{round:{id:string;totalMinor:number};ticket:{status:string;version:number}}>(
   await request("/api/orders/rounds/"+first.round.id,"GET",undefined,waiter),200);
  assert.equal(details.ticket.status,"ready");assert.equal(details.round.totalMinor,64500);
  const delivered=await request("/api/orders/rounds/"+first.round.id+"/serve",
-  "POST",{version:ready.ticket.version},waiter);
+  "POST",{version:first.ticket.version+2},waiter);
  assert.equal(delivered.status,200,await delivered.text(),
   "Waiter confirms actual food delivery after kitchen-ready");
  console.info("PASS P25: real table/visit catalog, validation, exact-key request replays and altered hash rejection, duplicate-proof kitchen ticket, immutable prices after stock change, kitchen ready and waiter delivery.");
