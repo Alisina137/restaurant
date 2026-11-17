@@ -111,7 +111,7 @@ const styles=StyleSheet.create({
  summary:{backgroundColor:theme.brandSoft,borderRadius:15,padding:15,borderWidth:1,borderColor:"#D2E5D8"},
  summaryLine:{alignItems:"center",gap:12},
  summaryInfo:{flex:1,gap:5},
- summaryTitle:{fontWeight:"850",color:theme.brand,fontSize:13},
+ summaryTitle:{fontWeight:"800",color:theme.brand,fontSize:13},
  summaryHint:{fontSize:11,lineHeight:17,color:theme.muted},
  summaryCount:{fontSize:24,color:theme.brand,fontWeight:"900"},
  card:{backgroundColor:"#fff",borderWidth:1,borderColor:theme.border,borderRadius:17,padding:16,gap:11},
