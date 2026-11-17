@@ -7,6 +7,7 @@ import {useWorkspace} from "./workspace-provider";
 import {jsonRequest,Phase2Error} from "@/lib/phase2-api";
 import {f9} from "@/lib/finance-copy";
 import {isoTime,money,type CheckPage,type CheckRow} from "@/lib/finance-types";
+import {ActionButton,EmptyState,LoadingSkeleton,Surface} from "./ui/design-system";
 type Tab="all"|"requested"|"partial";
 export function CashierChecks({area="cashier"}:{area?:"cashier"|"app"}){
  const {workspace}=useWorkspace(),locale=workspace.locale,router=useRouter();
@@ -52,7 +53,7 @@ export function CashierChecks({area="cashier"}:{area?:"cashier"|"app"}){
        <strong>{data?money(data.items.reduce((s,x)=>s+x.dueMinor,0),locale):"—"}</strong>
        <small>{f9(locale,"current")} · {data?.items.length??"—"}</small></div>
    </div>
-   <div className="finance-toolbar settings-card">
+   <Surface className="finance-toolbar">
      <div className="finance-segments" role="tablist" aria-label={f9(locale,"checks")}>
        {(["all","requested","partial"] as const).map(t=><button key={t} type="button" role="tab"
          aria-selected={tab===t} className={tab===t?"selected":""}
@@ -60,12 +61,12 @@ export function CashierChecks({area="cashier"}:{area?:"cashier"|"app"}){
      <label className="finance-search"><Search size={19}/><input type="search" value={query}
        onChange={e=>{setQuery(e.target.value);setPage(1);}} placeholder={f9(locale,"search")}
        aria-label={f9(locale,"search")}/></label>
-   </div>
+   </Surface>
    {tab==="requested"&&data?.total===0&&<div className="finance-info"><ShieldCheck size={20}/>
      <span>{f9(locale,"noChecks")}</span></div>}
    {error&&<div className="form-error" role="alert">{error}
      <button className="text-link" onClick={()=>void load()}>{f9(locale,"retry")}</button></div>}
-   {loading&&!data?<div className="list-skeleton settings-card"><span/><span/><span/></div>:
+   {loading&&!data?<LoadingSkeleton rows={3} label={f9(locale,"checks")} className="settings-card"/>:
     data?.items.length?<div className="finance-check-grid">
       {data.items.map(row=><article className="finance-check-card" key={row.visitId}>
         <div className="finance-check-head"><div><span className="eyebrow">{f9(locale,"table")}</span>
@@ -77,12 +78,11 @@ export function CashierChecks({area="cashier"}:{area?:"cashier"|"app"}){
           <div><span>{f9(locale,"paid")}</span><strong>{money(row.paidMinor,locale)}</strong></div>
           <div className="due"><span>{f9(locale,"due")}</span><strong>{money(row.dueMinor,locale)}</strong></div>
         </div>
-        <button className="button button-primary" type="button" disabled={busy===row.visitId}
+        <ActionButton variant="primary" type="button" loading={busy===row.visitId} loadingText={f9(locale,"processing")}
          onClick={()=>void open(row)}>
-          {busy===row.visitId?f9(locale,"processing"):f9(locale,"openCheck")}<ArrowRight size={18}/></button>
+          {f9(locale,"openCheck")}<ArrowRight size={18}/></ActionButton>
       </article>)}</div>:
-     <div className="settings-card empty-panel"><ReceiptText size={36}/>
-       <h3>{f9(locale,"noChecks")}</h3></div>}
+     <Surface><EmptyState icon={<ReceiptText size={36}/>} title={f9(locale,"noChecks")}/></Surface>}
    {!!data&&data.total>data.perPage&&<div className="pager">
      <button className="button button-small" disabled={page===1}
        onClick={()=>setPage(p=>p-1)}>‹</button><span>{page} / {Math.ceil(data.total/data.perPage)}</span>
