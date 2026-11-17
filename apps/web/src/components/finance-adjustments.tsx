@@ -88,7 +88,7 @@ export function AdjustmentConsole({area="cashier",initialCheckId=""}:{area?:"cas
   <nav className="finance-area-tabs"><Link href={base+"/checks"}>{p10(locale,"back")}</Link>
    <Link className="selected" href={base+"/adjustments"}>{p10(locale,"title")}</Link></nav>
   {error&&<div role="alert" className="form-error"><AlertCircle size={16}/>{error}</div>}
-  {notice&&<div role="status" className="success-banner"><CheckCircle2 size={16}/>{notice}</div>}
+
   <div className="p10-grid">
    <section className="settings-card">
     <div className="section-heading"><h2>{p10(locale,"request")}</h2><ClipboardCheck size={23}/></div>
