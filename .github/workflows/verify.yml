@@ -46,6 +46,7 @@ jobs:
           node-version: "22"
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm ui:verify
+      - run: pnpm nav:verify
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build:web

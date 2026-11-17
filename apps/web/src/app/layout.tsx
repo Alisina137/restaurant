@@ -1,5 +1,6 @@
 import "./globals.css";
 import "./design-system.css";
+import "./workspace-navigation.css";
 import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "DineFlow | Restaurant workspace",
