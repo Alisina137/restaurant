@@ -31,7 +31,8 @@ export function PageControls({page,total,perPage,onPageChange,previousLabel,next
   previousLabel:string;nextLabel:string;pageLabel:string;ofLabel:string;busy?:boolean;className?:string;
 }){
   const pages=Math.max(1,Math.ceil(Math.max(0,total)/Math.max(1,perPage)));
-  if(total<=perPage)return null;
+  // Keep the Previous action reachable if a deletion leaves the current page out of range.
+  if(total<=perPage&&page<=1)return null;
   return <nav className={"ds-page-controls "+className}
       aria-label={pageLabel} aria-busy={busy}>
     <button type="button" className="button button-small" aria-label={previousLabel}
@@ -39,7 +40,7 @@ export function PageControls({page,total,perPage,onPageChange,previousLabel,next
       <ChevronLeft size={16} aria-hidden="true"/>{previousLabel}
     </button>
     <span className="ds-page-location" aria-live="polite">
-      {pageLabel} <strong>{Math.min(page,pages)}</strong> {ofLabel} <strong>{pages}</strong>
+      {pageLabel} <strong>{page}</strong> {ofLabel} <strong>{pages}</strong>
     </span>
     <button type="button" className="button button-small" aria-label={nextLabel}
       disabled={busy||page>=pages} onClick={()=>onPageChange(Math.min(pages,page+1))}>
