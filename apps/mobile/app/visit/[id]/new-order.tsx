@@ -285,7 +285,11 @@ export default function NewOrder(){
   {!!notice&&<View accessibilityRole="alert" style={styles.success}>
    <Ionicons name="checkmark-circle-outline" size={19} color={theme.brand}/>
    <Text style={styles.successText}>{notice}</Text></View>}
-  {blocked&&<View style={styles.blocked}>
+  {uncertain&&<View accessibilityRole="alert" style={styles.blocked}>
+   <Ionicons name="alert-circle-outline" size={20} color={theme.danger}/>
+   <Text style={styles.blockedText}>{m25(locale,"uncertain")}</Text>
+  </View>}
+  {blocked&&!uncertain&&<View style={styles.blocked}>
    <Ionicons name="lock-closed-outline" size={20} color={theme.danger}/>
    <Text style={styles.blockedText}>{m25(locale,"tableUnavailable")}</Text>
    <Pressable accessibilityRole="button" onPress={()=>router.replace("/(main)/tables")}>
@@ -350,7 +354,7 @@ export default function NewOrder(){
      {!!line.note&&<Text style={[styles.noteText,{textAlign:rtl?"right":"left"}]}>{line.note}</Text>}
     </View>
     <Pressable accessibilityRole="button" accessibilityLabel={m25(locale,"remove")}
-     onPress={()=>remove(index)} disabled={sending} style={styles.trash}>
+     onPress={()=>remove(index)} disabled={sending||uncertain} style={[styles.trash,uncertain&&styles.disabled]}>
      <Ionicons name="trash-outline" color={theme.danger} size={21}/></Pressable>
    </View>
    {!!issue&&<View style={styles.itemWarning}><Ionicons name="alert-circle-outline" size={18} color={theme.danger}/>
@@ -358,18 +362,18 @@ export default function NewOrder(){
    <View style={[styles.cartBottom,{flexDirection:rtl?"row-reverse":"row"}]}>
     <View style={[styles.quantityControls,{flexDirection:rtl?"row-reverse":"row"}]}>
      <Pressable accessibilityRole="button" accessibilityLabel={m25(locale,"decrease")}
-      disabled={sending||line.quantity<=1} style={[styles.qtyButton,(sending||line.quantity<=1)&&styles.disabled]}
+      disabled={sending||uncertain||line.quantity<=1} style={[styles.qtyButton,(sending||line.quantity<=1)&&styles.disabled]}
       onPress={()=>change(d=>setLineQuantity(d,index,line.quantity-1))}>
       <Ionicons name="remove-outline" size={21} color={theme.brand}/></Pressable>
      <Text style={styles.qtyNumber}>{line.quantity}</Text>
      <Pressable accessibilityRole="button" accessibilityLabel={m25(locale,"increase")}
-      disabled={sending||line.quantity>=99} style={[styles.qtyButton,(sending||line.quantity>=99)&&styles.disabled]}
+      disabled={sending||uncertain||line.quantity>=99} style={[styles.qtyButton,(sending||line.quantity>=99)&&styles.disabled]}
       onPress={()=>change(d=>setLineQuantity(d,index,line.quantity+1))}>
       <Ionicons name="add-outline" size={21} color={theme.brand}/></Pressable>
     </View>
     <Text style={styles.lineAmount}>{subtotal===null?"—":price(subtotal,locale)}</Text>
     {item&&<Pressable accessibilityRole="button" onPress={()=>choose(item,index)}
-     disabled={sending||blocked} style={styles.editButton}>
+     disabled={sending||uncertain||blocked} style={[styles.editButton,uncertain&&styles.disabled]}>
      <Ionicons name="create-outline" color={theme.brand} size={18}/>
      <Text style={styles.editLabel}>{m25(locale,"edit")}</Text></Pressable>}
    </View>
@@ -382,7 +386,7 @@ export default function NewOrder(){
   <Text style={styles.footnote}>{m25(locale,"estimateHint")}</Text>
   <Text style={styles.fieldLabel}>{m25(locale,"noteLabel")}</Text>
   <TextInput multiline maxLength={500} textAlignVertical="top" value={draft.note}
-   onChangeText={note=>change(old=>setOrderNote(old,note))} editable={!sending&&!blocked}
+   onChangeText={note=>change(old=>setOrderNote(old,note))} editable={!sending&&!uncertain&&!blocked}
    accessibilityLabel={m25(locale,"noteLabel")}
    placeholder={m25(locale,"notesPlaceholder")} placeholderTextColor={theme.muted}
    style={[styles.noteInput,{textAlign:rtl?"right":"left"}]}/>
@@ -415,15 +419,16 @@ export default function NewOrder(){
      <Text style={styles.mainButtonText}>{m25(locale,"viewCart")}</Text></Pressable>:
     <View style={[styles.footerActions,{flexDirection:rtl?"row-reverse":"row"}]}>
      <Pressable accessibilityRole="button" onPress={()=>void save()}
-      disabled={sending||!ctx} style={[styles.secondaryButton,(sending||!ctx)&&styles.disabled]}>
+      disabled={sending||uncertain||!ctx} style={[styles.secondaryButton,(sending||uncertain||!ctx)&&styles.disabled]}>
       <Ionicons name="save-outline" size={18} color={theme.brand}/>
       <Text style={styles.secondaryText}>{m25(locale,"save")}</Text></Pressable>
      <Pressable accessibilityRole="button" onPress={sendConfirmation}
-      disabled={sending||!ctx||!review?.valid||blocked}
-      style={[styles.mainButton,{flex:1},(sending||!review?.valid||blocked)&&styles.disabled]}>
+      disabled={sending||!ctx||(!uncertain&&(!review?.valid||blocked))}
+      style={[styles.mainButton,{flex:1},
+       (sending||(!uncertain&&(!review?.valid||blocked)))&&styles.disabled]}>
       {sending?<ActivityIndicator color="#fff"/>:
        <Ionicons name="send-outline" size={19} color="#fff"/>}
-      <Text style={styles.mainButtonText}>{sending?m25(locale,"sending"):m25(locale,"send")}</Text>
+      <Text style={styles.mainButtonText}>{sending?m25(locale,"sending"):uncertain?m25(locale,"retrySame"):m25(locale,"send")}</Text>
      </Pressable>
     </View>}
   </View>
