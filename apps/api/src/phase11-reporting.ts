@@ -7,7 +7,7 @@ import {auditEvent,restaurantSetting,diningVisit,diningCheck,menuCategory} from 
 import {fail,route} from "./menu-helpers";
 
 export const reportingRouter=Router();
-type Range={from:string;to:string;timezone:string;days:string[]};
+export type Range={from:string;to:string;timezone:string;days:string[]};
 type DbRow=Record<string,unknown>;
 function num(x:unknown):number{
  const n=Number(x??0);
@@ -30,13 +30,15 @@ function businessToday(timezone:string){
   dateOnly(value);return value;
  }catch{return fail(409,"INVALID_TIMEZONE","Restaurant timezone must be a valid IANA zone.");}
 }
-async function reportRange(req:Request,scope:FinanceScope):Promise<Range>{
+export async function reportRange(req:Request,scope:FinanceScope,defaultDays=7):Promise<Range>{
+ if(!Number.isSafeInteger(defaultDays)||defaultDays<1||defaultDays>90)
+  fail(400,"INVALID_RANGE","Invalid report period.");
  const [setting]=await db.select({timezone:restaurantSetting.timezone}).from(restaurantSetting)
   .where(eq(restaurantSetting.tenantId,scope.tenantId)).limit(1);
  const timezone=setting?.timezone??"Asia/Kabul";
  const today=businessToday(timezone),end=typeof req.query.to==="string"?req.query.to:today;
  const todayDate=dateOnly(today),endDate=dateOnly(end);
- const startDefault=new Date(endDate);startDefault.setUTCDate(startDefault.getUTCDate()-6);
+ const startDefault=new Date(endDate);startDefault.setUTCDate(startDefault.getUTCDate()-(defaultDays-1));
  const from=typeof req.query.from==="string"?req.query.from:dateString(startDefault);
  const fromDate=dateOnly(from);
  const span=Math.round((endDate.getTime()-fromDate.getTime())/86400000);
@@ -51,7 +53,7 @@ async function rows<T extends DbRow>(query:ReturnType<typeof sql>):Promise<T[]>{
 }
 const sum=(values:number[])=>values.reduce((a,b)=>a+b,0);
 const n=(r:DbRow,key:string)=>num(r[key]);
-async function salesData(scope:FinanceScope,range:Range){
+export async function salesData(scope:FinanceScope,range:Range){
  const {tenantId:t,locationId:l}=scope,{from,to,timezone:tz,days}=range;
  const [settled,tenders,refunds]=await Promise.all([
   rows(sql`
@@ -111,7 +113,7 @@ async function salesData(scope:FinanceScope,range:Range){
   collections:"Posted payment and refund ledger, attributed to each posting business date.",
   note:"Sales and collections may differ because a tender, settlement and refund can occur on different dates. Never add sales and collections together."}};
 }
-async function itemsData(scope:FinanceScope,range:Range,category:string){
+export async function itemsData(scope:FinanceScope,range:Range,category:string){
  const {tenantId:t,locationId:l}=scope,{from,to,timezone:tz}=range;
  if(category.length>100)fail(400,"INVALID_CATEGORY","Invalid category filter.");
  const result=await rows(sql`
@@ -157,7 +159,7 @@ async function itemsData(scope:FinanceScope,range:Range,category:string){
   discountMinor:n(x,"discountMinor"),netMinor:n(x,"netMinor"),lines:n(x,"lines") })),
  note:"Includes items on settled, non-voided rounds. Discounts allocated across line snapshots using deterministic largest-remainder rounding. Category refers to current catalog classification; historical item names are snapshots."};
 }
-async function serviceData(scope:FinanceScope,range:Range){
+export async function serviceData(scope:FinanceScope,range:Range){
  const {tenantId:t,locationId:l}=scope,{from,to,timezone:tz}=range;
  const [tickets,approvals,lines]=await Promise.all([
   rows(sql`
