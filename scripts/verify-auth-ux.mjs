@@ -61,4 +61,25 @@ for(const selector of [".p18-auth-layout",".p18-password-shell",".p18-auth-steps
 }
 const layout=read("apps/web/src/app/layout.tsx");
 assert.ok(layout.indexOf("auth-experience.css")>layout.indexOf("interaction-system.css"));
-console.log("Phase 18 authentication UX contract verified: password reset, invite/owner verification, profile, sessions, 3 languages, onboarding.");
+const mobilePaths=[
+ "apps/mobile/app/sign-in.tsx",
+ "apps/mobile/app/forgot-password.tsx",
+ "apps/mobile/app/profile.tsx",
+ "apps/mobile/app/security.tsx",
+ "apps/mobile/app/(main)/more.tsx"
+];
+for(const path of mobilePaths)assert.ok(existsSync(new URL(path,root)),"Missing waiter mobile security surface: "+path);
+const mobileSignIn=read(mobilePaths[0]),mobileForgot=read(mobilePaths[1]);
+assert.ok(mobileSignIn.includes('router.push("/forgot-password")'),"Mobile waiter cannot reach recovery");
+assert.ok(mobileSignIn.includes("sendVerificationEmail"),"Mobile unverified account needs recovery");
+assert.ok(mobileForgot.includes("requestPasswordReset"),"Mobile must use real server-backed recovery");
+const mobileAccount=read(mobilePaths[2]),mobileSecurity=read(mobilePaths[3]);
+for(const word of ["authClient.updateUser","/security"])
+ assert.ok(mobileAccount.includes(word),"Mobile profile is not editable/reachable: "+word);
+for(const word of ["authClient.changePassword","authClient.listSessions","authClient.getSession",
+  "authClient.revokeOtherSessions","authClient.revokeSession","revokeOtherSessions:true"]){
+ assert.ok(mobileSecurity.includes(word),"Missing waiter mobile security feature: "+word);
+}
+assert.ok(read("apps/mobile/src/auth-copy.ts").includes("EXPO_PUBLIC_WEB_URL"),"Mobile callback origin configuration missing");
+assert.ok(read(mobilePaths[4]).includes('router.push("/security")'),"Mobile More must expose security");
+console.log("Phase 18 authentication UX contract verified: password reset, invite/owner verification, profile, sessions, mobile waiter, 3 languages, onboarding.");
