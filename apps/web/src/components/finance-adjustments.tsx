@@ -1,11 +1,13 @@
 "use client";
-import {useCallback,useEffect,useState,type FormEvent} from "react";
+import {useCallback,useEffect,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {AlertCircle,CheckCircle2,ClipboardCheck,History,RefreshCw,RotateCcw,ShieldCheck} from "lucide-react";
 import {useWorkspace} from "./workspace-provider";
 import {jsonRequest} from "@/lib/phase2-api";
 import {money,parseAFN,isoTime,type CheckDetails} from "@/lib/finance-types";
 import {p10} from "@/lib/phase10-copy";
+import {useInteraction} from "./ui/interaction-provider";
+import {ux} from "@/lib/interaction-copy";
 type Kind="discount"|"void"|"refund";
 type Status="pending"|"approved"|"rejected"|"applied";
 type Adjustment={id:string;checkId:string;kind:Kind;targetRoundId:string|null;
@@ -15,6 +17,8 @@ type Queue={items:Adjustment[];page:number;perPage:number};
 const newKey=()=>("p10-"+crypto.randomUUID()).replaceAll("-","");
 export function AdjustmentConsole({area="cashier",initialCheckId=""}:{area?:"cashier"|"app";initialCheckId?:string}){
  const {workspace}=useWorkspace(),locale=workspace.locale,role=workspace.role;
+ const {confirm,notify}=useInteraction();
+ const mutationLock=useRef(false);
  const base=area==="cashier"?"/cashier":"/app/billing",canApprove=role==="owner"||role==="manager";
  const [checkId,setCheckId]=useState(initialCheckId),[check,setCheck]=useState<CheckDetails|null>(null);
  const [kind,setKind]=useState<Kind>("discount"),[amount,setAmount]=useState("");
@@ -24,6 +28,7 @@ export function AdjustmentConsole({area="cashier",initialCheckId=""}:{area?:"cas
  const [verified,setVerified]=useState(false),[payNote,setPayNote]=useState("");
  const [reviewNote,setReviewNote]=useState(""),[busy,setBusy]=useState(""),[error,setError]=useState("");
  const [notice,setNotice]=useState("");
+ useEffect(()=>{if(notice){notify(notice,"success");setNotice("");}},[notice,notify]);
  const load=useCallback(async()=>{
   try{
    const [records,detail]=await Promise.all([
@@ -42,7 +47,8 @@ export function AdjustmentConsole({area="cashier",initialCheckId=""}:{area?:"cas
   check.check.status==="settled"&&!!amount&&parseAFN(amount)!==null&&parseAFN(amount)!>0:
   !!eligible&&(kind==="void"?!!roundId:parseAFN(amount)!==null&&parseAFN(amount)!>0));
  const apply=async(path:string,payload:Record<string,unknown>,name:string)=>{
-  setBusy(name);setError("");setNotice("");
+  if(mutationLock.current)return;
+  mutationLock.current=true;setBusy(name);setError("");setNotice("");
   try{
    await jsonRequest(path,{method:"POST",body:JSON.stringify(payload)});
    setNotice(p10(locale,name==="request"?"submitSuccess":name==="decision"?"decisionSuccess":"refundSuccess"));
@@ -51,7 +57,7 @@ export function AdjustmentConsole({area="cashier",initialCheckId=""}:{area?:"cas
    if(name==="refund"){setReference("");setVerified(false);setPayNote("");}
    await load();
   }catch(e){setError(e instanceof Error?e.message:p10(locale,"error"));await load();}
-  finally{setBusy("");}
+  finally{mutationLock.current=false;setBusy("");}
  };
  function send(e:FormEvent){e.preventDefault();if(!check||!canRequest||busy)return;
   const minor=parseAFN(amount);
@@ -59,14 +65,17 @@ export function AdjustmentConsole({area="cashier",initialCheckId=""}:{area?:"cas
    kind,amountMinor:kind==="void"?undefined:minor,roundId:kind==="void"?roundId:undefined,
    reason:reason.trim(),version:check.check.version,requestKey},"request");
  }
- function decide(a:Adjustment,decision:"approve"|"reject"){
-  if(busy||!window.confirm(p10(locale,"confirm")))return;
-  void apply("/api/finance/adjustments/"+a.id+"/decision",
+ async function decide(a:Adjustment,decision:"approve"|"reject"){
+  if(busy||mutationLock.current||!(await confirm({title:p10(locale,decision==="approve"?"approve":"reject"),
+    description:p10(locale,"confirm"),confirmLabel:p10(locale,decision==="approve"?"approve":"reject"),
+    cancelLabel:ux(locale,"cancel"),danger:true})))return;
+  await apply("/api/finance/adjustments/"+a.id+"/decision",
    {version:a.version,decision,note:reviewNote.trim()},"decision");
  }
- function refund(a:Adjustment){
-  if(busy||!window.confirm(p10(locale,"confirm")))return;
-  void apply("/api/finance/adjustments/"+a.id+"/refund",{
+ async function refund(a:Adjustment){
+  if(busy||mutationLock.current||!(await confirm({title:p10(locale,"refund"),description:p10(locale,"confirm"),
+    confirmLabel:p10(locale,"execute"),cancelLabel:ux(locale,"cancel"),danger:true})))return;
+  await apply("/api/finance/adjustments/"+a.id+"/refund",{
    version:a.version,method,externalReference:method==="manual_transfer"?reference.trim():"",
    verifiedExternally:method==="manual_transfer"&&verified,note:payNote.trim()},"refund");
  }
