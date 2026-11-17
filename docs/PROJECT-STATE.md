@@ -114,8 +114,16 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - New `pnpm staff22:verify` and PostgreSQL-backed `phase22-ci.ts` in CI. See `docs/PHASE-22-ACCEPTANCE.md` for remaining production email, printed receipt and device verification.
 - Phase 14 supervised operator pilot remains **outstanding**.
 
+## Phase 23 status
+- Rebuilt the Expo waiter workspace with a safe-area five-tab shell, polished active icons and unread ready-food badge. Added shared native headers, metric cards, action links, pills, pagers, loading/retry and error states with English/Dari/Pashto localization and RTL.
+- Home now shows six **real** role-scoped live service metrics, tenant identity, kitchen alerts and working shortcuts without overriding a user's chosen app language.
+- Tables: virtualized section grouping, own assignments and real occupancy metrics, section/status/search filters, actual ready-food and service-request attention queue, secured detail links.
+- Orders: virtualized active/ready/completed paginated lists, kitchen status and pricing, focus-safe refresh, details links. Menu: virtualized real tenant catalog, real category/search, item modifiers/allergens, assigned active visit selector and guarded order-builder links. More: genuine account identity, direct operations links, preferences, secure profile and guarded signout.
+- Focus-aware live loader skips background polling, ignores out-of-order responses, redirects expired sessions and retains last good data with explicit stale-network warning. `mobile23-data.ts` selectors are exercised by `pnpm mobile23:verify` (static contracts and native pure function tests). No new migrations or external libraries.
+- See `docs/PHASE-23-ACCEPTANCE.md` for Expo Go hand-testing, real service flows, all locale/device and notification/vibration verification. **Phase 14 supervised pilot remains outstanding.**
+
 ## Next phase
-Phase 23: mobile workspace redesign.
+Phase 24: mobile table and visit details, action forms and service workflow redesign.
 
 ## Local commands
 ```powershell
