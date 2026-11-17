@@ -18,28 +18,30 @@ export function useLiveScreen<T>(key:string,loader:()=>Promise<T>,intervalMs=150
  const [loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false);
  const [error,setError]=useState(""),[lastUpdated,setLastUpdated]=useState<number|null>(null);
  const sequence=useRef(0),focused=useRef(false),running=useRef(false);
+ const snapshotRef=useRef<Snapshot<T>|null>(null);
  const current=snapshot?.key===key?snapshot.data:null;
  const refresh=useCallback(async(manual=false)=>{
-  if(!focused.current||AppState.currentState!=="active")return;
+  if(!focused.current||AppState.currentState==="background")return;
   if(running.current&&!manual)return;
   const n=++sequence.current;
   running.current=true;
-  if(!current)setLoading(true);else if(manual)setRefreshing(true);
+  if(snapshotRef.current?.key!==key)setLoading(true);else if(manual)setRefreshing(true);
   try{
    const value=await loader();
    if(n!==sequence.current||!focused.current)return;
-   setSnapshot({data:value,key});setError("");setLastUpdated(Date.now());
+   snapshotRef.current={data:value,key};setSnapshot(snapshotRef.current);
+   setError("");setLastUpdated(Date.now());
   }catch(err){
    if(n!==sequence.current||!focused.current)return;
    if(err instanceof FloorRequestError&&err.status===401){
-    setSnapshot(null);router.replace("/sign-in");return;
+    snapshotRef.current=null;setSnapshot(null);router.replace("/sign-in");return;
    }
    setError(err instanceof Error?err.message:"REQUEST_FAILED");
   }finally{
    if(n===sequence.current){running.current=false;
     if(focused.current){setLoading(false);setRefreshing(false);}}
   }
- },[key,loader,current]);
+ },[key,loader]);
  useFocusEffect(useCallback(()=>{
   focused.current=true;
   void refresh();
