@@ -213,7 +213,7 @@ const styles=StyleSheet.create({
  glyph:{width:44,height:44,borderRadius:13,alignItems:"center",justifyContent:"center",
   backgroundColor:theme.brandSoft},
  cardMain:{flex:1,minWidth:0,gap:6},
- cardTitle:{fontSize:15,color:theme.ink,fontWeight:"850"},
+ cardTitle:{fontSize:15,color:theme.ink,fontWeight:"800"},
  date:{color:theme.muted,fontSize:11},
  dot:{width:10,height:10,borderRadius:6,backgroundColor:theme.brand},
  actions:{gap:9,alignItems:"center",justifyContent:"flex-end",flexWrap:"wrap"},
