@@ -82,8 +82,13 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - `pnpm interaction:verify` now runs in CI alongside existing visual/navigation checks. Acceptance matrix and known manual validation gates: `docs/PHASE-17-ACCEPTANCE.md`.
 - **Code changes are not proof of device QA or real cash settlement**. The Phase 14 independent pilot release gates remain outstanding.
 
+## Phase 18 status
+- Implemented email-based password reset (one-hour single-use tokens via Better Auth), web forgot/reset routes, authenticated profile name and password changes, session/device management and revocation, and responsive login/registration/invitation/onboarding interfaces.
+- Secure invite-only redirect validation, explicit email verification, 3-language auth UX, role/tenant-aware account settings, owner draft progress and user-facing failure/recovery states. Waiter Expo gained recovery entry, name editing and password/session security controls; real-phone recovery links require a web callback origin. Added `pnpm auth:verify` to CI.
+- See `docs/PHASE-18-ACCEPTANCE.md`; actual external mail delivery, manual device/RTL and recovery tests require operator verification. **This is not commercial deployment approval.**
+
 ## Next phase
-Phase 18: authentication, onboarding and account UX. Do not approve production deployment before the supervised restaurant pilot and manual requirements are signed off.
+Phase 19: advanced restaurant dashboard and operational KPIs. Real restaurant pilot/production gates from Phase 14 remain outstanding.
 
 ## Local commands
 ```powershell

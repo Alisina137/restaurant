@@ -16,7 +16,23 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   trustedOrigins: [...origins, "dineflow://", ...(process.env.NODE_ENV === "production" ? [] : ["exp://", "exp://**"])],
   database: drizzleAdapter(db, { provider: "pg", schema }),
-  emailAndPassword: { enabled: true, minPasswordLength: 12, requireEmailVerification: true },
+  emailAndPassword: {
+    enabled: true,
+    minPasswordLength: 12,
+    requireEmailVerification: true,
+    resetPasswordTokenExpiresIn: 3600,
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, url }) => {
+      // Better Auth issues single-use, expiring tokens. Never log token-bearing links.
+      // Deliver through the same production-configured provider as verification emails.
+      // A missing provider is an operational error, not a mock successful delivery.
+      await sendEmail(user.email, "Reset your DineFlow password",
+        "A password reset was requested for your DineFlow account.\n\n" +
+        "Use the following link within 60 minutes:\n" + url + "\n\n" +
+        "If you did not request this change, ignore this email.\n" +
+        "Never share this link with anyone.");
+    }
+  },
   emailVerification: {
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
