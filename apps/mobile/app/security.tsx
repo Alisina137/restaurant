@@ -28,6 +28,7 @@ export default function Security(){
    const [list,active]=await Promise.all([authClient.listSessions(),authClient.getSession()]);
    if(list.error||active.error)throw new Error("SESSIONS_FAILED");
    if(sequence!==requestId.current)return;
+   if(!active.data?.session){setSessions([]);router.replace("/sign-in");return;}
    setError("");setSessions((list.data??[]) as SessionInfo[]);
    setCurrentToken(active.data?.session.token??"");
   }catch{if(sequence===requestId.current)setError(ma(locale,"loadFailed"));}
