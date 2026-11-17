@@ -3,7 +3,7 @@ import {
   ClipboardCheck, ClipboardList, Clock3, CreditCard, FileSearch, Headphones,
   History, LayoutDashboard, MailPlus, ReceiptText, RotateCcw, Settings2,
   ShieldCheck, SlidersHorizontal, Timer, UsersRound, UtensilsCrossed, Wallet,
-  Languages, LockKeyhole, BadgePercent, CalendarClock, type LucideIcon
+  Languages, LockKeyhole, BadgePercent, QrCode, type LucideIcon
 } from "lucide-react";
 import { t, type Locale, type WebArea } from "@dineflow/shared";
 import { p2 } from "@/lib/phase2-copy";
@@ -38,6 +38,7 @@ export function getWorkspaceNavigation(area: WebArea, locale: Locale): Workspace
     {id:"operations",label:L(locale,"Operations","عملیات","چارې"),icon:ClipboardList,items:[
       {href:"/app/tables/board",label:f4(locale,"tables"),icon:Armchair},
       {href:"/app/tables/manage",label:L(locale,"Manage tables","مدیریت میزها","د مېزونو اداره"),icon:Building2},
+      {href:"/app/tables/qr",label:L(locale,"Table QR codes","کدهای QR میز","د مېز QR کوډونه"),icon:QrCode},
       {href:"/app/orders/live",label:ow(locale,"orders"),icon:ClipboardList},
       {href:"/app/orders/history",label:k6(locale,"history"),icon:History},
       {href:"/app/service/requests",label:sr8(locale,"requests"),icon:Bell}
