@@ -104,11 +104,9 @@ export default function TableDetails(){
    {text:m24(locale,"cancel"),style:"cancel"},
    {text:m24(locale,"seatGuests"),onPress:()=>{
     if(!table)return;
-    void mutation("seat",async()=>{
-     const result=await floorRequest<{created:boolean;visit:{id:string}}>(
+    void mutation("seat",()=>floorRequest<{created:boolean;visit:{id:string}}>(
       "/api/floor/visits/tables/"+encodeURIComponent(table.id)+"/open",
-      {method:"POST",body:{partySize:Number(party)}});
-    },m24(locale,"seated"));
+      {method:"POST",body:{partySize:Number(party)}}),m24(locale,"seated"));
    }}]);
  }
  function confirmClean(){
