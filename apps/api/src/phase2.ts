@@ -338,20 +338,39 @@ async function dispatchInvite(id: string, token: string, email: string, tenantNa
     return false;
   }
 }
-staffRouter.get("/invitations", route(async (req, res) => {
-  const data = await scopedUser(req, res); if (!data) return;
-  const page = Math.max(1, Math.min(500, Number(req.query.page) || 1)), perPage = 10;
-  const [rows, totals] = await Promise.all([
-    db.select({ id: staffInvitation.id, email: staffInvitation.email, role: staffInvitation.role,
-      status: staffInvitation.status, deliveryStatus: staffInvitation.deliveryStatus,
-      expiresAt: staffInvitation.expiresAt, createdAt: staffInvitation.createdAt,
-      acceptedAt: staffInvitation.acceptedAt, sendAttempts: staffInvitation.sendAttempts })
-      .from(staffInvitation).where(eq(staffInvitation.tenantId, data.tenantId))
-      .orderBy(desc(staffInvitation.createdAt)).limit(perPage).offset((page - 1) * perPage),
-    db.select({ total: count() }).from(staffInvitation).where(eq(staffInvitation.tenantId, data.tenantId))
+staffRouter.get("/invitations", route(async(req,res)=>{
+  const data=await scopedUser(req,res);if(!data)return;
+  const page=Math.max(1,Math.min(500,Number(req.query.page)||1)),perPage=10;
+  const q=typeof req.query.q==="string"?req.query.q.trim():"";
+  const status=typeof req.query.status==="string"?req.query.status:"all";
+  const delivery=typeof req.query.delivery==="string"?req.query.delivery:"all";
+  const role=typeof req.query.role==="string"?req.query.role:"all";
+  if(q.length>80||!["all","pending","expired","accepted","revoked"].includes(status)||
+    !["all","pending","sent","failed"].includes(delivery)||!(role==="all"||hasRole(role))){
+    fail(res,400,"INVALID_FILTER","Choose a valid invitation filter.");return;
+  }
+  const validPending=sql`${staffInvitation.expiresAt}>now()`,
+    expiredPending=sql`${staffInvitation.expiresAt}<=now()`;
+  const where=and(eq(staffInvitation.tenantId,data.tenantId),
+    status==="all"?undefined:status==="expired"?and(eq(staffInvitation.status,"pending"),expiredPending):
+    status==="pending"?and(eq(staffInvitation.status,"pending"),validPending):
+    eq(staffInvitation.status,status),
+    delivery==="all"?undefined:eq(staffInvitation.deliveryStatus,delivery),
+    role==="all"?undefined:eq(staffInvitation.role,role),
+    q?ilike(staffInvitation.email,"%"+q+"%"):undefined);
+  const [rows,totals]=await Promise.all([
+    db.select({id:staffInvitation.id,email:staffInvitation.email,role:staffInvitation.role,
+      status:staffInvitation.status,deliveryStatus:staffInvitation.deliveryStatus,
+      expiresAt:staffInvitation.expiresAt,createdAt:staffInvitation.createdAt,
+      acceptedAt:staffInvitation.acceptedAt,sendAttempts:staffInvitation.sendAttempts})
+      .from(staffInvitation).where(where)
+      .orderBy(desc(staffInvitation.createdAt),desc(staffInvitation.id))
+      .limit(perPage).offset((page-1)*perPage),
+    db.select({total:count()}).from(staffInvitation).where(where)
   ]);
-  res.json({ items: rows.map((row) => ({ ...row, status: row.status === "pending" && row.expiresAt < new Date() ?
-    "expired" : row.status })), total: totals[0]?.total ?? 0, page, perPage });
+  res.setHeader("Cache-Control","private, no-store, max-age=0");
+  res.json({items:rows.map(row=>({...row,status:row.status==="pending"&&row.expiresAt<=new Date()?
+    "expired":row.status})),total:totals[0]?.total??0,page,perPage});
 }));
 staffRouter.post("/invitations", route(async (req, res) => {
   const data = await mayInvite(req, res); if (!data) return;
