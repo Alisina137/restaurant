@@ -13,7 +13,8 @@ import { money, nameFor, type Category, type Catalog, type EditorData, type Grou
   type ItemRow, type Page } from "@/lib/menu-types";
 import { CategoryEditor, GroupEditor, ItemEditor } from "./menu-editors";
 import {useInteraction} from "./ui/interaction-provider";
-import {InlineFeedback,LoadingSkeleton,SearchInput,PageControls} from "./ui/interaction-controls";
+import {InlineFeedback,SearchInput,PageControls} from "./ui/interaction-controls";
+import {LoadingSkeleton} from "./ui/design-system";
 import {ux} from "@/lib/interaction-copy";
 
 export type MenuTab="items"|"categories"|"modifiers"|"availability";
