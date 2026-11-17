@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { fromNodeHeaders } from "better-auth/node";
-import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { isLocale, isStaffRole, type StaffRole } from "@dineflow/shared";
 import { auth } from "./auth";
@@ -46,6 +46,30 @@ function validEmail(v: unknown): v is string { return typeof v === "string" && v
 function tokenHash(raw: string) { return createHash("sha256").update(raw).digest("hex"); }
 function dateAfterHours(h: number) { return new Date(Date.now() + h * 3_600_000); }
 function hasRole(role: string): role is StaffRole { return isStaffRole(role); }
+/** Hours are informational only; the ordering policy is enforced elsewhere. Do not invent a reservation gate. */
+const weekdays=["mon","tue","wed","thu","fri","sat","sun"] as const;
+type ServiceHours=Record<string,null|{open:string;close:string}>;
+function validClock(value:unknown):value is string {
+ return typeof value==="string"&&/^([01]\\d|2[0-3]):[0-5]\\d$/.test(value);
+}
+function parseOpeningHours(value:unknown):ServiceHours {
+ if(!value||typeof value!=="object"||Array.isArray(value))
+  throw new MenuError(400,"INVALID_HOURS","Opening hours must be a day-by-day schedule.");
+ const data=value as Record<string,unknown>,out:ServiceHours={};
+ if(Object.keys(data).some(day=>!weekdays.includes(day as typeof weekdays[number])))
+  throw new MenuError(400,"INVALID_HOURS","Opening hours include an unknown day.");
+ for(const [day,entry] of Object.entries(data)){
+  if(entry===null){out[day]=null;continue;}
+  if(!entry||typeof entry!=="object"||Array.isArray(entry))
+   throw new MenuError(400,"INVALID_HOURS","Choose closed or set opening and closing times.");
+  const time=entry as Record<string,unknown>;
+  if(Object.keys(time).some(key=>key!=="open"&&key!=="close")||
+    !validClock(time.open)||!validClock(time.close)||time.open>=time.close)
+   throw new MenuError(400,"INVALID_HOURS","Opening time must be earlier than closing time in 24-hour format.");
+  out[day]={open:time.open,close:time.close};
+ }
+ return out;
+}
 type Draft = { name: string; slug: string; locationName: string; city: string; phone: string; address: string;
   timezone: string; locale: "fa-AF"|"ps-AF"|"en"; orderingPolicy: "waiter_approval"|"direct_to_kitchen";
   receiptFooter: string; acceptedTerms: boolean };
