@@ -49,7 +49,7 @@ export default function ForgotPasswordPage(){
             {au(locale,"retry")}
           </button>
         </div>:<form onSubmit={submit}>
-          <div className="field"><label htmlFor="recover-email">{au(locale,"invitedEmail")}</label>
+          <div className="field"><label htmlFor="recover-email">{t(locale,"email")}</label>
             <input id="recover-email" type="email" dir="ltr" autoComplete="email"
               value={email} onChange={e=>setEmail(e.target.value)} required maxLength={254}
               placeholder="you@example.com"/></div>
