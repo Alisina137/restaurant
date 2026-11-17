@@ -68,7 +68,9 @@ export function StaffConsole({tab}:{tab:Tab}){
     if(actionLock.current)return;actionLock.current=true;setBusy(true);setError("");setNotice("");
     try{const result=await jsonRequest<{deliveryStatus?:string}>("/api/tenant/invitations/"+id+"/"+action,
         {method:"POST",body:"{}"});
-      setNotice(p2(locale,result.deliveryStatus==="failed"?"invitationFailed":"saveSuccess"));await load();
+      if(result.deliveryStatus==="failed")notify(p2(locale,"invitationFailed"),"error");
+      else setNotice(p2(locale,"saveSuccess"));
+      await load();
     }catch(e){setError(e instanceof Error?e.message:p2(locale,"error"));}
     finally{actionLock.current=false;setBusy(false);}
   }
