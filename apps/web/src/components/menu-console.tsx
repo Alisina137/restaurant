@@ -12,6 +12,9 @@ import { m3 } from "@/lib/menu-copy";
 import { money, nameFor, type Category, type Catalog, type EditorData, type Group, type ItemDetail,
   type ItemRow, type Page } from "@/lib/menu-types";
 import { CategoryEditor, GroupEditor, ItemEditor } from "./menu-editors";
+import {useInteraction} from "./ui/interaction-provider";
+import {InlineFeedback,LoadingSkeleton,SearchInput,PageControls} from "./ui/interaction-controls";
+import {ux} from "@/lib/interaction-copy";
 
 export type MenuTab="items"|"categories"|"modifiers"|"availability";
 const tabs=[{key:"items",icon:UtensilsCrossed},{key:"categories",icon:Layers3},
@@ -25,6 +28,7 @@ function apiError(e:unknown,locale:Locale){
 }
 export function MenuConsole({tab}: {tab:MenuTab}){
   const {workspace}=useWorkspace(),locale=workspace.locale;
+  const {confirm,notify}=useInteraction();
   const [editor,setEditor]=useState<EditorData>(noData);
   const [rows,setRows]=useState<Page<ItemRow>|null>(null),
     [cats,setCats]=useState<Page<Category>|null>(null),[groups,setGroups]=useState<Page<Group>|null>(null);
@@ -35,6 +39,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
   const [popup,setPopup]=useState<Popup|null>(null),[preview,setPreview]=useState<Catalog|null>(null),[previewOpen,setPreviewOpen]=useState(false);
   const [selected,setSelected]=useState<string[]>([]),[reason,setReason]=useState("");
   const revision=useRef<number>(0);
+  useEffect(()=>{if(notice){notify(notice,"success");setNotice("");}},[notice,notify]);
   const load=useCallback(async(silent=false)=>{
     if(!silent)setLoading(true);
     setError("");
@@ -92,7 +97,8 @@ export function MenuConsole({tab}: {tab:MenuTab}){
     finally{setLoadingEditor(false);}
   }
   async function archive(kind:"item"|"category"|"group",row:{id:string;version:number}){
-    if(!window.confirm(m3(locale,"archiveConfirm")))return;
+    if(busy||!(await confirm({title:m3(locale,"archive"),description:m3(locale,"archiveConfirm"),
+      confirmLabel:m3(locale,"archive"),cancelLabel:m3(locale,"cancel"),danger:true})))return;
     const plural=kind==="item"?"items":kind==="category"?"categories":"groups";
     setBusy(true);setError("");setNotice("");
     try{
@@ -135,8 +141,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
     <nav className="context-tabs menu-tabs" aria-label={m3(locale,"menu")}>{tabs.map(({key,icon:Icon})=>
       <Link key={key} className={"context-tab"+(tab===key?" current":"")} aria-current={tab===key?"page":undefined}
         href={"/app/menu/"+key}><Icon size={18}/>{m3(locale,key)}</Link>)}</nav>
-    {notice&&<p className="success-banner" role="status"><Check size={18}/>{notice}</p>}
-    {error&&<div className="form-error" role="alert">{error}<button className="text-link" type="button" onClick={()=>void load()}>{m3(locale,"retry")}</button></div>}
+    {error&&<InlineFeedback message={error} retry={()=>void load()} onRetryLabel={m3(locale,"retry")}/>}
     {tab==="items"&&<section className="settings-card menu-panel">
       <header className="section-heading"><div><h2>{m3(locale,"items")}</h2><p className="muted">{total} {m3(locale,"cardCount")}</p></div>
         <button className="button button-primary" disabled={loading||editor.categories.length===0}
@@ -144,8 +149,8 @@ export function MenuConsole({tab}: {tab:MenuTab}){
       {!editor.categories.length&&!loading&&<p className="menu-callout">{m3(locale,"categoryRequired")} <Link className="text-link"
         href="/app/menu/categories">{m3(locale,"newCategory")} <ArrowUpRight size={15}/></Link></p>}
       <form className="menu-filters" onSubmit={(e:FormEvent)=>{e.preventDefault();setPage(1);setQuery(queryInput);}}>
-        <label className="menu-search"><Search size={19}/><input value={queryInput} onChange={e=>setQueryInput(e.target.value)}
-          placeholder={m3(locale,"search")} aria-label={m3(locale,"search")}/></label>
+        <SearchInput className="menu-search" value={queryInput} onChange={setQueryInput}
+          label={m3(locale,"search")} clearLabel={ux(locale,"clearSearch")}/>
         <select value={status} aria-label={m3(locale,"filter")} onChange={e=>{setPage(1);setStatus(e.target.value);}}>
           <option value="all">{m3(locale,"all")}</option><option value="published">{m3(locale,"published")}</option>
           <option value="draft">{m3(locale,"draft")}</option><option value="soldout">{m3(locale,"soldout")}</option></select>
@@ -154,7 +159,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
         <button className="button button-small" type="submit"><Search size={16}/>{m3(locale,"apply")}</button>
       </form>
       <ArchiveToggle locale={locale} archived={archived} setArchived={v=>{setArchived(v);setPage(1);}}/>
-      {loading?<Skeleton/>:menuItems.length?<div className="table-scroll"><table className="data-table menu-table">
+      {loading?<Skeleton locale={locale}/>:menuItems.length?<div className="table-scroll"><table className="data-table menu-table">
         <thead><tr><th>{m3(locale,"items")}</th><th>{m3(locale,"category")}</th><th>{m3(locale,"price")}</th>
           <th>{m3(locale,"status")}</th><th>{m3(locale,"actions")}</th></tr></thead>
         <tbody>{menuItems.map(item=><tr key={item.id}>
@@ -176,7 +181,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
       <header className="section-heading"><div><h2>{m3(locale,"categories")}</h2><p className="muted">{total}</p></div>
         <button className="button button-primary" onClick={()=>setPopup({kind:"category"})}><CirclePlus size={18}/>{m3(locale,"newCategory")}</button></header>
       <ArchiveToggle locale={locale} archived={archived} setArchived={v=>{setArchived(v);setPage(1);}}/>
-      {loading?<Skeleton/>:cats?.items.length?<div className="menu-category-grid">
+      {loading?<Skeleton locale={locale}/>:cats?.items.length?<div className="menu-category-grid">
         {cats.items.map(cat=><article key={cat.id} className="menu-entity-card">
           <div className="menu-entity-icon"><Layers3 size={23}/></div>
           <div className="menu-entity-body"><div className="menu-entity-head"><h3>{nameFor(cat,locale)}</h3>
@@ -194,7 +199,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
       <header className="section-heading"><div><h2>{m3(locale,"modifiers")}</h2><p className="muted">{total}</p></div>
         <button className="button button-primary" onClick={()=>setPopup({kind:"group"})}><CirclePlus size={18}/>{m3(locale,"newGroup")}</button></header>
       <ArchiveToggle locale={locale} archived={archived} setArchived={v=>{setArchived(v);setPage(1);}}/>
-      {loading?<Skeleton/>:groups?.items.length?<div className="menu-category-grid">
+      {loading?<Skeleton locale={locale}/>:groups?.items.length?<div className="menu-category-grid">
         {groups.items.map(group=><article key={group.id} className="menu-entity-card menu-group-card">
           <div className="menu-entity-icon"><SlidersHorizontal size={23}/></div>
           <div className="menu-entity-body"><div className="menu-entity-head"><h3>{nameFor(group,locale)}</h3>
@@ -230,7 +235,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
         <button className="button button-small button-primary" disabled={busy||!selected.length}
           onClick={()=>void availability(availableRows.filter(r=>selected.includes(r.id)),false)}>
           {m3(locale,"availableBulk")}</button></div>
-      {loading?<Skeleton/>:menuItems.length?<div className="menu-availability-grid">
+      {loading?<Skeleton locale={locale}/>:menuItems.length?<div className="menu-availability-grid">
         {menuItems.map(item=><article className="menu-stock-card" key={item.id}>
           <input type="checkbox" aria-label={m3(locale,"selection")+" "+nameFor(item,locale)}
             checked={selected.includes(item.id)} onChange={e=>setSelected(s=>e.target.checked?[...s,item.id]:s.filter(id=>id!==item.id))}/>
@@ -288,10 +293,9 @@ function ArchiveToggle({locale,archived,setArchived}:{locale:Locale;archived:boo
   return <button className="menu-archive-toggle" type="button" onClick={()=>setArchived(!archived)}>
     <Archive size={15}/>{m3(locale,archived?"showCurrent":"viewArchive")}</button>;
 }
-function Skeleton(){return <div className="list-skeleton"><span/><span/><span/><span/></div>;}
+function Skeleton({locale}:{locale:Locale}){return <LoadingSkeleton rows={4} label={m3(locale,"loading")}/>;}
 function Pager({locale,page,total,setPage}:{locale:Locale;page:number;total:number;setPage:(x:number)=>void}){
-  return <div className="pager"><button type="button" className="button button-small" disabled={page<=1} onClick={()=>setPage(page-1)}>
-    {m3(locale,"previous")}</button><span>{m3(locale,"page")} {page} {m3(locale,"of")} {Math.max(1,Math.ceil(total/10))}</span>
-    <button type="button" className="button button-small" disabled={page>=Math.ceil(total/10)} onClick={()=>setPage(page+1)}>
-      {m3(locale,"next")}</button></div>;
+  return <PageControls page={page} total={total} perPage={10} onPageChange={setPage}
+    previousLabel={m3(locale,"previous")} nextLabel={m3(locale,"next")}
+    pageLabel={m3(locale,"page")} ofLabel={m3(locale,"of")}/>;
 }
