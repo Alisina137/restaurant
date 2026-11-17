@@ -84,7 +84,7 @@ async function checkPeriod(cookie:string,days:7|30){
   sales.daily.map(d=>d.netCollectedMinor));
  const liveKeys=["activeTables","unpaidChecks","ordersToday","newTickets",
   "preparingTickets","readyTickets","pendingGuestApprovals","pendingServiceRequests"];
- for(const key of liveKeys)assert.ok(Number.isSafeInteger(dashboard.live[key])&&dashboard.live[key]!>=0,
+ for(const key of liveKeys)assert.ok(Number.isSafeInteger(dashboard.live[key])&&(dashboard.live[key]??-1)>=0,
   "Live queue count must be real nonnegative integer: "+key);
  assert.ok(dashboard.topItems.length<=5,"Ranking must stay bounded");
  assert.ok(dashboard.service.prepared<=dashboard.service.tickets);
