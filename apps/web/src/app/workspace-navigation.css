@@ -181,6 +181,35 @@
   .workspace-header .avatar-button {width:34px;height:34px;}
   .workspace-crumbs > span {max-width:85px;}
 }
+/* Secondary tab bars inherit one consistent navigation interaction language. */
+.workspace-main .context-tabs,.workspace-main .finance-area-tabs {
+  display:flex; align-items:center; gap:4px; padding:5px;
+  background:#F1F6F3; border:1px solid var(--df-border);
+  border-radius:14px; scrollbar-width:thin;
+}
+.workspace-main .context-tab,.workspace-main .finance-area-tabs a {
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  min-height:44px; padding:9px 13px; font-size:13px; font-weight:750;
+  color:#526D63; border-radius:10px; transition:background-color .15s ease,color .15s ease;
+  text-decoration:none;
+}
+.workspace-main .context-tab:hover,.workspace-main .finance-area-tabs a:hover {
+  background:#E7F0EA; color:var(--df-brand-700);
+}
+.workspace-main .context-tab.current,
+.workspace-main .context-tab[aria-current="page"],
+.workspace-main .finance-area-tabs a.selected {
+  background:var(--df-surface);color:var(--df-brand-700);
+  box-shadow:0 3px 13px rgba(16,66,49,.075);
+}
+@media(max-width:650px){
+  .workspace-main .context-tabs,.workspace-main .finance-area-tabs {
+    flex-wrap:nowrap; overflow-x:auto; overscroll-behavior-inline:contain;
+  }
+  .workspace-main .context-tab,.workspace-main .finance-area-tabs a {
+    white-space:nowrap; flex:0 0 auto; font-size:12px; padding:9px 12px;
+  }
+}
 @media(prefers-reduced-motion:reduce){
   .workspace-layout .sidebar,.workspace-group-chevron,.workspace-layout .workspace-nav-link {
     transition:none;
