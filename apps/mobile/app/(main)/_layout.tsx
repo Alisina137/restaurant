@@ -1,4 +1,5 @@
 import {Tabs} from "expo-router";
+import type {ColorValue} from "react-native";
 import {Ionicons} from "@expo/vector-icons";
 import {useSafeAreaInsets} from "react-native-safe-area-context";
 import {t} from "@dineflow/shared";
@@ -10,7 +11,7 @@ import {o5} from "../../src/order-copy";
 export default function MainLayout(){
  const {locale}=useLocale(),insets=useSafeAreaInsets();
  const unread=useReadyAlertBadge();
- const icon=(name:React.ComponentProps<typeof Ionicons>["name"])=>({color,size,focused}:{color:string;size:number;focused:boolean})=>
+ const icon=(name:React.ComponentProps<typeof Ionicons>["name"])=>({color,size,focused}:{color:ColorValue;size:number;focused:boolean})=>
   <Ionicons name={focused?name:({
     "home":"home-outline","grid":"grid-outline","receipt":"receipt-outline",
     "restaurant":"restaurant-outline","ellipsis-horizontal-circle":"ellipsis-horizontal-circle-outline"
