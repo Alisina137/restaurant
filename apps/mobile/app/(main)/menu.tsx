@@ -13,6 +13,7 @@ import {MenuCard,useMenuCookie} from "../../src/order-ui";
 import {m23} from "../../src/mobile23-copy";
 import {LiveNotice,LoadingPanel,EmptyPanel,Pill,ScreenHeader,SectionHeading} from "../../src/mobile23-ui";
 import {useLiveScreen} from "../../src/use-live-screen";
+import {selectableVisits} from "../../src/mobile23-data";
 type Catalog={menu:MenuData;floor:Board};
 async function loadCatalog():Promise<Catalog>{
  const [menu,floor]=await Promise.all([
@@ -27,8 +28,7 @@ export default function WaiterMenu(){
   [preselect,setPreselect]=useState<string|null>(null);
  const loader=useCallback(loadCatalog,[]);
  const {data,loading,refreshing,error,lastUpdated,refresh}=useLiveScreen("catalog",loader,30000);
- const active=useMemo(()=>data?.floor.tables.filter(t=>
-  t.status==="occupied"&&t.visitId&&t.assignedWaiterId===data.floor.actorId)??[],[data]);
+ const active=useMemo(()=>selectableVisits(data?.floor??null),[data]);
  const catalog=data?.menu;
  const filtered=useMemo(()=>catalog?.items.filter(dish=>
   (!category||dish.categoryId===category)&&
