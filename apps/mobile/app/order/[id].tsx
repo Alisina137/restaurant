@@ -1,5 +1,5 @@
-import {useCallback,useState} from "react";
-import {ActivityIndicator,Alert,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from "react-native";
+import {useCallback,useRef,useState} from "react";
+import {ActivityIndicator,Alert,AppState,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from "react-native";
 import {Ionicons} from "@expo/vector-icons";
 import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {direction} from "@dineflow/shared";
@@ -9,6 +9,8 @@ import {floorRequest,FloorRequestError} from "../../src/floor-api";
 import {o5} from "../../src/order-copy";
 import {p10m} from "../../src/phase10-copy";
 import {type OrderDetail,nameOf,price} from "../../src/order-types";
+import {readyToDeliver} from "../../src/mobile24-ops";
+import {m24} from "../../src/mobile24-copy";
 type CorrectionPreview={request:{id:string;status:"pending"|"approved"|"rejected"|"applied";reason:string}|null;
  canRequest:boolean};
 const freshKey=()=>("waiter-cancel-"+Date.now().toString(36)+
@@ -20,22 +22,37 @@ export default function OrderDetailScreen(){
  const [cancelOpen,setCancelOpen]=useState(false),[cancelReason,setCancelReason]=useState("");
  const [correction,setCorrection]=useState<CorrectionPreview|null>(null),[cancelBusy,setCancelBusy]=useState(false);
  const [cancelKey,setCancelKey]=useState(freshKey);
- const load=useCallback(async()=>{
-  setLoading(true);setError("");
+ const requestRef=useRef(0),serveRef=useRef(false),cancelRef=useRef(false);
+ const [visitIsOpen,setVisitIsOpen]=useState<boolean|null>(null);
+ const load=useCallback(async(silent=false)=>{
+  const request=++requestRef.current;
+  if(!silent)setLoading(true);
   try{
    if(!id)throw new Error(o5(locale,"failed"));
    const result=await floorRequest<OrderDetail>("/api/orders/rounds/"+encodeURIComponent(id));
-   setDetail(result);
-   const preview=await floorRequest<CorrectionPreview>("/api/orders/rounds/"+encodeURIComponent(id)+"/correction")
-     .catch(()=>null);
-   setCorrection(preview);
-  }catch(e){setError(e instanceof Error?e.message:o5(locale,"offline"));}
-  finally{setLoading(false);}
+   const [preview,activeVisit]=await Promise.all([
+    floorRequest<CorrectionPreview>("/api/orders/rounds/"+encodeURIComponent(id)+"/correction")
+      .catch(()=>null),
+    floorRequest<{visit:{status:"open"|"closed"}}>(
+     "/api/floor/visits/"+encodeURIComponent(result.round.visitId)).catch(()=>null)
+   ]);
+   if(request!==requestRef.current)return;
+   setDetail(result);setCorrection(preview);setVisitIsOpen(activeVisit?.visit.status==="open");
+   setError("");
+  }catch(e){
+   if(request!==requestRef.current)return;
+   if(e instanceof FloorRequestError&&e.status===401){router.replace("/sign-in");return;}
+   setError(e instanceof Error?e.message:o5(locale,"offline"));
+  }finally{if(request===requestRef.current)setLoading(false);}
  },[id,locale]);
- useFocusEffect(useCallback(()=>{void load();const interval=setInterval(()=>{void load();},15000);
-  return()=>clearInterval(interval);},[load]));
+ useFocusEffect(useCallback(()=>{
+  void load();
+  const interval=setInterval(()=>{if(AppState.currentState==="active")void load(true);},15000);
+  const app=AppState.addEventListener("change",state=>{if(state==="active")void load(true);});
+  return()=>{requestRef.current++;clearInterval(interval);app.remove();};
+ },[load]));
  async function serve(lineId?:string){
-  if(!id||!detail?.ticket||serving)return;
+  if(!id||!detail?.ticket||serving||serveRef.current)return;
   const question=o5(locale,lineId?"confirmServeLine":"confirmServed");
   Alert.alert(o5(locale,"markServed"),question,[
    {text:o5(locale,"cancel"),style:"cancel"},
@@ -43,8 +60,8 @@ export default function OrderDetailScreen(){
   ]);
  }
  async function executeServe(lineId?:string){
-  if(!id||!detail?.ticket)return;
-  setServing(true);setError("");
+  if(!id||!detail?.ticket||serveRef.current)return;
+  serveRef.current=true;setServing(true);setError("");
   try{
    const path="/api/orders/rounds/"+encodeURIComponent(id)+(lineId?"/lines/"+encodeURIComponent(lineId):"")+"/serve";
    await floorRequest(path,{method:"POST",body:{version:detail.ticket.version}});
@@ -53,18 +70,18 @@ export default function OrderDetailScreen(){
     const message=e instanceof FloorRequestError&&e.code==="VERSION_CONFLICT"?
       o5(locale,"versionConflict"):e instanceof Error?e.message:o5(locale,"failed");
     await load();setError(message);
-  }finally{setServing(false);}
+  }finally{serveRef.current=false;setServing(false);}
  }
  async function sendCancellation(){
-  if(!id||cancelBusy||cancelReason.trim().length<8)return;
-  setCancelBusy(true);setError("");
+  if(!id||cancelBusy||cancelRef.current||cancelReason.trim().length<8)return;
+  cancelRef.current=true;setCancelBusy(true);setError("");
   try{
    await floorRequest("/api/orders/rounds/"+encodeURIComponent(id)+"/correction",{
     method:"POST",body:{reason:cancelReason.trim(),idempotencyKey:cancelKey}});
    setCancelKey(freshKey());setCancelOpen(false);setCancelReason("");
    Alert.alert(p10m(locale,"cancelOrder"),p10m(locale,"sent"));await load();
   }catch(e){setError(e instanceof Error?e.message:o5(locale,"failed"));await load();}
-  finally{setCancelBusy(false);}
+  finally{cancelRef.current=false;setCancelBusy(false);}
  }
  function confirmCancellation(){
   if(cancelReason.trim().length<8)return;
@@ -116,7 +133,10 @@ export default function OrderDetailScreen(){
        <Text style={styles.muted}>{order.orderNote}</Text></View>}
     <View style={styles.card}><View style={styles.cardHead}><Text style={styles.name}>{o5(locale,"subtotal")}</Text>
       <Text style={styles.price}>{price(order.subtotalMinor,locale)}</Text></View>
-      <Text style={styles.muted}>{o5(locale,"noConfiguredFees")}</Text>
+      {order.taxMinor+order.serviceMinor>0?
+       <View style={styles.cardHead}><Text style={styles.name}>{o5(locale,"fees")}</Text>
+        <Text style={styles.price}>{price(order.taxMinor+order.serviceMinor,locale)}</Text></View>:
+       <Text style={styles.muted}>{o5(locale,"noConfiguredFees")}</Text>}
       <View style={styles.cardHead}><Text style={styles.name}>{o5(locale,"total")}</Text>
         <Text style={styles.price}>{price(order.totalMinor,locale)}</Text></View></View>
    </>:<View style={styles.card}>{detail.activity.map(a=><View key={a.id} style={styles.activity}>
@@ -128,7 +148,7 @@ export default function OrderDetailScreen(){
       detail.ticket?.status==="ready"?o5(locale,"readyHint"):
       detail.ticket?.status==="preparing"?o5(locale,"preparingHint"):o5(locale,"newHint")}</Text></View>
    {detail.ticket&&["ready","picked_up"].includes(detail.ticket.status)&&
-     detail.lines.some(l=>l.kitchenStatus!=="served")&&
+     detail.lines.some(l=>readyToDeliver(l.kitchenStatus))&&
      <Pressable disabled={serving} onPress={()=>void serve()} style={[styles.primary,serving&&{opacity:.6}]}>
       {serving?<ActivityIndicator color="white"/>:<Ionicons name="checkmark-done-outline" size={20} color="white"/>}
       <Text style={styles.primaryText}>{o5(locale,"markServed")}</Text></Pressable>}
@@ -164,8 +184,11 @@ export default function OrderDetailScreen(){
        </View>}
       </>}
     </View>}
-   <Pressable onPress={()=>router.push({pathname:"/visit/[id]/new-order",params:{id:order.visitId}})} style={styles.primary}>
-    <Ionicons name="add-outline" size={20} color="white"/><Text style={styles.primaryText}>{o5(locale,"addRound")}</Text></Pressable>
+   {visitIsOpen?<Pressable accessibilityRole="button" onPress={()=>
+     router.push({pathname:"/visit/[id]/new-order",params:{id:order.visitId}})} style={styles.primary}>
+    <Ionicons name="add-outline" size={20} color="white"/><Text style={styles.primaryText}>{o5(locale,"addRound")}</Text></Pressable>:
+    <View style={styles.hint}><Text style={styles.muted}>{visitIsOpen===false?
+     o5(locale,"visitClosed"):m24(locale,"noConnection")}</Text></View>}
    <Pressable style={styles.secondary} onPress={()=>router.push({pathname:"/table/[id]",params:{id:order.tableId}})}>
     <Text style={styles.link}>{o5(locale,"returnToTable")}</Text></Pressable>
   </>}
