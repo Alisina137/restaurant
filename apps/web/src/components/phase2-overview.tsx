@@ -8,6 +8,7 @@ import { p2 } from "@/lib/phase2-copy";
 import {r11} from "@/lib/report-copy";
 import {money} from "@/lib/finance-types";
 import {PlatformDashboard} from "./phase12-platform";
+import {LoadingSkeleton,StatusBadge} from "./ui/design-system";
 import type {OverviewReport} from "@/lib/report-types";
 type Setup={restaurant:string;location:{name:string;city:string}|null;teamCount:number;pendingInvites:number;trialExpiresAt:string|null};
 type Org={id:string;name:string;slug:string;status:string;createdAt:string};
@@ -30,7 +31,7 @@ export function RestaurantOverview(){
   return <div className="content-stack">
     <div className="page-heading"><div><div className="eyebrow">{p2(locale,"restaurant")}</div>
       <h1>{workspace.tenantName}</h1><p>{p2(locale,"setupHelp")}</p></div>
-      <span className="status-pill"><BadgeCheck size={16}/>{p2(locale,"setupReady")}</span></div>
+      <StatusBadge tone="success"><BadgeCheck size={16}/>{p2(locale,"setupReady")}</StatusBadge></div>
     <div className="overview-hero"><span className="hero-icon"><CheckCircle2 size={30}/></span>
       <div><div className="eyebrow">DINEFLOW SETUP</div><h2>{p2(locale,"finishSetup")}</h2>
         <p>{setup?.location?setup.location.name+", "+setup.location.city:p2(locale,"setup")}</p></div></div>
@@ -42,7 +43,7 @@ export function RestaurantOverview(){
        <BarChart3 size={16}/>{r11(locale,"view")}<ArrowUpRight size={15}/></Link></div>
      {pulseError&&<div className="form-error" role="alert">{r11(locale,"dataPending")}
        <button className="text-link" onClick={()=>void refreshPulse()}>{r11(locale,"refresh")}</button></div>}
-     {pulseLoading&&!pulse?<div className="list-skeleton"><span/><span/></div>:pulse&&
+     {pulseLoading&&!pulse?<LoadingSkeleton rows={2} label={r11(locale,"businessToday")}/>:pulse&&
       <><div className="p11-kpi-grid">
        <article className="p11-kpi"><span className="p11-kpi-label"><Armchair size={17}/>{r11(locale,"activeTables")}</span>
         <strong>{pulse.activeTables}</strong></article>
@@ -55,7 +56,7 @@ export function RestaurantOverview(){
       </div><p className="muted p11-tz">{pulse.businessDate} · {pulse.timezone}</p></>}
     </section>
     {error&&<p className="form-error" role="alert">{error}<button className="text-link" onClick={()=>void load()}>{p2(locale,"retry")}</button></p>}
-    {loading?<div className="list-skeleton"><span/><span/></div>:setup&&<>
+    {loading?<LoadingSkeleton rows={2} label={p2(locale,"setup")}/>:setup&&<>
       <div className="stat-grid">
         <div className="stat-card"><span><UsersRound size={20}/>{p2(locale,"staffCount")}</span><strong>{setup.teamCount}</strong></div>
         <div className="stat-card"><span><MailPlus size={20}/>{p2(locale,"pendingInvites")}</span><strong>{setup.pendingInvites}</strong></div>
