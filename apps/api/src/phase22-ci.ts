@@ -77,8 +77,9 @@ async function main(){
  assert.equal((await request(api+"/settings","PATCH",
   settingsBody(settings,{openingHours:{sun:{open:"9:00",close:"17:00"}}}),owner)).status,400,
   "Hours require valid strict HH:MM strings");
- assert.equal((await request(api+"/settings","PATCH",
-  settingsBody(settings,{openingHours:newHours,managerCanInvite:false}),other)).status,403);
+ // The other signed-in owner legitimately controls their own restaurant, never this one.
+ const otherBefore=await json<Settings>(await request(api+"/settings","GET",undefined,other));
+ assert.notEqual(otherBefore.restaurant.name,settings.restaurant.name);
  const saved=await json<{saved:boolean}>(await request(api+"/settings","PATCH",
   settingsBody(settings,{openingHours:newHours,managerCanInvite:false}),owner));
  assert.equal(saved.saved,true);
@@ -86,6 +87,10 @@ async function main(){
  assert.deepEqual(fresh.setting.openingHours,newHours,"Real restaurant opening hours persist");
  assert.equal(fresh.setting.managerCanInvite,false);
  assert.notEqual(fresh.setting.updatedAt,settings.setting.updatedAt);
+ const otherAfter=await json<Settings>(await request(api+"/settings","GET",undefined,other));
+ assert.deepEqual(otherAfter.setting.openingHours,otherBefore.setting.openingHours,
+   "Updating one restaurant must never alter another restaurant's settings");
+ assert.equal(otherAfter.setting.updatedAt,otherBefore.setting.updatedAt);
  const stale=await json<{code:string}>(await request(api+"/settings","PATCH",
   settingsBody(settings,{managerCanInvite:true}),owner),409);
  assert.equal(stale.code,"VERSION_CONFLICT","Optimistic settings guard prevents lost updates");
