@@ -67,8 +67,13 @@ Product specification v1.0 · Software Development Workflow V5 · GitHub `Alisin
 - CI verifies state-machine and authorization in a disposable seeded PostgreSQL instance. **Manual release prerequisites remain unsigned:** target Android/printer, Dari/Pashto/English screens, actual tender, one supervised restaurant shift, real restore, load and incident drills.
 - Run `docs/PILOT-RUNBOOK.md` with real operators before tagging a release candidate. Until then **production launch is blocked**.
 
+## Phase 15 status
+- Shared premium design tokens, reusable UI primitives, consistent form/card/button/loading/feedback styling, and aligned web/Expo palette have been implemented. Login, restaurant overview and cashier checks now use shared primitives.
+- A design-contract check is included in CI. See `docs/PHASE-15-ACCEPTANCE.md`.
+- Physical browser/device visual QA and real restaurant pilot gates remain **outstanding**; do not treat this UI work as production approval.
+
 ## Next phase
-No new product phase is scheduled. Complete and document manual pilot acceptance and only then approve a release.
+Phase 16: grouped role-aware navigation and stable sidebar/header. Continue existing real restaurant pilot evidence before considering commercial launch.
 
 ## Local commands
 ```powershell
