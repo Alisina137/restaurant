@@ -70,7 +70,7 @@ export default function Requests(){
      <Ionicons name={requestIcon} size={23} color={theme.brand}/></View>
     <View style={styles.itemTitleWrap}>
      <Text style={[styles.itemTitle,{textAlign:rtl?"right":"left"}]}>
-      {sr8(locale,item.type)} · {m24(locale,"table")} {item.tableLabel}</Text>
+      {sr8(locale,item.type)} · {m24(locale,"searchTable")} {item.tableLabel}</Text>
      <Text style={[styles.received,{textAlign:rtl?"right":"left"}]}>
       {m24(locale,"created")} · {new Date(item.createdAt).toLocaleString(locale)}</Text>
     </View>
