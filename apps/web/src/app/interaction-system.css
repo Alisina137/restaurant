@@ -66,6 +66,18 @@
   border:0;background:transparent;color:var(--df-muted);border-radius:8px;
 }
 .ds-search-clear:hover {background:#F1F4F2;color:var(--df-ink);}
+.ds-filter-select {
+  min-height:46px; min-width:150px; max-width:100%; border:1px solid #CBDCD4;
+  border-radius:var(--df-radius-sm); color:var(--df-ink);
+  background:var(--df-surface);padding:9px 12px;font:inherit;font-size:13px;
+}
+.ds-filter-select:focus-visible {
+  border-color:var(--df-focus);box-shadow:0 0 0 3px rgba(40,126,111,.12);
+}
+.df-inline-updating {
+  margin:0;padding:5px 1px;color:var(--df-muted);font-size:12px;
+  line-height:1.5;font-weight:700;
+}
 .ds-page-controls {
   display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;
   margin-top:20px;color:var(--df-muted);font-size:13px;line-height:1.5;
