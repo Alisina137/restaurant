@@ -1,5 +1,5 @@
 "use client";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Building2, Settings2, UserRound } from "lucide-react";
@@ -7,6 +7,10 @@ import { direction, isLocale, type Locale } from "@dineflow/shared";
 import { authClient } from "@/lib/auth-client";
 import { jsonRequest, Phase2Error } from "@/lib/phase2-api";
 import { p2 } from "@/lib/phase2-copy";
+import {au} from "@/lib/auth-ux-copy";
+import {useAuthLocale,AuthSteps} from "@/components/ui/auth-ui";
+import {InlineFeedback} from "@/components/ui/interaction-controls";
+import {useInteraction} from "@/components/ui/interaction-provider";
 
 type Draft = { name:string;slug:string;locationName:string;city:string;phone:string;address:string;
   timezone:string;locale:Locale;orderingPolicy:"waiter_approval"|"direct_to_kitchen";receiptFooter:string;acceptedTerms:boolean };
@@ -15,10 +19,15 @@ const initial:Draft={name:"",slug:"",locationName:"Main branch",city:"Kabul",pho
   locale:"fa-AF",orderingPolicy:"waiter_approval",receiptFooter:"",acceptedTerms:false};
 const steps = ["accountStep","restaurantStep","defaultsStep","reviewStep"] as const;
 export default function RestaurantOnboarding() {
-  const router=useRouter(), [locale,setLocale]=useState<Locale>("fa-AF");
+  const router=useRouter();
+  const {locale,setLocale}=useAuthLocale();
+  const {notify}=useInteraction();
+  const actionLock=useRef(false);
   const [status,setStatus]=useState<Status|null>(null), [draft,setDraft]=useState<Draft>(initial);
   const [step,setStep]=useState(0), [loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
   const [error,setError]=useState(""),[notice,setNotice]=useState("");
+  const [lastVerificationAt,setLastVerificationAt]=useState(0);
+  useEffect(()=>{if(notice){notify(notice,"success");setNotice("");}},[notice,notify]);
   const load=useCallback(async()=>{
     try {
       const next=await jsonRequest<Status>("/api/onboarding/status");
@@ -35,7 +44,7 @@ export default function RestaurantOnboarding() {
     } finally {setLoading(false);}
   },[router]);
   useEffect(()=>{void load();},[load]);
-  useEffect(()=>{document.documentElement.dir=direction(locale); document.documentElement.lang=locale;},[locale]);
+
   function update<K extends keyof Draft>(key:K,value:Draft[K]){
     setDraft(prev=>({...prev,[key]:value}));setNotice("");setError("");
   }
@@ -44,38 +53,41 @@ export default function RestaurantOnboarding() {
     setDraft(result.draft);
   }
   async function next(e?:FormEvent){
-    e?.preventDefault(); setBusy(true);setError("");setNotice("");
+    e?.preventDefault();if(actionLock.current)return;
+    actionLock.current=true;setBusy(true);setError("");setNotice("");
     try{
       if(step===1 && (draft.name.trim().length<2||draft.locationName.trim().length<2||draft.city.trim().length<2||
         !/^[a-z0-9][a-z0-9-]{1,46}[a-z0-9]$/.test(draft.slug))) {
-        setError("Please enter a restaurant name, a 3–48 character slug, branch and city.");return;
+        setError(!/^[a-z0-9][a-z0-9-]{1,46}[a-z0-9]$/.test(draft.slug)?au(locale,"slugInvalid"):au(locale,"detailsMissing"));return;
       }
       await saveDraft();setStep(s=>Math.min(3,s+1));
     }catch(e){setError(e instanceof Error?e.message:p2(locale,"error"));}
-    finally{setBusy(false);}
+    finally{actionLock.current=false;setBusy(false);}
   }
   async function saveOnly(){
+    if(actionLock.current)return;actionLock.current=true;
     setBusy(true);setError("");setNotice("");
-    try{await saveDraft();setNotice(p2(locale,"saveSuccess"));}catch(e){setError(e instanceof Error?e.message:p2(locale,"error"));}finally{setBusy(false);}
+    try{await saveDraft();setNotice(p2(locale,"saveSuccess"));}catch(e){setError(e instanceof Error?e.message:p2(locale,"error"));}finally{actionLock.current=false;setBusy(false);}
   }
   async function complete(){
-    if(!draft.acceptedTerms){setError(p2(locale,"terms"));return;}
+    if(!draft.acceptedTerms){setError(au(locale,"termsRequired"));return;}
+    if(actionLock.current)return;actionLock.current=true;
     setBusy(true);setError("");
     try{
       const created=await jsonRequest<{tenantId:string}>("/api/onboarding/complete",{method:"POST",body:JSON.stringify(draft)});
       if(created.tenantId) router.replace("/app/overview");
     }catch(e){setError(e instanceof Error?e.message:p2(locale,"error"));}
-    finally{setBusy(false);}
+    finally{actionLock.current=false;setBusy(false);}
   }
   async function resend(){
-    if(!status?.user.email)return;
-    setBusy(true);setError("");
+    if(!status?.user.email||actionLock.current||Date.now()-lastVerificationAt<60000)return;
+    actionLock.current=true;setBusy(true);setError("");
     try{
       const result=await authClient.sendVerificationEmail({ email:status.user.email,callbackURL:window.location.origin+"/onboarding/restaurant" });
       if(result.error)throw new Error(result.error.message ?? p2(locale,"error"));
-      setNotice(p2(locale,"verificationSent"));
+      setLastVerificationAt(Date.now());setNotice(p2(locale,"verificationSent"));
     }catch(e){setError(e instanceof Error?e.message:p2(locale,"emailError"));}
-    finally{setBusy(false);}
+    finally{actionLock.current=false;setBusy(false);}
   }
   if(loading) return <main className="center-viewport"><span className="spinner"/>{p2(locale,"loading")}</main>;
   if(!status) return <main className="center-viewport"><section className="notice-card"><h1>{p2(locale,"error")}</h1>
@@ -84,7 +96,8 @@ export default function RestaurantOnboarding() {
     <section className="notice-card"><CheckCircle2 size={35} color="var(--brand)"/><h1>{p2(locale,"verifyEmail")}</h1>
       <p dir="ltr">{status.user.email}</p>{error&&<p role="alert" className="form-error">{error}</p>}
       {notice&&<p role="status" className="success-text">{notice}</p>}
-      <button className="button button-primary" disabled={busy} onClick={()=>void resend()}>{p2(locale,"resendVerification")}</button>
+      <button className="button button-primary" disabled={busy||Date.now()-lastVerificationAt<60000}
+        onClick={()=>void resend()}>{p2(locale,"resendVerification")}</button>
       <Link className="button" href="/login">{p2(locale,"goLogin")}</Link>
       <button className="button" onClick={()=>{setLoading(true);void load();}}>{p2(locale,"refresh")}</button>
     </section></main>;
@@ -96,10 +109,10 @@ export default function RestaurantOnboarding() {
           <select value={locale} onChange={e=>setLocale(e.target.value as Locale)}>
             <option value="fa-AF">دری</option><option value="ps-AF">پښتو</option><option value="en">English</option>
           </select></label></header>
-      <ol className="wizard-steps" aria-label="Setup progress">{steps.map((key,i)=>
-        <li key={key} className={i===step?"current":i<step?"completed":""}>
-          <span className="step-circle">{i<step?<CheckCircle2 size={18}/>:i+1}</span>
-          <span>{p2(locale,key)}</span></li>)}</ol>
+      <div className="p18-wizard-progress">
+        <p className="p18-step-count">{au(locale,"step")} {step+1} {au(locale,"of")} {steps.length}</p>
+        <AuthSteps current={step} labels={steps.map(key=>p2(locale,key))}/>
+      </div>
       <section className="settings-card wizard-card">
         {step===0&&<div className="wizard-section">
           <UserRound size={36} color="var(--brand)"/><h2>{p2(locale,"accountStep")}</h2>
@@ -110,10 +123,17 @@ export default function RestaurantOnboarding() {
           <div className="form-grid">
             <div className="field"><label htmlFor="r-name">{p2(locale,"restaurantName")}</label>
               <input id="r-name" required minLength={2} maxLength={100} value={draft.name}
-                onChange={e=>{ const value=e.target.value;setDraft(d=>({...d,name:value,slug:d.slug||value.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}));}}/></div>
+                onChange={e=>{const value=e.target.value;setDraft(d=>{
+                  const latin=value.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+                  const suggested=latin.length>=3?latin.slice(0,48).replace(/-$/,""):value.trim()? "restaurant-"+crypto.randomUUID().slice(0,8):"";
+                  return {...d,name:value,slug:d.slug||suggested};
+                });}}/>
+              <small className="muted">{au(locale,"namePreview")}</small></div>
             <div className="field"><label htmlFor="r-slug">{p2(locale,"slug")}</label>
               <input id="r-slug" dir="ltr" required minLength={3} maxLength={48} pattern="[a-z0-9][a-z0-9-]*[a-z0-9]"
-                value={draft.slug} onChange={e=>update("slug",e.target.value.toLowerCase())}/></div>
+                aria-describedby="r-slug-hint" aria-invalid={draft.slug.length>0&&!/^[a-z0-9][a-z0-9-]{1,46}[a-z0-9]$/.test(draft.slug)}
+                value={draft.slug} onChange={e=>update("slug",e.target.value.toLowerCase())}/>
+              <small id="r-slug-hint" className="muted">{au(locale,"slugHelp")}</small></div>
             <div className="field"><label htmlFor="r-location">{p2(locale,"branchName")}</label>
               <input id="r-location" required minLength={2} maxLength={80} value={draft.locationName}
                 onChange={e=>update("locationName",e.target.value)}/></div>
@@ -146,6 +166,7 @@ export default function RestaurantOnboarding() {
           </div></form>}
         {step===3&&<div className="wizard-section">
           <ClipboardCheck size={30} color="var(--brand)"/><h2>{p2(locale,"reviewStep")}</h2>
+          <p className="muted">{au(locale,"readyToCreate")}</p>
           <dl className="profile-list">
             <div><dt>{p2(locale,"restaurantName")}</dt><dd>{draft.name}</dd></div>
             <div><dt>{p2(locale,"slug")}</dt><dd dir="ltr">{draft.slug}</dd></div>
@@ -155,8 +176,7 @@ export default function RestaurantOnboarding() {
           </dl>
           <label className="checkbox-line"><input type="checkbox" checked={draft.acceptedTerms}
             onChange={e=>update("acceptedTerms",e.target.checked)}/>{p2(locale,"terms")}</label></div>}
-        {error&&<p className="form-error" role="alert">{error}</p>}
-        {notice&&<p className="success-text" role="status">{notice}</p>}
+        {error&&<InlineFeedback message={error}/>}
         <div className="wizard-footer">
           <button type="button" className="button" disabled={busy||step===0} onClick={()=>setStep(s=>Math.max(0,s-1))}>
             {direction(locale)==="rtl"?<ChevronRight size={17}/>:<ChevronLeft size={17}/>} {p2(locale,"back")}</button>
