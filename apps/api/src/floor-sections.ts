@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, asc, count, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, count, eq, ilike, isNotNull, isNull, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "./db";
 import { diningSection,diningTable,diningVisit } from "./schema";
@@ -12,14 +12,17 @@ function fields(input:Record<string,unknown>){
     active:bool(input.active??true,"Active")};
 }
 sectionRouter.get("/",floorRoute(async(req,res)=>{
-  const scope=await floorScope(req),{page,limit,offset}=paging(req);
+  const scope=await floorScope(req,true),{page,limit,offset}=paging(req);
+  const q=typeof req.query.q==="string"?req.query.q.trim().slice(0,80):"";
   const predicate=and(eq(diningSection.tenantId,scope.tenantId),eq(diningSection.locationId,scope.locationId),
-    req.query.archive==="1"?isNotNull(diningSection.archivedAt):isNull(diningSection.archivedAt));
+    req.query.archive==="1"?isNotNull(diningSection.archivedAt):isNull(diningSection.archivedAt),
+    q?ilike(diningSection.name,"%"+q+"%"):undefined);
   const [rows,totals]=await Promise.all([
     db.select().from(diningSection).where(predicate)
       .orderBy(asc(diningSection.sortOrder),asc(diningSection.name)).limit(limit).offset(offset),
     db.select({n:count()}).from(diningSection).where(predicate)
   ]);
+  res.setHeader("Cache-Control","private, no-store, max-age=0");
   res.json({items:rows,total:totals[0]?.n??0,page,perPage:limit});
 }));
 sectionRouter.post("/",floorRoute(async(req,res)=>{
