@@ -144,7 +144,8 @@ export function RoleShell({children}:{children:React.ReactNode}){
       document.body.style.overflow=previousOverflow;
       window.removeEventListener("keydown",keydown);
       window.removeEventListener("resize",resize);
-      if(previousFocus?.isConnected)previousFocus.focus();
+      if(menuButtonRef.current?.isConnected)menuButtonRef.current.focus();
+      else if(previousFocus?.isConnected)previousFocus.focus();
     };
   },[drawerOpen]);
 
