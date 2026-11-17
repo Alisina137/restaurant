@@ -67,7 +67,8 @@ export function AdjustmentConsole({area="cashier",initialCheckId=""}:{area?:"cas
  }
  async function decide(a:Adjustment,decision:"approve"|"reject"){
   if(busy||mutationLock.current||!(await confirm({title:p10(locale,decision==="approve"?"approve":"reject"),
-    description:p10(locale,"confirm"),confirmLabel:p10(locale,decision==="approve"?"approve":"reject"),
+    description:p10(locale,"confirm")+(a.amountMinor>0?" · "+money(a.amountMinor,locale):""),
+    confirmLabel:p10(locale,decision==="approve"?"approve":"reject"),
     cancelLabel:ux(locale,"cancel"),danger:true})))return;
   await apply("/api/finance/adjustments/"+a.id+"/decision",
    {version:a.version,decision,note:reviewNote.trim()},"decision");
