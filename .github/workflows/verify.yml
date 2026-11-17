@@ -51,6 +51,7 @@ jobs:
       - run: pnpm ui:verify
       - run: pnpm nav:verify
       - run: pnpm interaction:verify
+      - run: pnpm auth:verify
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build:web
