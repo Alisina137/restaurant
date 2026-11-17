@@ -23,6 +23,7 @@ export default function RestaurantOnboarding() {
   const {locale,setLocale}=useAuthLocale();
   const {notify}=useInteraction();
   const actionLock=useRef(false);
+  const slugEdited=useRef(false),fallbackSlug=useRef("");
   const [status,setStatus]=useState<Status|null>(null), [draft,setDraft]=useState<Draft>(initial);
   const [step,setStep]=useState(0), [loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
   const [error,setError]=useState(""),[notice,setNotice]=useState("");
@@ -36,6 +37,7 @@ export default function RestaurantOnboarding() {
       if (next.user.verified) {
         const result=await jsonRequest<{draft:Draft}>("/api/onboarding/draft");
         setDraft({ ...initial,...result.draft });
+        slugEdited.current=!!result.draft.slug;
         setLocale(result.draft.locale ?? "fa-AF");
       }
     } catch(e) {
@@ -123,16 +125,17 @@ export default function RestaurantOnboarding() {
           <div className="form-grid">
             <div className="field"><label htmlFor="r-name">{p2(locale,"restaurantName")}</label>
               <input id="r-name" required minLength={2} maxLength={100} value={draft.name}
-                onChange={e=>{const value=e.target.value;setDraft(d=>{
+                onChange={e=>{const value=e.target.value;
                   const latin=value.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
-                  const suggested=latin.length>=3?latin.slice(0,48).replace(/-$/,""):value.trim()? "restaurant-"+crypto.randomUUID().slice(0,8):"";
-                  return {...d,name:value,slug:d.slug||suggested};
-                });}}/>
+                  if(!fallbackSlug.current)fallbackSlug.current="restaurant-"+crypto.randomUUID().slice(0,8);
+                  const suggested=latin.length>=3?latin.slice(0,48).replace(/-$/,""):value.trim()?fallbackSlug.current:"";
+                  setDraft(d=>({...d,name:value,slug:slugEdited.current?d.slug:suggested}));
+                }}/>
               <small className="muted">{au(locale,"namePreview")}</small></div>
             <div className="field"><label htmlFor="r-slug">{p2(locale,"slug")}</label>
               <input id="r-slug" dir="ltr" required minLength={3} maxLength={48} pattern="[a-z0-9][a-z0-9-]*[a-z0-9]"
                 aria-describedby="r-slug-hint" aria-invalid={draft.slug.length>0&&!/^[a-z0-9][a-z0-9-]{1,46}[a-z0-9]$/.test(draft.slug)}
-                value={draft.slug} onChange={e=>update("slug",e.target.value.toLowerCase())}/>
+                value={draft.slug} onChange={e=>{slugEdited.current=true;update("slug",e.target.value.toLowerCase());}}/>
               <small id="r-slug-hint" className="muted">{au(locale,"slugHelp")}</small></div>
             <div className="field"><label htmlFor="r-location">{p2(locale,"branchName")}</label>
               <input id="r-location" required minLength={2} maxLength={80} value={draft.locationName}
