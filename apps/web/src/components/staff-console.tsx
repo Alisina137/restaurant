@@ -1,11 +1,15 @@
 "use client";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ClipboardList, MailPlus, ShieldCheck, UserRoundCog, UsersRound, RefreshCw } from "lucide-react";
 import { type StaffRole } from "@dineflow/shared";
 import { useWorkspace } from "@/components/workspace-provider";
 import { jsonRequest, type PageResult } from "@/lib/phase2-api";
 import { p2 } from "@/lib/phase2-copy";
+import {useInteraction} from "./ui/interaction-provider";
+import {useDialogFocus} from "./ui/use-dialog-focus";
+import {InlineFeedback,PageControls} from "./ui/interaction-controls";
+import {LoadingSkeleton} from "./ui/design-system";
 
 const roles: StaffRole[] = ["owner","manager","waiter","kitchen","cashier"];
 type Member = { id:string;userId:string;name:string;email:string;role:StaffRole;status:"active"|"disabled";createdAt:string };
@@ -14,10 +18,14 @@ type Tab = "directory" | "invitations" | "permissions";
 function localizedDate(value:string,locale:string){return new Date(value).toLocaleDateString(locale,{year:"numeric",month:"short",day:"numeric"});}
 export function StaffConsole({tab}:{tab:Tab}){
   const {workspace}=useWorkspace(), locale=workspace.locale;
+  const {confirm,notify}=useInteraction();
+  const actionLock=useRef(false);
   const [members,setMembers]=useState<PageResult<Member>|null>(null),[invites,setInvites]=useState<PageResult<Invite>|null>(null),
     [page,setPage]=useState(1),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(""),[notice,setNotice]=useState("");
   const [inviteEmail,setInviteEmail]=useState(""),[inviteRole,setInviteRole]=useState<StaffRole>("waiter"),[message,setMessage]=useState("");
   const [editing,setEditing]=useState<Member|null>(null),[nextRole,setNextRole]=useState<StaffRole>("waiter"),[nextStatus,setNextStatus]=useState<"active"|"disabled">("active");
+  const editDialogRef=useDialogFocus<HTMLFormElement>(!!editing,()=>{if(!busy)setEditing(null);});
+  useEffect(()=>{if(notice){notify(notice,"success");setNotice("");}},[notice,notify]);
   const load=useCallback(async()=>{
     if(tab==="permissions"){setLoading(false);return;}
     setLoading(true);setError("");
@@ -36,29 +44,33 @@ export function StaffConsole({tab}:{tab:Tab}){
   }
   function startEdit(item:Member){setEditing(item);setNextRole(item.role);setNextStatus(item.status);setError("");setNotice("");}
   async function updateMember(e:FormEvent){
-    e.preventDefault();if(!editing)return;setBusy(true);setError("");setNotice("");
+    e.preventDefault();if(!editing||actionLock.current)return;actionLock.current=true;setBusy(true);setError("");setNotice("");
     try{await jsonRequest("/api/tenant/staff/"+editing.id,{method:"PATCH",body:JSON.stringify({role:nextRole,status:nextStatus})});
       setEditing(null);setNotice(p2(locale,"saveSuccess"));await load();}
-    catch(e){setError(e instanceof Error?e.message:p2(locale,"error"));}finally{setBusy(false);}
+    catch(e){setError(e instanceof Error?e.message:p2(locale,"error"));}finally{actionLock.current=false;setBusy(false);}
   }
   async function createInvite(e:FormEvent){
-    e.preventDefault();setBusy(true);setError("");setNotice("");
+    e.preventDefault();if(actionLock.current)return;actionLock.current=true;setBusy(true);setError("");setNotice("");
     try{
       const response=await jsonRequest<{deliveryStatus:string;message:string}>("/api/tenant/invitations",
         {method:"POST",body:JSON.stringify({email:inviteEmail,role:inviteRole,message})});
-      setInviteEmail("");setMessage("");setNotice(p2(locale,response.deliveryStatus==="sent"?"invitationSent":"invitationFailed"));
+      setInviteEmail("");setMessage("");
+      if(response.deliveryStatus==="sent")setNotice(p2(locale,"invitationSent"));
+      else notify(p2(locale,"invitationFailed"),"error");
       setPage(1);await load();
     }catch(e){setError(e instanceof Error?e.message:p2(locale,"error"));}
-    finally{setBusy(false);}
+    finally{actionLock.current=false;setBusy(false);}
   }
   async function actInvite(id:string,action:"resend"|"revoke"){
-    if(action==="revoke"&&!window.confirm(p2(locale,"confirmRevoke")))return;
-    setBusy(true);setError("");setNotice("");
+    if(actionLock.current)return;
+    if(action==="revoke"&&!(await confirm({title:p2(locale,"revoke"),description:p2(locale,"confirmRevoke"),
+      confirmLabel:p2(locale,"revoke"),cancelLabel:p2(locale,"cancel"),danger:true})))return;
+    if(actionLock.current)return;actionLock.current=true;setBusy(true);setError("");setNotice("");
     try{const result=await jsonRequest<{deliveryStatus?:string}>("/api/tenant/invitations/"+id+"/"+action,
         {method:"POST",body:"{}"});
       setNotice(p2(locale,result.deliveryStatus==="failed"?"invitationFailed":"saveSuccess"));await load();
     }catch(e){setError(e instanceof Error?e.message:p2(locale,"error"));}
-    finally{setBusy(false);}
+    finally{actionLock.current=false;setBusy(false);}
   }
   return <div className="content-stack">
     <div className="page-heading"><div><div className="eyebrow">{p2(locale,"restaurant")} / {p2(locale,"team")}</div>
@@ -67,13 +79,12 @@ export function StaffConsole({tab}:{tab:Tab}){
     <nav className="context-tabs" aria-label={p2(locale,"team")}>{tabItems.map(({key,label,icon:Icon})=>
       <Link key={key} href={"/app/staff/"+key} aria-current={tab===key?"page":undefined} className={"context-tab"+(tab===key?" current":"")}>
         <Icon size={18}/>{p2(locale,label)}</Link>)}</nav>
-    {notice&&<div className="success-banner" role="status"><ShieldCheck size={18}/>{notice}</div>}
-    {error&&<div className="form-error" role="alert">{error} <button type="button" className="text-link" onClick={()=>void load()}>{p2(locale,"retry")}</button></div>}
+    {error&&<InlineFeedback message={error} retry={()=>void load()} onRetryLabel={p2(locale,"retry")}/>}
     {tab==="directory"&&<section className="settings-card">
       <div className="section-heading"><div><h2>{p2(locale,"directory")}</h2>
         <p className="muted">{members?.total??"—"} {p2(locale,"staffCount")}</p></div>
         <button type="button" className="button" onClick={()=>void load()} aria-label={p2(locale,"refresh")}><RefreshCw size={18}/></button></div>
-      {loading?<div className="list-skeleton"><span/><span/><span/></div>:members?.items.length?
+      {loading?<LoadingSkeleton rows={3} label={p2(locale,"loading")}/>:members?.items.length?
         <div className="table-scroll"><table className="data-table"><thead><tr>
           <th>{p2(locale,"fullName")}</th><th>{p2(locale,"role")}</th><th>{p2(locale,"status")}</th>
           <th>{p2(locale,"createdAt")}</th><th>{p2(locale,"edit")}</th></tr></thead><tbody>
@@ -104,7 +115,7 @@ export function StaffConsole({tab}:{tab:Tab}){
       </form>
       <section className="settings-card"><div className="section-heading"><h2>{p2(locale,"invitations")}</h2>
         <button className="button" type="button" aria-label={p2(locale,"refresh")} onClick={()=>void load()}><RefreshCw size={18}/></button></div>
-        {loading?<div className="list-skeleton"><span/><span/><span/></div>:invites?.items.length?
+        {loading?<LoadingSkeleton rows={3} label={p2(locale,"loading")}/>:invites?.items.length?
           <div className="table-scroll"><table className="data-table"><thead><tr>
             <th>{p2(locale,"email")}</th><th>{p2(locale,"role")}</th><th>{p2(locale,"status")}</th>
             <th>{p2(locale,"createdAt")}</th><th>{p2(locale,"details")}</th></tr></thead><tbody>
@@ -132,7 +143,7 @@ export function StaffConsole({tab}:{tab:Tab}){
       <div className="muted" role="note">{p2(locale,"support")}</div>
     </section>}
     {editing&&<div className="dialog-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setEditing(null);}}>
-      <form className="dialog-card" onSubmit={e=>void updateMember(e)} role="dialog" aria-modal="true" aria-labelledby="edit-member-title">
+      <form ref={editDialogRef} tabIndex={-1} className="dialog-card" onSubmit={e=>void updateMember(e)} role="dialog" aria-modal="true" aria-labelledby="edit-member-title">
         <h2 id="edit-member-title">{p2(locale,"edit")} — {editing.name}</h2><p className="muted"><bdi>{editing.email}</bdi></p>
         <div className="field"><label htmlFor="edit-member-role">{p2(locale,"role")}</label>
           <select id="edit-member-role" value={nextRole} onChange={e=>setNextRole(e.target.value as StaffRole)}>
@@ -141,15 +152,14 @@ export function StaffConsole({tab}:{tab:Tab}){
         <div className="field"><label htmlFor="edit-member-status">{p2(locale,"status")}</label>
           <select id="edit-member-status" value={nextStatus} onChange={e=>setNextStatus(e.target.value as "active"|"disabled")}>
             <option value="active">{p2(locale,"active")}</option><option value="disabled">{p2(locale,"disabled")}</option></select></div>
-        <div className="section-actions"><button type="button" className="button" onClick={()=>setEditing(null)}>{p2(locale,"cancel")}</button>
+        {error&&<p className="form-error" role="alert">{error}</p>}
+        <div className="section-actions"><button type="button" className="button" disabled={busy} onClick={()=>setEditing(null)}>{p2(locale,"cancel")}</button>
           <button type="submit" className="button button-primary" disabled={busy}>{busy?p2(locale,"loading"):p2(locale,"save")}</button></div>
       </form></div>}
   </div>;
 }
 function Pager({page,total,locale,change}:{page:number;total:number;locale:"fa-AF"|"ps-AF"|"en";change:(x:number)=>void}){
-  const pages=Math.max(1,Math.ceil(total/10));
-  return <div className="pager"><button className="button button-small" type="button" disabled={page<=1} onClick={()=>change(page-1)}>
-      {p2(locale,"previous")}</button><span>{p2(locale,"page")} {page} {p2(locale,"of")} {pages}</span>
-    <button className="button button-small" type="button" disabled={page>=pages} onClick={()=>change(page+1)}>
-      {p2(locale,"next")}</button></div>;
+  return <PageControls page={page} total={total} perPage={10} onPageChange={change}
+    previousLabel={p2(locale,"previous")} nextLabel={p2(locale,"next")}
+    pageLabel={p2(locale,"page")} ofLabel={p2(locale,"of")}/>;
 }
