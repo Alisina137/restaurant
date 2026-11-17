@@ -26,6 +26,7 @@ export function FloorBoardGrid({data,locale,onChoose}:Props){
   cleaning:data.tables.filter(t=>t.status==="cleaning").length,
   disabled:data.tables.filter(t=>t.status==="disabled").length,
   unassigned:data.tables.filter(t=>!t.assignedWaiterId&&t.active).length,
+  attention:data.tables.filter(t=>t.status==="cleaning"||(!t.assignedWaiterId&&t.active)).length,
   guests:data.tables.reduce((n,t)=>n+(t.visitPartySize??0),0),
   freeSeats:data.tables.reduce((n,t)=>n+(t.status==="available"?t.seats:0),0),
   sections:data.sections.filter(s=>s.active).length
@@ -63,7 +64,7 @@ export function FloorBoardGrid({data,locale,onChoose}:Props){
     <button type="button" className="floor-stat floor21-stat" onClick={()=>{
       setStatus("all");setQuick("attention");setWaiter("");}}>
      <span><AlertCircle size={18}/>{f21(locale,"attention")}</span>
-     <strong>{new Intl.NumberFormat(locale).format(counters.cleaning+counters.unassigned)}</strong>
+     <strong>{new Intl.NumberFormat(locale).format(counters.attention)}</strong>
     </button>
     <div className="floor-stat floor21-stat floor21-stat-muted"><span><UsersRound size={18}/>{f21(locale,"seatedGuests")}</span>
      <strong>{new Intl.NumberFormat(locale).format(counters.guests)}</strong></div>
