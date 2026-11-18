@@ -665,6 +665,65 @@ export function KitchenOperations({tab}:{tab:Tab}){
     {!isHistory&&<span>{k27(locale,"allSorted")}</span>}
    </div>
   </div>
+  <section className="k29-pulse" aria-label={k29(locale,"pulse")}>
+   <div className="k29-pulse-header">
+    <div>
+     <div className="eyebrow">DINEFLOW / SERVICE PULSE</div>
+     <h2>{k29(locale,"pulse")}</h2>
+     <p>{k29(locale,"pulseNote")}</p>
+    </div>
+    <div className="k29-pulse-tools">
+     <label htmlFor="k29-window">{k29(locale,"window")}
+      <select id="k29-window" value={pulseMinutes}
+       onChange={event=>setPulseMinutes(Number(event.target.value) as 60|180|360)}>
+       <option value={60}>{k29(locale,"lastHour")}</option>
+       <option value={180}>{k29(locale,"lastThree")}</option>
+       <option value={360}>{k29(locale,"lastSix")}</option>
+      </select>
+     </label>
+     <button type="button" className="button button-small"
+      onClick={()=>setPulseRetry(value=>value+1)}
+      aria-label={k29(locale,"retry")}>
+      <RefreshCw size={16}/>{k6(locale,"refresh")}
+     </button>
+    </div>
+   </div>
+   <div className="k29-pulse-grid">
+    <div className="k29-metric"><span>{k29(locale,"sample")}</span>
+     <strong>{pulse&&!pulseError?pulse.completed:"—"}</strong>
+     <small>{k29(locale,"lastCheck")}: {pulse&&!pulseError?
+      formatDate(pulse.checkedAt,locale):"—"}</small></div>
+    <div className="k29-metric"><span>{k29(locale,"median")}</span>
+     <strong>{pulse&&!pulseError&&pulse.prepMedianMinutes!==null?
+      displayTime(pulse.prepMedianMinutes):"—"}</strong>
+     <small>{pulse?.completed?k29(locale,"minutes"):k29(locale,"noSample")}</small></div>
+    <div className="k29-metric"><span>{k29(locale,"p95")}</span>
+     <strong>{pulse&&!pulseError&&pulse.prepP95Minutes!==null?
+      displayTime(pulse.prepP95Minutes):"—"}</strong>
+     <small>{pulse?.completed?k29(locale,"minutes"):k29(locale,"noSample")}</small></div>
+    <div className={"k29-metric"+(pulse&&!pulseError&&pulse.pendingReceipt>0?" warning":"")}>
+     <span>{k29(locale,"pending")}</span>
+     <strong>{pulse&&!pulseError?pulse.pendingReceipt:"—"}</strong>
+     <small>{k29(locale,"oldestPending")}: {pulse&&!pulseError&&pulse.oldestPendingReceiptAt?
+      elapsedLabel(elapsedMinutes(pulse.oldestPendingReceiptAt,now)):"—"}</small>
+    </div>
+   </div>
+   {pulseError&&<div role="status" className="k29-pulse-error">
+    <ShieldAlert size={18}/>{k29(locale,"failed")}
+    <button className="button button-small" type="button"
+     onClick={()=>setPulseRetry(value=>value+1)}>{k29(locale,"retry")}</button>
+   </div>}
+   <div className="k29-pulse-footer">
+    <span>{k29(locale,"oneRequest")} · {k29(locale,"serverTime")}: {serverMs===null?
+     "—":displayTime(serverMs)+" ms"}</span>
+    <div className="k29-display-tools" role="group" aria-label={k29(locale,"displayMode")}>
+     <span>{k29(locale,"displayMode")}</span>
+     {(["standard","large"] as const).map(mode=>
+      <button key={mode} type="button" aria-pressed={displayMode===mode}
+       onClick={()=>chooseDisplay(mode)}>{k29(locale,mode)}</button>)}
+    </div>
+   </div>
+  </section>
   {!!soundError&&<div role="alert" className="k27-warning">{soundError}</div>}
   {!!replayStatus&&<div role="status" className="k28-replay-banner">
    <span>{replayStatus}</span>
@@ -757,6 +816,8 @@ export function KitchenOperations({tab}:{tab:Tab}){
    </div>:
    <div className="kitchen-ticket-grid k27-ticket-grid">
     {rows.map(row=><TicketCard key={row.ticketId} row={row}
+     inlineDetail={validCardDetail(cardDetails[row.roundId],row.ticketVersion)?
+      cardDetails[row.roundId]:undefined}
      locale={locale} now={now} busy={!!busyId} stale={!!error}
      uncertain={uncertain.some(item=>item.ticketId===row.ticketId)}
      onAction={(ticket,kind)=>void action(ticket,kind)}
