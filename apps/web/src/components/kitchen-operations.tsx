@@ -433,6 +433,56 @@ export function KitchenOperations({tab}:{tab:Tab}){
   void load();
  },[load]);
  /**
+  * P30 observation receipts follow a complete successful page render, not
+  * the server read, a background tab, a placeholder, or an SSE event. Two RAF
+  * callbacks allow the browser to present the page before reporting. The
+  * endpoint only stores the FIRST server-clock receipt and is safe to retry;
+  * this is technical telemetry, NEVER a kitchen business action.
+  */
+ useEffect(()=>{
+  if(isHistory||loading||!!error||!data?.items.length)return;
+  const expectedScope=scopeKey;
+  let live=true,frameOne=0,frameTwo=0;
+  const report=async()=>{
+   if(!live||document.hidden||receiptBusy.current||
+    scopeGuard.current!==expectedScope)return;
+   const ticketIds=eligibleObservationIds(data.items,cardDetails,receiptSent.current);
+   if(!ticketIds.length)return;
+   receiptBusy.current=true;
+   try{
+    const result=await jsonRequest<KitchenObservationResult>(
+     "/api/orders/kitchen/display-observed",{
+      method:"POST",body:JSON.stringify({ticketIds})
+     });
+    if(!validObservationResult(result,ticketIds.length))
+     throw Error("INVALID_OBSERVATION_RECEIPT");
+    if(!live||scopeGuard.current!==expectedScope)return;
+    ticketIds.forEach(id=>receiptSent.current.add(id));
+    setTelemetryError(false);
+    setVisibilityRetry(value=>value+1);
+   }catch(err){
+    if(!live||scopeGuard.current!==expectedScope)return;
+    setTelemetryError(true);
+    if(err instanceof Phase2Error&&err.status===401)
+     window.location.assign("/login?expired=1");
+   }finally{receiptBusy.current=false;}
+  };
+  const schedule=()=>{
+   if(document.hidden)return;
+   frameOne=requestAnimationFrame(()=>{
+    frameTwo=requestAnimationFrame(()=>{void report();});
+   });
+  };
+  schedule();
+  const timer=setInterval(schedule,15000);
+  const onVisible=()=>{if(!document.hidden)schedule();};
+  document.addEventListener("visibilitychange",onVisible);
+  return()=>{
+   live=false;cancelAnimationFrame(frameOne);cancelAnimationFrame(frameTwo);
+   clearInterval(timer);document.removeEventListener("visibilitychange",onVisible);
+  };
+ },[data,cardDetails,isHistory,loading,error,scopeKey]);
+ /**
   * Cursor replay is an invalidation feed, not a queue mutation stream.
   * The revision row is locked before event seq allocation server-side, so
   * a committed cursor never skips an earlier uncommitted kitchen event.
