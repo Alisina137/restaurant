@@ -16,6 +16,7 @@ import {k27} from "@/lib/kitchen27-copy";
 import {k28} from "@/lib/kitchen28-copy";
 import {k29} from "@/lib/kitchen29-copy";
 import {k30} from "@/lib/kitchen30-copy";
+import {KitchenVisibilityTriage} from "./kitchen-visibility-triage";
 import {eligibleObservationIds,validKitchenVisibility,validObservationResult,
  type KitchenVisibility,type KitchenObservationResult} from "@/lib/kitchen30";
 import {displayTime,currentDisplayMode,validCardDetail,validKitchenCardPage,validKitchenPulse} from "@/lib/kitchen29";
@@ -845,6 +846,9 @@ export function KitchenOperations({tab}:{tab:Tab}){
     </div>}
     <div className="k30-note"><span>{k30(locale,"scoped")} {k30(locale,"retries")}</span></div>
    </div>
+   <KitchenVisibilityTriage key={scopeKey} locale={locale} scopeKey={scopeKey}
+    now={now} count={visibility&&!visibilityError?visibility.activeWithoutReceipt:null}
+    onInspect={setSelected}/>
    <div className="k29-pulse-footer">
     <span>{k29(locale,"oneRequest")} · {k29(locale,"serverTime")}: {serverMs===null?
      "—":displayTime(serverMs)+" ms"}</span>
