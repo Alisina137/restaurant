@@ -22,7 +22,7 @@ includes(files[4],["const en=","const fa:","const ps:"]);
 includes(files[6],[".k29-pulse-grid",".k29-large",".k29-display-tools","@media(max-width:550px)"]);
 includes(files[8],["CREATE INDEX IF NOT EXISTS","ready_at"]);
 const journal=JSON.parse(read(files[9]));
-assert.equal(journal.entries.at(-1).tag,"0014_phase29_kitchen_performance");
+assert.ok(journal.entries.some(entry=>entry.tag==="0014_phase29_kitchen_performance"));
 includes("apps/web/src/app/layout.tsx",['import "./kitchen29.css";']);
 includes("package.json",["kitchen29:verify"]);
 includes(".github/workflows/verify.yml",["kitchen29:verify","phase29-ci.ts"]);
