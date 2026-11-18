@@ -1,0 +1,26 @@
+# DineFlow Phase 29 — Kitchen Performance & Device-Ready Display
+
+## Outcome and user-visible behavior
+Make the existing kitchen queue efficient on busy restaurant Wi-Fi, show real service-time information without claiming arbitrary SLAs, and ensure a kitchen tablet can be switched to large readable type.
+
+### Kitchen staff / owner / manager — Live, Preparing, Ready, History
+1. **Bounded single-fetch kitchen cards.** A new authenticated `GET /api/orders/kitchen/cards` shares the existing status/table/page filters, before-pagination count and **10-ticket maximum**. Server performs one bounded query for immutable item snapshots and a second query for ticket receipt/version; returns `detailsByRound` keyed by the actual round ID, with a server-side measurement (`serverMs`). The previous 10 extra per-card HTTP requests are unnecessary during a normal page load; the full detail dialog continues using the audited real `/rounds/:id` and per-ticket state endpoints. Missing or stale inline data must never enable a kitchen mutation. Financial and personal data are not added to the card payload.
+2. **Real kitchen service performance.** Protected `GET /api/orders/kitchen/pulse?minutes=60|180|360` reports the count of tickets that actually reached `ready` in the window, median preparation time and 95th percentile elapsed from kitchen ticket creation to `ready`, plus a current count and oldest time of kitchen-picked-up tickets awaiting explicit waiter acknowledgment. Percentiles are **null without any samples**, not zero. Calculations come from committed PostgreSQL timestamps scoped by tenant and location; they are not predictions, SLAs or device latency measurements.
+3. **Premium kitchen service pulse and display mode.** A responsive section with selectable 1/3/6-hour service windows, four straightforward metric cards and precise sampling labels. It refreshes independently each minute and on returning from background, so live ticket polling is not blocked by a heavy report. Network or role failure shows stale/error state, not fabricated values. Server database query duration is labeled correctly as server-side timing, not full customer-to-kitchen propagation latency. Standard and Large screen modes have large keyboard/touch targets and are stored **per staff account and restaurant**, not across unrelated tenants.
+4. **Existing reliable operations preserved.** Start Preparing, per-line Ready, Ready All, Handoff, reminder throttles, waiter pickup confirmation and Serve still rely on their actual role- and version-guarded APIs. Phase 28 ambiguous-write protection remains in place; the single batch request is *read-only*. A large display does not enable previously forbidden actions.
+5. **Database and tooling.** New additive index on `(tenant_id,location_id,ready_at)` for preparation-time sampling; safe migration `0014_phase29_kitchen_performance.sql`, journal entry, translated English/Dari/Pashto copy, CSS with reduced motion/RTL, static and pure tests, and live integration.
+
+## Verification
+- `pnpm kitchen29:verify` checks exact module/API/UI inclusion, safe detail validation, stale-version disabling, no-sample metrics, unsupported server windows, and English/Dari/Pashto copy.
+- `pnpm --filter @dineflow/api exec tsx src/phase29-ci.ts` against a **disposable PostgreSQL** confirms real created/ready/handed-off/acknowledged ticket and scope-safe bundled snapshots; verifies actual median and p95, count after waiter receipt, server-only timing and no-store headers, role isolation, absent-table results and multiple parallel GET readers.
+- The normal GitHub workflow also runs all earlier phases, typechecks, unit tests, production Next.js build and migrations.
+
+## Manual acceptance — not falsely marked as completed
+1. On an actual kitchen tablet load 10 tickets with notes/modifiers, inspect browser network traffic: **one** `/kitchen/cards` per page, **zero per-ticket GETs** for ordinary cards, with readable notes, correct status and no incorrect customer data. Open full ticket modal and verify its separate, audited retrieval.
+2. Test 320/375/768/1024/1440px and landscape/portrait, both Standard and Large screens, English/Dari/Pashto RTL, tap/keyboard/assistive-label focus, empty queue, 11th ticket pagination, different restaurant account and device mode persistence.
+3. Measure real observed throughput and p95 order-to-kitchen visibility in a **physical restaurant network**; do not confuse the report's preparation p95 with network delivery p95. Capture staff feedback and external timing evidence, including slow networks.
+4. With multiple kitchen browsers and a waiter Android phone, deliberately drop SSE, lose/fail read responses, and simulate a lost write acknowledgment; no phantom success or duplicate kitchen writes. Ticket pickup confirmation remains separate from serving.
+5. Complete the supervised **Phase 14 pilot**, paper/QR/receipt/printer hardware, staff training, cash/finance and backup restore signoff before production.
+
+## Remaining
+Human tablet and physical restaurant acceptance is pending; automated success does not mean production certification. Phase 30 should follow the approved product roadmap and pilot-observed constraints, not introduce speculative functionality.
