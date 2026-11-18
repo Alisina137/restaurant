@@ -603,12 +603,41 @@ export function KitchenOperations({tab}:{tab:Tab}){
      formatDate(new Date(lastSync).toISOString(),locale):"—"}</small>
    </div>
    <div className="k27-queue-stats">
+    <button type="button" className="button button-small" onClick={()=>void synchronize()}
+     disabled={replaying} aria-label={k28(locale,"resync")}>
+     <RefreshCw size={15} className={replaying?"k27-spin":undefined}/>
+     {replaying?k28(locale,"replay"):k28(locale,"resync")}
+    </button>
     <span>{k27(locale,"totalActive")}: <strong>{summary&&!summaryError?allActive:"—"}</strong></span>
     <span>{k27(locale,"ticketCount")}: <strong>{data?.total??"—"}</strong></span>
     {!isHistory&&<span>{k27(locale,"allSorted")}</span>}
    </div>
   </div>
   {!!soundError&&<div role="alert" className="k27-warning">{soundError}</div>}
+  {!!replayStatus&&<div role="status" className="k28-replay-banner">
+   <span>{replayStatus}</span>
+   <span>{k28(locale,"noAutoRetry")}</span>
+  </div>}
+  {!!mutationWarning&&<div role="alert" className="k28-action-warning">
+   <ShieldAlert size={21}/><strong>{mutationWarning}</strong>
+  </div>}
+  {!!verifiedState&&<div role="status" className="k28-verified-banner">
+   <CheckCircle2 size={19}/><span>{verifiedState}</span>
+  </div>}
+  {uncertain.length>0&&<section aria-label={k28(locale,"actionsLocked")} className="k28-uncertain-list">
+   <div className="k28-uncertain-heading">
+    <ShieldAlert size={22}/><strong>{k28(locale,"uncertain")}</strong>
+   </div>
+   <p>{k28(locale,"retryAfterVerify")}</p>
+   {uncertain.map(item=><div className="k28-uncertain-row" key={item.ticketId}>
+    <code>{k6(locale,"ticket")} · {item.ticketId.slice(0,12)}</code>
+    <span>v{item.version} · {item.action}</span>
+    <button className="button button-primary" type="button" disabled={!!busyId}
+     onClick={()=>void verifyTicket(item.ticketId)}>
+     {busyId===item.ticketId?k28(locale,"verifying"):k28(locale,"verify")}
+    </button>
+   </div>)}
+  </section>
   {!!error&&<InlineFeedback message={error} retry={()=>void load(false)}
    onRetryLabel={k27(locale,"retry")}/>}
   {summaryError&&<div className="k27-warning" role="status">{k27(locale,"refreshFailed")}</div>}
@@ -677,8 +706,10 @@ export function KitchenOperations({tab}:{tab:Tab}){
    <div className="kitchen-ticket-grid k27-ticket-grid">
     {rows.map(row=><TicketCard key={row.ticketId} row={row}
      locale={locale} now={now} busy={!!busyId} stale={!!error}
+     uncertain={uncertain.some(item=>item.ticketId===row.ticketId)}
      onAction={(ticket,kind)=>void action(ticket,kind)}
      onLine={(ticket,lineId)=>void action(ticket,"ready",lineId)}
+     onVerify={ticketId=>void verifyTicket(ticketId)}
      onView={setSelected}/>)}
    </div>:
    !error?<Surface><EmptyState icon={<UtensilsCrossed size={33}/>}
