@@ -62,6 +62,7 @@ jobs:
       - run: pnpm mobile26:verify
       - run: pnpm kitchen27:verify
       - run: pnpm kitchen28:verify
+      - run: pnpm kitchen29:verify
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build:web
@@ -101,6 +102,7 @@ jobs:
       - run: pnpm --filter @dineflow/api exec tsx src/phase26-ci.ts
       - run: pnpm --filter @dineflow/api exec tsx src/phase27-ci.ts
       - run: pnpm --filter @dineflow/api exec tsx src/phase28-ci.ts
+      - run: pnpm --filter @dineflow/api exec tsx src/phase29-ci.ts
       - name: API logs after failure
         if: failure()
         run: cat /tmp/dineflow-api.log || true
