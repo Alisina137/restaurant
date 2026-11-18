@@ -72,6 +72,83 @@ serviceRouter.post("/tickets/:id/lines/:lineId/ready",route(async(req,res)=>{
  });
  res.json(result);
 }));
+/**
+ * Explicit receipt by the currently assigned waiter. Kitchen handoff and waiter
+ * serving are already separate events; P28 records a third, verifiable receipt
+ * without changing those older workflows. No automatic financial or food action.
+ */
+serviceRouter.post("/tickets/:id/pickup-ack",route(async(req,res)=>{
+ const scope=await orderScope(req);
+ if(scope.role!=="waiter")fail(403,"ACCESS_DENIED","Only assigned waiters can confirm a kitchen pickup.");
+ const id=orderId(req),v=int(bodyObject(req).version,"Ticket version",1,2_000_000_000);
+ const result=await db.transaction(async tx=>{
+  const ticket=await lockedTicket(tx,scope,id);
+  // Verify current assignment even for an idempotent retry or an already acknowledged ticket.
+  const visit=await assignedVisit(tx,scope,ticket.visitId);
+  if(visit.status!=="open")fail(409,"VISIT_LOCKED","The visit is no longer open.");
+  if(ticket.pickupAcknowledgedAt){
+   if(ticket.pickupAcknowledgedBy===scope.actorId)
+    return {acknowledged:true,already:true,version:ticket.version,
+     acknowledgedAt:ticket.pickupAcknowledgedAt};
+   fail(409,"ALREADY_ACKNOWLEDGED","A waiter already confirmed receipt of this ticket.");
+  }
+  if(ticket.version!==v)fail(409,"VERSION_CONFLICT","Ticket state changed. Refresh before acknowledging.");
+  if(ticket.status!=="picked_up")fail(409,"INVALID_TRANSITION","Kitchen must hand off the food first.");
+  const now=new Date();
+  const [updated]=await tx.update(kitchenTicket)
+    .set({pickupAcknowledgedAt:now,pickupAcknowledgedBy:scope.actorId,
+     version:v+1,updatedAt:now})
+    .where(and(scopedTicket(scope,id),eq(kitchenTicket.version,v)))
+    .returning({id:kitchenTicket.id});
+  if(!updated)fail(409,"VERSION_CONFLICT","Ticket changed while confirming pickup.");
+  await orderChanged(tx,scope,ticket.roundId,"waiter.pickup_acknowledged",
+   {ticketId:id,visitId:ticket.visitId});
+  return {acknowledged:true,already:false,version:v+1,acknowledgedAt:now};
+ });
+ res.setHeader("Cache-Control","no-store");
+ res.json(result);
+}));
+
+/**
+ * Authoritative single-ticket snapshot for ambiguous network outcomes.
+ * FOR SHARE serializes against in-flight kitchen/waiter status changes so a
+ * reconciliation response cannot combine mixed versions from two transactions.
+ */
+serviceRouter.get("/kitchen/tickets/:id/state",route(async(req,res)=>{
+ const scope=await orderScope(req);kitchenScope(scope);
+ const id=orderId(req);
+ const state=await db.transaction(async tx=>{
+  await tx.execute(sql`SELECT id FROM kitchen_tickets WHERE id=${id}
+   AND tenant_id=${scope.tenantId} AND location_id=${scope.locationId} FOR SHARE`);
+  const [ticket]=await tx.select().from(kitchenTicket).where(scopedTicket(scope,id)).limit(1);
+  if(!ticket)fail(404,"NOT_FOUND","Ticket unavailable.");
+  const [lines,visit,notice]=await Promise.all([
+   tx.select({status:orderLine.kitchenStatus}).from(orderLine)
+    .where(and(eq(orderLine.roundId,ticket.roundId),
+     eq(orderLine.tenantId,scope.tenantId),eq(orderLine.locationId,scope.locationId))),
+   tx.select({waiterId:diningVisit.waiterId}).from(diningVisit).where(and(
+    eq(diningVisit.id,ticket.visitId),eq(diningVisit.tenantId,scope.tenantId),
+    eq(diningVisit.locationId,scope.locationId))).limit(1),
+   tx.select({readAt:staffNotification.readAt,recipientId:staffNotification.recipientId})
+    .from(staffNotification).where(and(eq(staffNotification.ticketId,id),
+     eq(staffNotification.tenantId,scope.tenantId),eq(staffNotification.locationId,scope.locationId)))
+  ]);
+  const assignedNotice=notice.find(item=>item.recipientId===visit[0]?.waiterId);
+  return {ticketId:ticket.id,roundId:ticket.roundId,tableLabel:ticket.tableLabel,
+   status:ticket.status,version:ticket.version,createdAt:ticket.createdAt,
+   startedAt:ticket.startedAt,readyAt:ticket.readyAt,pickedUpAt:ticket.pickedUpAt,
+   pickupAcknowledgedAt:ticket.pickupAcknowledgedAt,servedAt:ticket.servedAt,
+   notifiedAt:ticket.lastNotifiedAt,notifyCount:ticket.notifyCount,
+   waiterSeenAt:assignedNotice?.readAt??null,
+   waiterAlertExists:!!assignedNotice,
+   items:{total:lines.length,ready:lines.filter(l=>l.status==="ready").length,
+    pickedUp:lines.filter(l=>l.status==="picked_up").length,
+    served:lines.filter(l=>l.status==="served").length}};
+ });
+ res.setHeader("Cache-Control","no-store");
+ res.json(state);
+}));
+
 serviceRouter.post("/tickets/:id/handoff",route(async(req,res)=>{
  const scope=await orderScope(req);kitchenScope(scope);
  const id=orderId(req),v=int(bodyObject(req).version,"Ticket version",1,2_000_000_000);
