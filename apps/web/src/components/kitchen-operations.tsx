@@ -9,10 +9,13 @@ import type {Locale} from "@dineflow/shared";
 import {useWorkspace} from "./workspace-provider";
 import {jsonRequest,Phase2Error} from "@/lib/phase2-api";
 import {API_URL} from "@/lib/auth-client";
-import {name,amount,type WebDetail,type WebPage} from "@/lib/order-web-types";
+import {name,amount,type WebDetail,type WebPage,type KitchenCardDetail,
+ type KitchenCardPage,type KitchenPulse} from "@/lib/order-web-types";
 import {k6} from "@/lib/kitchen-copy";
 import {k27} from "@/lib/kitchen27-copy";
 import {k28} from "@/lib/kitchen28-copy";
+import {k29} from "@/lib/kitchen29-copy";
+import {displayTime,currentDisplayMode,validCardDetail,validKitchenCardPage,validKitchenPulse} from "@/lib/kitchen29";
 import {actionOutcome,advanceCursor,cleanUncertain,isTicketState,saveUncertain,validateWatermark,
  type KitchenTicketState,type KitchenWatermark,type KitchenChanges,type UncertainAction} from "@/lib/kitchen28";
 import {elapsedMinutes,elapsedLabel,newTicketIds,preparedSummary,priority,validSummary,
@@ -48,7 +51,9 @@ function formatDate(value:string|null,locale:Locale){
 function Label({status,locale}:{status:Status;locale:Locale}){
  return <span className={"order-pill "+status}>{k6(locale,status)}</span>;
 }
-function Details({detail,locale,compact=false}:{detail:WebDetail;locale:Locale;compact?:boolean}){
+function Details({detail,locale,compact=false}:{
+ detail:Pick<KitchenCardDetail,"round"|"lines">;locale:Locale;compact?:boolean;
+}){
  const progress=preparedSummary(detail.lines);
  return <div className="k27-lines">
   <div className="k27-progress">
@@ -142,8 +147,8 @@ function DetailModal({id,locale,onClose}:{id:string;locale:Locale;onClose:()=>vo
   </section>
  </div>;
 }
-function TicketCard({row,locale,now,busy,stale,uncertain,onAction,onLine,onView,onVerify}:{
- row:TicketRow;locale:Locale;now:number;busy:boolean;stale:boolean;uncertain:boolean;
+function TicketCard({row,inlineDetail,locale,now,busy,stale,uncertain,onAction,onLine,onView,onVerify}:{
+ row:TicketRow;inlineDetail?:KitchenCardDetail;locale:Locale;now:number;busy:boolean;stale:boolean;uncertain:boolean;
  onAction:(row:TicketRow,kind:"start"|"ready"|"handoff"|"notify")=>void;
  onLine:(row:TicketRow,lineId:string)=>void;onView:(id:string)=>void;
  onVerify:(ticketId:string)=>void;
@@ -151,17 +156,19 @@ function TicketCard({row,locale,now,busy,stale,uncertain,onAction,onLine,onView,
  const [detail,setDetail]=useState<WebDetail|null>(null),[error,setError]=useState("");
  const [retry,setRetry]=useState(0);
  useEffect(()=>{let live=true;setDetail(null);setError("");
+  if(inlineDetail)return()=>{live=false;};
   void jsonRequest<WebDetail>("/api/orders/rounds/"+encodeURIComponent(row.roundId))
    .then(result=>{if(live)setDetail(result);})
    .catch(err=>{if(live)setError(err instanceof Error?err.message:k27(locale,"needsMoreData"));});
   return()=>{live=false;};
- },[row.roundId,row.ticketVersion,locale,retry]);
+ },[inlineDetail,row.roundId,row.ticketVersion,locale,retry]);
+ const view=inlineDetail??detail;
  const status=row.status,ageStart=(status==="ready"||status==="picked_up")?
   (row.readyAt??row.createdAt):row.createdAt;
  const elapsed=elapsedMinutes(ageStart,now);
  const attention=priority(status,row.createdAt,row.readyAt,now)==="attention";
- const canChange=!busy&&!stale&&!uncertain&&!!detail&&!error&&detail.ticket?.version===row.ticketVersion;
- const remaining=detail?.lines.filter(line=>["new","preparing"].includes(line.kitchenStatus))??[];
+ const canChange=!busy&&!stale&&!uncertain&&!!view&&view.lines.length>0&&!error&&view.ticket?.version===row.ticketVersion;
+ const remaining=view?.lines.filter(line=>["new","preparing"].includes(line.kitchenStatus))??[];
  return <article className={"kitchen-ticket k27-ticket "+status+(attention?" k27-attention":"")}>
   <header className="kitchen-ticket-top k27-ticket-top">
    <div className="k27-table-identity">
@@ -184,7 +191,7 @@ function TicketCard({row,locale,now,busy,stale,uncertain,onAction,onLine,onView,
    <button type="button" className="button button-small" onClick={()=>setRetry(value=>value+1)}>
     <RefreshCw size={15}/>{k27(locale,"reloadDetails")}</button>
   </div>}
-  {detail?<><Details detail={detail} locale={locale} compact/>
+  {view?<><Details view={view} locale={locale} compact/>
    {status==="preparing"&&remaining.length>0&&<div className="k27-line-actions">
     <h3>{k6(locale,"markLineReady")}</h3>
     {remaining.map(line=><button type="button" className="k27-line-action" key={line.id}
@@ -196,10 +203,10 @@ function TicketCard({row,locale,now,busy,stale,uncertain,onAction,onLine,onView,
    </div>}
   </>:!error&&<div className="list-skeleton" aria-label={ux(locale,"loading")}>
    <span/><span/></div>}
-  {["ready","picked_up"].includes(status)&&detail?.ticket&&<div className="k28-handoff">
+  {["ready","picked_up"].includes(status)&&view?.ticket&&<div className="k28-handoff">
     <Truck size={17}/>
     <span>{status==="picked_up"?
-     detail.ticket.pickupAcknowledgedAt?k28(locale,"receiptConfirmed"):k28(locale,"receiptPending"):
+     view.ticket.pickupAcknowledgedAt?k28(locale,"receiptConfirmed"):k28(locale,"receiptPending"):
      k28(locale,"alertSent")}</span>
    </div>}
    {uncertain&&<div role="alert" className="k28-uncertain-card">
