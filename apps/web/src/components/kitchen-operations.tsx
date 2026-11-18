@@ -240,6 +240,11 @@ export function KitchenOperations({tab}:{tab:Tab}){
  const {confirm,notify}=useInteraction();
  const [page,setPage]=useState(1),[data,setData]=useState<Page<TicketRow>|null>(null);
  const [summary,setSummary]=useState<KitchenOverview|null>(null);
+ const [cardDetails,setCardDetails]=useState<Record<string,KitchenCardDetail>>({});
+ const [serverMs,setServerMs]=useState<number|null>(null);
+ const [pulse,setPulse]=useState<KitchenPulse|null>(null),[pulseError,setPulseError]=useState(false);
+ const [pulseMinutes,setPulseMinutes]=useState<60|180|360>(60),[pulseRetry,setPulseRetry]=useState(0);
+ const [displayMode,setDisplayMode]=useState<"standard"|"large">("standard");
  const [loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false);
  const [busyId,setBusyId]=useState(""),[error,setError]=useState(""),[summaryError,setSummaryError]=useState(false);
  const [notice,setNotice]=useState(""),[selected,setSelected]=useState<string|null>(null);
@@ -255,6 +260,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
  const [replayStatus,setReplayStatus]=useState(""),[replaying,setReplaying]=useState(false);
  const scopeKey=workspace.user.id+":"+(workspace.tenantId??"none");
  const uncertainKey="dineflow:kitchen:uncertain:v1:"+scopeKey;
+ const displayKey="dineflow:kitchen:display:v29:"+scopeKey;
  const soundKey="dineflow:kitchen:sound:v27:"+workspace.user.id+":"+(workspace.tenantId??"none");
  const soundRef=useRef<AudioContext|null>(null),known=useRef<Set<string>>(new Set());
  const hydrated=useRef(false),lastBeep=useRef(0),revision=useRef<number|null>(null);
@@ -269,12 +275,46 @@ export function KitchenOperations({tab}:{tab:Tab}){
    localStorage.setItem(uncertainKey,JSON.stringify(restored));
   }catch{setUncertain([]);}
  },[uncertainKey,scopeKey]);
+ useEffect(()=>{
+  try{setDisplayMode(currentDisplayMode(localStorage.getItem(displayKey)));}
+  catch{setDisplayMode("standard");}
+ },[displayKey]);
+ function chooseDisplay(value:"standard"|"large"){
+  setDisplayMode(value);
+  try{localStorage.setItem(displayKey,value);}catch{/* Device-only preference. */}
+ }
+ useEffect(()=>{
+  let active=true;
+  const refresh=async()=>{
+   if(document.hidden)return;
+   try{
+    const result=await jsonRequest<KitchenPulse>(
+     "/api/orders/kitchen/pulse?minutes="+pulseMinutes);
+    if(!validKitchenPulse(result))throw Error("INVALID_KITCHEN_PULSE");
+    if(active){setPulse(result);setPulseError(false);}
+   }catch(err){
+    if(!active)return;
+    if(err instanceof Phase2Error&&err.status===401){
+     window.location.assign("/login?expired=1");return;
+    }
+    if(err instanceof Phase2Error&&err.status===403)setPulse(null);
+    setPulseError(true);
+   }
+  };
+  setPulse(null);setPulseError(false);
+  void refresh();
+  const interval=setInterval(()=>void refresh(),60000);
+  const visible=()=>{if(!document.hidden)void refresh();};
+  document.addEventListener("visibilitychange",visible);
+  return()=>{active=false;clearInterval(interval);
+   document.removeEventListener("visibilitychange",visible);};
+ },[scopeKey,pulseMinutes,pulseRetry]);
  const isHistory=tab==="history";
  const path=isHistory?
   "/api/orders/kitchen/history?page="+page+"&status="+encodeURIComponent(applied.status)+
    (applied.table?"&table="+encodeURIComponent(applied.table):"")+
    (applied.from?"&from="+applied.from:"")+(applied.to?"&to="+applied.to:""):
-  "/api/orders/kitchen?status="+tab+"&page="+page+
+  "/api/orders/kitchen/cards?status="+tab+"&page="+page+
    (appliedSearch?"&table="+encodeURIComponent(appliedSearch):"");
  useEffect(()=>{if(notice){notify(notice,"success");setNotice("");}},[notice,notify]);
  useEffect(()=>{
@@ -313,21 +353,26 @@ export function KitchenOperations({tab}:{tab:Tab}){
   const sequence=++requestId.current;
   if(!silent)setLoading(true);else setRefreshing(true);
   const results=await Promise.allSettled([
-   isHistory?jsonRequest<Page<HistoryRow>&{timezone:string}>(path):jsonRequest<WebPage>(path),
+   isHistory?jsonRequest<Page<HistoryRow>&{timezone:string}>(path):jsonRequest<KitchenCardPage>(path),
    jsonRequest<KitchenOverview>("/api/orders/kitchen/overview")
   ]);
   if(!mounted.current||sequence!==requestId.current)return;
   const [queue,overview]=results;
-  if(queue.status==="fulfilled"){
+  if(queue.status==="fulfilled"&&!isHistory&&!validKitchenCardPage(queue.value)){
+   setData(null);setCardDetails({});setServerMs(null);
+   setError(k29(locale,"readOnly"));
+  }else if(queue.status==="fulfilled"){
    if(isHistory){
     const q=queue.value as Page<HistoryRow>&{timezone:string};
+    setCardDetails({});setServerMs(null);
     setBusinessZone(q.timezone);setData({items:q.items.map(x=>({
      id:x.roundId,roundId:x.roundId,ticketId:x.id,ticketVersion:x.version,
      tableId:x.tableId,tableLabel:x.tableLabel,roundNumber:x.roundNumber,status:x.status,
      createdAt:x.createdAt,totalMinor:x.totalMinor,startedAt:x.startedAt,readyAt:x.readyAt,
      pickedUpAt:x.pickedUpAt,servedAt:x.servedAt})),total:q.total,page:q.page,perPage:q.perPage});
    }else{
-    const q=queue.value as WebPage;
+    const q=queue.value as KitchenCardPage;
+    setCardDetails(q.detailsByRound);setServerMs(q.serverMs);
     setData({items:q.items.map(x=>({...x,roundId:x.id,pickedUpAt:null,servedAt:null})),
      total:q.total,page:q.page,perPage:q.perPage});
    }
@@ -338,7 +383,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
     window.location.assign("/login?expired=1");return;
    }
    if(err instanceof Phase2Error&&err.status===403){
-    setData(null);setSummary(null);setError(k27(locale,"roleChanged"));
+    setData(null);setCardDetails({});setServerMs(null);setSummary(null);setError(k27(locale,"roleChanged"));
    }else setError(k27(locale,"refreshFailed"));
   }
   if(overview.status==="fulfilled"&&validSummary(overview.value)){
@@ -348,7 +393,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
  },[isHistory,locale,path]);
  useEffect(()=>{
   // Reset only this query's presentation; never interrupt an accepted mutation.
-  requestId.current++;setData(null);setLoading(true);
+  requestId.current++;setData(null);setCardDetails({});setServerMs(null);setLoading(true);
   known.current.clear();hydrated.current=false;revision.current=null;
   void load();
  },[load]);
@@ -547,7 +592,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
   tab==="ready"?summary?.ready:data?.total;
  const allActive=summary?summary.new+summary.preparing+summary.ready:null;
  const isStale=!!error;
- return <div className="content-stack kitchen-console k27-console">
+ return <div className={"content-stack kitchen-console k27-console"+(displayMode==="large"?" k29-large":"")}>
   <div className="k27-hero">
    <div className="k27-hero-main">
     <div className="k27-hero-crest"><ChefHat size={28}/></div>
