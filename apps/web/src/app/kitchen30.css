@@ -1,0 +1,33 @@
+/* Phase 30: measured kitchen visibility, never a synthetic SLA. */
+.k30-observation{display:grid;gap:13px;padding:15px;border:1px solid #cfdedc;
+ background:#f4f8fa;border-radius:14px;min-width:0}
+.k30-heading{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;
+ flex-wrap:wrap}
+.k30-heading h3{margin:0 0 4px;color:#203f47;font-size:16px;line-height:1.4}
+.k30-heading p{margin:0;color:#536d75;font-size:12px;line-height:1.6;max-width:720px}
+.k30-heading button{min-height:44px;border:1px solid #cbdbe1;color:#30576a;background:#fff;
+ border-radius:9px;padding:7px 13px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.k30-heading button:hover{border-color:#86b8b4}
+.k30-heading button:focus-visible{outline:3px solid #70aec9;outline-offset:2px}
+.k30-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.k30-metric{display:grid;align-content:start;gap:8px;padding:14px;background:#fff;
+ border:1px solid #d8e3e5;border-radius:12px;min-width:0}
+.k30-metric span{color:#42636c;font-size:12px;line-height:1.5}
+.k30-metric strong{color:#17495c;font-size:clamp(22px,2vw,30px);font-weight:900;
+ font-variant-numeric:tabular-nums;line-height:1.25;overflow-wrap:anywhere}
+.k30-metric small{color:#607b82;font-size:11px;line-height:1.5}
+.k30-metric.k30-warning{background:#fff9ef;border-color:#e9cc9d}
+.k30-metric.k30-warning strong{color:#905a2e}
+.k30-note{display:flex;align-items:flex-start;gap:8px;color:#42636c;font-size:11px;line-height:1.65}
+.k30-note svg{flex:none;margin-top:1px}
+.k30-fail{display:flex;align-items:flex-start;gap:8px;border:1px solid #dfa97d;
+ background:#fff5ed;color:#82512d;border-radius:10px;padding:11px 12px;font-size:12px;line-height:1.6}
+.k30-fail svg{flex:none}
+.k29-large .k30-heading h3{font-size:20px}
+.k29-large .k30-metric strong{font-size:36px}
+.k29-large .k30-metric span{font-size:15px}
+.k29-large .k30-heading button{min-height:56px;font-size:15px}
+@media(max-width:800px){.k30-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:530px){.k30-metrics{grid-template-columns:1fr}.k30-metric{padding:12px}
+ .k30-heading button{width:100%}}
+@media print{.k30-heading button{display:none!important}}
