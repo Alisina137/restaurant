@@ -75,7 +75,7 @@ async function main(){
  assert.ok(dish,"P29 published menu item absent");
  const round=await expect<{round:{id:string};ticket:{id:string;version:number}}>(await request(
   "/api/orders/visits/"+opened.visit.id+"/rounds","POST",{
-  idempotencyKey:"p29_"+randomUUID().replaceAll("-"),note:"Serve warm",
+  idempotencyKey:"p29_"+randomUUID().replaceAll("-",""),note:"Serve warm",
   lines:[{itemId:item.id,itemVersion:dish.version,quantity:2,
     note:"No chili",selections:[]}]
  },waiter),201);
