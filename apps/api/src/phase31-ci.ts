@@ -114,7 +114,8 @@ async function main(){
  assert.ok(afterAck.items.every(x=>!rounds.slice(0,5).some(r=>r.ticket.id===x.ticketId)));
  const afterSeen=await expect<{cursor:number;revision:number}>(await request(
   "/api/orders/kitchen/watermark","GET",undefined,kitchen),200);
- assert.deepEqual(afterSeen,afterGet,"First-render reports must not alter kitchen revision/outbox");
+ assert.equal(afterSeen.cursor,afterGet.cursor,"First-render reports must not create outbox events");
+ assert.equal(afterSeen.revision,afterGet.revision,"First-render reports must not change kitchen revision");
  // Only change this disposable CI fixture; prove age filtering is genuinely server-side.
  const agedId=afterAck.items[0]!.ticketId;
  await db.update(kitchenTicket).set({createdAt:new Date(Date.now()-10*60_000)})
