@@ -27,7 +27,7 @@ has(paths[7],["const en=","const fa:","const ps:","uncertain:"]);
 has(paths[8],[".k28-uncertain-list",".k28-proof","@media(max-width:650px)"]);
 has(paths[10],["executePickup","pickup-ack","pickupUncertain","pickupAcknowledgedAt"]);
 has(paths[11],["const en=","const fa:","const ps:","confirmPickup"]);
-has(paths[12],["pickup-ack","phase28","FOR SHARE","/kitchen/watermark"]);
+has(paths[12],["pickup-ack","waiter.pickup_acknowledged","/kitchen/watermark","Array.from({length:12}"]);
 const wf=get(".github/workflows/verify.yml"),pkg=get("package.json"),layout=get("apps/web/src/app/layout.tsx");
 assert.ok(wf.includes("kitchen28:verify")&&wf.includes("phase28-ci.ts"));
 assert.ok(pkg.includes("kitchen28:verify"));assert.ok(layout.includes('import "./kitchen28.css";'));
