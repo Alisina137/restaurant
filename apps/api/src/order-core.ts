@@ -113,13 +113,16 @@ export async function priceLines(tx:Transaction,scope:Pick<OrderScope,"tenantId"
 }
 export async function orderChanged(tx:Transaction,scope:Pick<OrderScope,"tenantId"|"locationId"> & {actorId:string|null},roundId:string,
  eventType:string,payload:Record<string,unknown>){
+ // Serialize committed outbox sequences per location BEFORE assigning a sequence.
+ // Otherwise two transactions can allocate seq A<B but commit B before A, which
+ // would make an 'after=B' replay cursor permanently skip A under heavy load.
+ await tx.insert(orderRevision).values({locationId:scope.locationId,tenantId:scope.tenantId})
+   .onConflictDoUpdate({target:orderRevision.locationId,
+     set:{version:sql`${orderRevision.version} + 1`,changedAt:new Date()}});
  await tx.insert(orderActivity).values({id:randomUUID(),tenantId:scope.tenantId,locationId:scope.locationId,
    roundId,actorId:scope.actorId,action:eventType,details:payload});
  await tx.insert(orderOutbox).values({id:randomUUID(),tenantId:scope.tenantId,locationId:scope.locationId,
    roundId,eventType,payload});
- await tx.insert(orderRevision).values({locationId:scope.locationId,tenantId:scope.tenantId})
-   .onConflictDoUpdate({target:orderRevision.locationId,
-     set:{version:sql`${orderRevision.version} + 1`,changedAt:new Date()}});
 }
 export async function readOrder(scope:OrderScope,roundId:string){
  const [round]=await db.select().from(orderRound).where(and(eq(orderRound.id,roundId),
