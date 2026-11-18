@@ -17,7 +17,7 @@ has(paths[1],['"/kitchen/watermark"','"/kitchen/tickets/:id/state"','"/tickets/:
  "FOR SHARE","FOR UPDATE","waiter.pickup_acknowledged","orderChanged(tx"]);
 has(paths[2],["pickupAcknowledgedAt","pickupAcknowledgedBy"]);
 has(paths[3],["ADD COLUMN","pickup_acknowledged_at","pickup_acknowledged_by"]);
-assert.equal(JSON.parse(get(paths[4])).entries.at(-1).tag,"0013_phase28_pickup_ack");
+assert.ok(JSON.parse(get(paths[4])).entries.some(entry=>entry.tag==="0013_phase28_pickup_ack"),"P28 migration must remain registered");
 has(paths[5],["synchronize=useCallback","/api/orders/changes?after=",
  "/api/orders/kitchen/watermark","/api/orders/kitchen/tickets/",
  "advanceCursor","validateWatermark","uncertainKey","storeUncertain",

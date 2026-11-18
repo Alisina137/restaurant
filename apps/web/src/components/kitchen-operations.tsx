@@ -9,10 +9,13 @@ import type {Locale} from "@dineflow/shared";
 import {useWorkspace} from "./workspace-provider";
 import {jsonRequest,Phase2Error} from "@/lib/phase2-api";
 import {API_URL} from "@/lib/auth-client";
-import {name,amount,type WebDetail,type WebPage} from "@/lib/order-web-types";
+import {name,amount,type WebDetail,type WebPage,type KitchenCardDetail,
+ type KitchenCardPage,type KitchenPulse} from "@/lib/order-web-types";
 import {k6} from "@/lib/kitchen-copy";
 import {k27} from "@/lib/kitchen27-copy";
 import {k28} from "@/lib/kitchen28-copy";
+import {k29} from "@/lib/kitchen29-copy";
+import {displayTime,currentDisplayMode,validCardDetail,validKitchenCardPage,validKitchenPulse} from "@/lib/kitchen29";
 import {actionOutcome,advanceCursor,cleanUncertain,isTicketState,saveUncertain,validateWatermark,
  type KitchenTicketState,type KitchenWatermark,type KitchenChanges,type UncertainAction} from "@/lib/kitchen28";
 import {elapsedMinutes,elapsedLabel,newTicketIds,preparedSummary,priority,validSummary,
@@ -48,7 +51,9 @@ function formatDate(value:string|null,locale:Locale){
 function Label({status,locale}:{status:Status;locale:Locale}){
  return <span className={"order-pill "+status}>{k6(locale,status)}</span>;
 }
-function Details({detail,locale,compact=false}:{detail:WebDetail;locale:Locale;compact?:boolean}){
+function Details({detail,locale,compact=false}:{
+ detail:Pick<KitchenCardDetail,"round"|"lines">;locale:Locale;compact?:boolean;
+}){
  const progress=preparedSummary(detail.lines);
  return <div className="k27-lines">
   <div className="k27-progress">
@@ -142,8 +147,8 @@ function DetailModal({id,locale,onClose}:{id:string;locale:Locale;onClose:()=>vo
   </section>
  </div>;
 }
-function TicketCard({row,locale,now,busy,stale,uncertain,onAction,onLine,onView,onVerify}:{
- row:TicketRow;locale:Locale;now:number;busy:boolean;stale:boolean;uncertain:boolean;
+function TicketCard({row,inlineDetail,locale,now,busy,stale,uncertain,onAction,onLine,onView,onVerify}:{
+ row:TicketRow;inlineDetail?:KitchenCardDetail;locale:Locale;now:number;busy:boolean;stale:boolean;uncertain:boolean;
  onAction:(row:TicketRow,kind:"start"|"ready"|"handoff"|"notify")=>void;
  onLine:(row:TicketRow,lineId:string)=>void;onView:(id:string)=>void;
  onVerify:(ticketId:string)=>void;
@@ -151,17 +156,19 @@ function TicketCard({row,locale,now,busy,stale,uncertain,onAction,onLine,onView,
  const [detail,setDetail]=useState<WebDetail|null>(null),[error,setError]=useState("");
  const [retry,setRetry]=useState(0);
  useEffect(()=>{let live=true;setDetail(null);setError("");
+  if(inlineDetail)return()=>{live=false;};
   void jsonRequest<WebDetail>("/api/orders/rounds/"+encodeURIComponent(row.roundId))
    .then(result=>{if(live)setDetail(result);})
    .catch(err=>{if(live)setError(err instanceof Error?err.message:k27(locale,"needsMoreData"));});
   return()=>{live=false;};
- },[row.roundId,row.ticketVersion,locale,retry]);
+ },[inlineDetail,row.roundId,row.ticketVersion,locale,retry]);
+ const view=inlineDetail??detail;
  const status=row.status,ageStart=(status==="ready"||status==="picked_up")?
   (row.readyAt??row.createdAt):row.createdAt;
  const elapsed=elapsedMinutes(ageStart,now);
  const attention=priority(status,row.createdAt,row.readyAt,now)==="attention";
- const canChange=!busy&&!stale&&!uncertain&&!!detail&&!error&&detail.ticket?.version===row.ticketVersion;
- const remaining=detail?.lines.filter(line=>["new","preparing"].includes(line.kitchenStatus))??[];
+ const canChange=!busy&&!stale&&!uncertain&&!!view&&view.lines.length>0&&!error&&view.ticket?.version===row.ticketVersion;
+ const remaining=view?.lines.filter(line=>["new","preparing"].includes(line.kitchenStatus))??[];
  return <article className={"kitchen-ticket k27-ticket "+status+(attention?" k27-attention":"")}>
   <header className="kitchen-ticket-top k27-ticket-top">
    <div className="k27-table-identity">
@@ -184,7 +191,7 @@ function TicketCard({row,locale,now,busy,stale,uncertain,onAction,onLine,onView,
    <button type="button" className="button button-small" onClick={()=>setRetry(value=>value+1)}>
     <RefreshCw size={15}/>{k27(locale,"reloadDetails")}</button>
   </div>}
-  {detail?<><Details detail={detail} locale={locale} compact/>
+  {view?<><Details detail={view} locale={locale} compact/>
    {status==="preparing"&&remaining.length>0&&<div className="k27-line-actions">
     <h3>{k6(locale,"markLineReady")}</h3>
     {remaining.map(line=><button type="button" className="k27-line-action" key={line.id}
@@ -196,10 +203,10 @@ function TicketCard({row,locale,now,busy,stale,uncertain,onAction,onLine,onView,
    </div>}
   </>:!error&&<div className="list-skeleton" aria-label={ux(locale,"loading")}>
    <span/><span/></div>}
-  {["ready","picked_up"].includes(status)&&detail?.ticket&&<div className="k28-handoff">
+  {["ready","picked_up"].includes(status)&&view?.ticket&&<div className="k28-handoff">
     <Truck size={17}/>
     <span>{status==="picked_up"?
-     detail.ticket.pickupAcknowledgedAt?k28(locale,"receiptConfirmed"):k28(locale,"receiptPending"):
+     view.ticket.pickupAcknowledgedAt?k28(locale,"receiptConfirmed"):k28(locale,"receiptPending"):
      k28(locale,"alertSent")}</span>
    </div>}
    {uncertain&&<div role="alert" className="k28-uncertain-card">
@@ -233,6 +240,11 @@ export function KitchenOperations({tab}:{tab:Tab}){
  const {confirm,notify}=useInteraction();
  const [page,setPage]=useState(1),[data,setData]=useState<Page<TicketRow>|null>(null);
  const [summary,setSummary]=useState<KitchenOverview|null>(null);
+ const [cardDetails,setCardDetails]=useState<Record<string,KitchenCardDetail>>({});
+ const [serverMs,setServerMs]=useState<number|null>(null);
+ const [pulse,setPulse]=useState<KitchenPulse|null>(null),[pulseError,setPulseError]=useState(false);
+ const [pulseMinutes,setPulseMinutes]=useState<60|180|360>(60),[pulseRetry,setPulseRetry]=useState(0);
+ const [displayMode,setDisplayMode]=useState<"standard"|"large">("standard");
  const [loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false);
  const [busyId,setBusyId]=useState(""),[error,setError]=useState(""),[summaryError,setSummaryError]=useState(false);
  const [notice,setNotice]=useState(""),[selected,setSelected]=useState<string|null>(null);
@@ -248,6 +260,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
  const [replayStatus,setReplayStatus]=useState(""),[replaying,setReplaying]=useState(false);
  const scopeKey=workspace.user.id+":"+(workspace.tenantId??"none");
  const uncertainKey="dineflow:kitchen:uncertain:v1:"+scopeKey;
+ const displayKey="dineflow:kitchen:display:v29:"+scopeKey;
  const soundKey="dineflow:kitchen:sound:v27:"+workspace.user.id+":"+(workspace.tenantId??"none");
  const soundRef=useRef<AudioContext|null>(null),known=useRef<Set<string>>(new Set());
  const hydrated=useRef(false),lastBeep=useRef(0),revision=useRef<number|null>(null);
@@ -262,12 +275,46 @@ export function KitchenOperations({tab}:{tab:Tab}){
    localStorage.setItem(uncertainKey,JSON.stringify(restored));
   }catch{setUncertain([]);}
  },[uncertainKey,scopeKey]);
+ useEffect(()=>{
+  try{setDisplayMode(currentDisplayMode(localStorage.getItem(displayKey)));}
+  catch{setDisplayMode("standard");}
+ },[displayKey]);
+ function chooseDisplay(value:"standard"|"large"){
+  setDisplayMode(value);
+  try{localStorage.setItem(displayKey,value);}catch{/* Device-only preference. */}
+ }
+ useEffect(()=>{
+  let active=true;
+  const refresh=async()=>{
+   if(document.hidden)return;
+   try{
+    const result=await jsonRequest<KitchenPulse>(
+     "/api/orders/kitchen/pulse?minutes="+pulseMinutes);
+    if(!validKitchenPulse(result))throw Error("INVALID_KITCHEN_PULSE");
+    if(active){setPulse(result);setPulseError(false);}
+   }catch(err){
+    if(!active)return;
+    if(err instanceof Phase2Error&&err.status===401){
+     window.location.assign("/login?expired=1");return;
+    }
+    if(err instanceof Phase2Error&&err.status===403)setPulse(null);
+    setPulseError(true);
+   }
+  };
+  setPulse(null);setPulseError(false);
+  void refresh();
+  const interval=setInterval(()=>void refresh(),60000);
+  const visible=()=>{if(!document.hidden)void refresh();};
+  document.addEventListener("visibilitychange",visible);
+  return()=>{active=false;clearInterval(interval);
+   document.removeEventListener("visibilitychange",visible);};
+ },[scopeKey,pulseMinutes,pulseRetry]);
  const isHistory=tab==="history";
  const path=isHistory?
   "/api/orders/kitchen/history?page="+page+"&status="+encodeURIComponent(applied.status)+
    (applied.table?"&table="+encodeURIComponent(applied.table):"")+
    (applied.from?"&from="+applied.from:"")+(applied.to?"&to="+applied.to:""):
-  "/api/orders/kitchen?status="+tab+"&page="+page+
+  "/api/orders/kitchen/cards?status="+tab+"&page="+page+
    (appliedSearch?"&table="+encodeURIComponent(appliedSearch):"");
  useEffect(()=>{if(notice){notify(notice,"success");setNotice("");}},[notice,notify]);
  useEffect(()=>{
@@ -306,21 +353,26 @@ export function KitchenOperations({tab}:{tab:Tab}){
   const sequence=++requestId.current;
   if(!silent)setLoading(true);else setRefreshing(true);
   const results=await Promise.allSettled([
-   isHistory?jsonRequest<Page<HistoryRow>&{timezone:string}>(path):jsonRequest<WebPage>(path),
+   isHistory?jsonRequest<Page<HistoryRow>&{timezone:string}>(path):jsonRequest<KitchenCardPage>(path),
    jsonRequest<KitchenOverview>("/api/orders/kitchen/overview")
   ]);
   if(!mounted.current||sequence!==requestId.current)return;
   const [queue,overview]=results;
-  if(queue.status==="fulfilled"){
+  if(queue.status==="fulfilled"&&!isHistory&&!validKitchenCardPage(queue.value)){
+   setData(null);setCardDetails({});setServerMs(null);
+   setError(k29(locale,"readOnly"));
+  }else if(queue.status==="fulfilled"){
    if(isHistory){
     const q=queue.value as Page<HistoryRow>&{timezone:string};
+    setCardDetails({});setServerMs(null);
     setBusinessZone(q.timezone);setData({items:q.items.map(x=>({
      id:x.roundId,roundId:x.roundId,ticketId:x.id,ticketVersion:x.version,
      tableId:x.tableId,tableLabel:x.tableLabel,roundNumber:x.roundNumber,status:x.status,
      createdAt:x.createdAt,totalMinor:x.totalMinor,startedAt:x.startedAt,readyAt:x.readyAt,
      pickedUpAt:x.pickedUpAt,servedAt:x.servedAt})),total:q.total,page:q.page,perPage:q.perPage});
    }else{
-    const q=queue.value as WebPage;
+    const q=queue.value as KitchenCardPage;
+    setCardDetails(q.detailsByRound);setServerMs(q.serverMs);
     setData({items:q.items.map(x=>({...x,roundId:x.id,pickedUpAt:null,servedAt:null})),
      total:q.total,page:q.page,perPage:q.perPage});
    }
@@ -331,7 +383,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
     window.location.assign("/login?expired=1");return;
    }
    if(err instanceof Phase2Error&&err.status===403){
-    setData(null);setSummary(null);setError(k27(locale,"roleChanged"));
+    setData(null);setCardDetails({});setServerMs(null);setSummary(null);setError(k27(locale,"roleChanged"));
    }else setError(k27(locale,"refreshFailed"));
   }
   if(overview.status==="fulfilled"&&validSummary(overview.value)){
@@ -341,7 +393,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
  },[isHistory,locale,path]);
  useEffect(()=>{
   // Reset only this query's presentation; never interrupt an accepted mutation.
-  requestId.current++;setData(null);setLoading(true);
+  requestId.current++;setData(null);setCardDetails({});setServerMs(null);setLoading(true);
   known.current.clear();hydrated.current=false;revision.current=null;
   void load();
  },[load]);
@@ -540,7 +592,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
   tab==="ready"?summary?.ready:data?.total;
  const allActive=summary?summary.new+summary.preparing+summary.ready:null;
  const isStale=!!error;
- return <div className="content-stack kitchen-console k27-console">
+ return <div className={"content-stack kitchen-console k27-console"+(displayMode==="large"?" k29-large":"")}>
   <div className="k27-hero">
    <div className="k27-hero-main">
     <div className="k27-hero-crest"><ChefHat size={28}/></div>
@@ -613,6 +665,65 @@ export function KitchenOperations({tab}:{tab:Tab}){
     {!isHistory&&<span>{k27(locale,"allSorted")}</span>}
    </div>
   </div>
+  <section className="k29-pulse" aria-label={k29(locale,"pulse")}>
+   <div className="k29-pulse-header">
+    <div>
+     <div className="eyebrow">DINEFLOW / SERVICE PULSE</div>
+     <h2>{k29(locale,"pulse")}</h2>
+     <p>{k29(locale,"pulseNote")}</p>
+    </div>
+    <div className="k29-pulse-tools">
+     <label htmlFor="k29-window">{k29(locale,"window")}
+      <select id="k29-window" value={pulseMinutes}
+       onChange={event=>setPulseMinutes(Number(event.target.value) as 60|180|360)}>
+       <option value={60}>{k29(locale,"lastHour")}</option>
+       <option value={180}>{k29(locale,"lastThree")}</option>
+       <option value={360}>{k29(locale,"lastSix")}</option>
+      </select>
+     </label>
+     <button type="button" className="button button-small"
+      onClick={()=>setPulseRetry(value=>value+1)}
+      aria-label={k29(locale,"retry")}>
+      <RefreshCw size={16}/>{k6(locale,"refresh")}
+     </button>
+    </div>
+   </div>
+   <div className="k29-pulse-grid">
+    <div className="k29-metric"><span>{k29(locale,"sample")}</span>
+     <strong>{pulse&&!pulseError?pulse.completed:"—"}</strong>
+     <small>{k29(locale,"lastCheck")}: {pulse&&!pulseError?
+      formatDate(pulse.checkedAt,locale):"—"}</small></div>
+    <div className="k29-metric"><span>{k29(locale,"median")}</span>
+     <strong>{pulse&&!pulseError&&pulse.prepMedianMinutes!==null?
+      displayTime(pulse.prepMedianMinutes):"—"}</strong>
+     <small>{pulse?.completed?k29(locale,"minutes"):k29(locale,"noSample")}</small></div>
+    <div className="k29-metric"><span>{k29(locale,"p95")}</span>
+     <strong>{pulse&&!pulseError&&pulse.prepP95Minutes!==null?
+      displayTime(pulse.prepP95Minutes):"—"}</strong>
+     <small>{pulse?.completed?k29(locale,"minutes"):k29(locale,"noSample")}</small></div>
+    <div className={"k29-metric"+(pulse&&!pulseError&&pulse.pendingReceipt>0?" warning":"")}>
+     <span>{k29(locale,"pending")}</span>
+     <strong>{pulse&&!pulseError?pulse.pendingReceipt:"—"}</strong>
+     <small>{k29(locale,"oldestPending")}: {pulse&&!pulseError&&pulse.oldestPendingReceiptAt?
+      elapsedLabel(elapsedMinutes(pulse.oldestPendingReceiptAt,now)):"—"}</small>
+    </div>
+   </div>
+   {pulseError&&<div role="status" className="k29-pulse-error">
+    <ShieldAlert size={18}/>{k29(locale,"failed")}
+    <button className="button button-small" type="button"
+     onClick={()=>setPulseRetry(value=>value+1)}>{k29(locale,"retry")}</button>
+   </div>}
+   <div className="k29-pulse-footer">
+    <span>{k29(locale,"oneRequest")} · {k29(locale,"serverTime")}: {serverMs===null?
+     "—":displayTime(serverMs)+" ms"}</span>
+    <div className="k29-display-tools" role="group" aria-label={k29(locale,"displayMode")}>
+     <span>{k29(locale,"displayMode")}</span>
+     {(["standard","large"] as const).map(mode=>
+      <button key={mode} type="button" aria-pressed={displayMode===mode}
+       onClick={()=>chooseDisplay(mode)}>{k29(locale,mode)}</button>)}
+    </div>
+   </div>
+  </section>
   {!!soundError&&<div role="alert" className="k27-warning">{soundError}</div>}
   {!!replayStatus&&<div role="status" className="k28-replay-banner">
    <span>{replayStatus}</span>
@@ -705,6 +816,8 @@ export function KitchenOperations({tab}:{tab:Tab}){
    </div>:
    <div className="kitchen-ticket-grid k27-ticket-grid">
     {rows.map(row=><TicketCard key={row.ticketId} row={row}
+     inlineDetail={validCardDetail(cardDetails[row.roundId],row.ticketVersion)?
+      cardDetails[row.roundId]:undefined}
      locale={locale} now={now} busy={!!busyId} stale={!!error}
      uncertain={uncertain.some(item=>item.ticketId===row.ticketId)}
      onAction={(ticket,kind)=>void action(ticket,kind)}

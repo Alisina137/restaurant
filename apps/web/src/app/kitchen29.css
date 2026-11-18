@@ -1,0 +1,53 @@
+/* P29: kitchen service measurement and accessible large-screen mode. */
+.k29-pulse{display:grid;gap:14px;border:1px solid #d6e6de;border-radius:17px;
+ background:linear-gradient(135deg,#fff,#f7fbf8);padding:clamp(14px,2vw,22px)}
+.k29-pulse-header{display:flex;align-items:start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.k29-pulse-header h2{margin:3px 0 4px;font-size:18px;color:#183e30}
+.k29-pulse-header p{margin:0;color:#587567;font-size:12px;line-height:1.6;max-width:650px}
+.k29-pulse-header .eyebrow{font-size:10px;color:#3e7e63}
+.k29-pulse-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.k29-pulse-tools label{font-size:12px;color:#39624f;font-weight:800;display:grid;gap:5px}
+.k29-pulse-tools select{min-height:45px;border:1px solid #b8d0c2;color:#174b34;background:#fff;
+ font:inherit;font-size:13px;border-radius:10px;padding:8px 12px}
+.k29-pulse-tools button{min-height:45px}
+.k29-pulse-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.k29-metric{display:grid;align-content:start;gap:8px;padding:14px;
+ background:#fff;border:1px solid #e2eae3;border-radius:13px;min-width:0}
+.k29-metric span{color:#566f61;font-size:12px;line-height:1.5}
+.k29-metric strong{color:#154f37;font-size:clamp(21px,2.35vw,30px);font-weight:950;
+ font-variant-numeric:tabular-nums;line-height:1.25;overflow-wrap:anywhere}
+.k29-metric small{color:#647b6b;font-size:11px;line-height:1.5}
+.k29-metric.warning{border-color:#e5c99b;background:#fff9ef}
+.k29-metric.warning strong{color:#955e27}
+.k29-pulse-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;
+ flex-wrap:wrap;color:#607a67;font-size:11px;line-height:1.65}
+.k29-pulse-error{padding:9px 12px;border-radius:10px;background:#fff0e6;color:#7b452b;
+ font-size:12px;line-height:1.5;display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.k29-pulse-error button{min-height:42px}
+.k29-display-tools{display:flex;align-items:center;flex-wrap:wrap;gap:6px;
+ border-radius:11px;border:1px solid #d5e6db;padding:6px;background:white}
+.k29-display-tools>span{font-size:12px;font-weight:750;color:#3b6b53;margin-inline:6px}
+.k29-display-tools button{border:1px solid #d7e7dc;background:#f7faf8;border-radius:9px;
+ color:#38664e;min-height:45px;padding:7px 11px;font-size:12px;font-weight:850;cursor:pointer}
+.k29-display-tools button[aria-pressed="true"]{border-color:#2c8763;background:#dff3e8;color:#145d3e}
+.k29-large .k27-ticket-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,370px),1fr))}
+.k29-large .k27-ticket{padding:clamp(19px,2.2vw,26px);gap:18px}
+.k29-large .k27-ticket h2{font-size:clamp(28px,3vw,36px)}
+.k29-large .k27-ticket-code{font-size:13px}
+.k29-large .k27-dish-title{font-size:clamp(17px,1.5vw,20px)}
+.k29-large .k27-quantity{font-size:18px}
+.k29-large .k27-mods>span,.k29-large .k27-cook-note,.k29-large .k27-ticket-meta time,
+.k29-large .k27-line-action,.k29-large .k28-handoff{font-size:14px}
+.k29-large .k27-actions .button,.k29-large .k27-line-action{min-height:57px;font-size:14px}
+.k29-large .k27-timer strong{font-size:26px}
+.k29-large .k27-stage-tabs .context-tab{min-height:55px;font-size:15px}
+.k29-card-loading{font-size:12px;color:#6a8575}
+@media(max-width:950px){.k29-pulse-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:550px){.k29-pulse-grid{grid-template-columns:1fr 1fr;gap:7px}
+ .k29-metric{padding:11px}.k29-metric strong{font-size:22px}
+ .k29-pulse-header h2{font-size:17px}.k29-pulse-tools{width:100%}
+ .k29-pulse-tools label{flex:1}.k29-pulse-tools select{width:100%}
+ .k29-display-tools{width:100%}.k29-display-tools button{flex:1}
+ .k29-large .k27-ticket-grid{grid-template-columns:1fr}}
+@media(max-width:340px){.k29-pulse-grid{grid-template-columns:1fr}}
+@media print{.k29-pulse-tools,.k29-display-tools{display:none!important}}

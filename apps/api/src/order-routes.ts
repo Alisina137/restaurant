@@ -153,6 +153,95 @@ async function list(req:import("express").Request,mode:"mine"|"management"|"kitc
 orderRouter.get("/my",route(async(req,res)=>{res.setHeader("Cache-Control","no-store");res.json(await list(req,"mine"));}));
 orderRouter.get("/management",route(async(req,res)=>{res.setHeader("Cache-Control","no-store");res.json(await list(req,"management"));}));
 orderRouter.get("/kitchen",route(async(req,res)=>{res.setHeader("Cache-Control","no-store");res.json(await list(req,"kitchen"));}));
+
+/**
+ * P29: one network request for a complete kitchen page. Immutable cooking
+ * snapshot lines are fetched as ONE scoped, bounded IN query, never N card
+ * detail requests. Existing /kitchen and /rounds APIs stay compatible.
+ */
+orderRouter.get("/kitchen/cards",route(async(req,res)=>{
+ const started=performance.now();
+ const page=await list(req,"kitchen");
+ const scope=await orderScope(req);kitchenScope(scope);
+ const roundIds=page.items.map(item=>item.id);
+ const detailsByRound:Record<string,{round:{orderNote:string;totalMinor:number};
+  ticket:{version:number;pickupAcknowledgedAt:Date|null};lines:unknown[]}>=Object.create(null);
+ for(const row of page.items)detailsByRound[row.id]={
+  round:{orderNote:row.orderNote,totalMinor:row.totalMinor},
+  ticket:{version:row.ticketVersion,pickupAcknowledgedAt:null},lines:[]
+ };
+ if(roundIds.length){
+  // No customer, guest, payment or actor records enter the kitchen card payload.
+  const [lines,tickets]=await Promise.all([
+   db.select({roundId:orderLine.roundId,id:orderLine.id,itemNameFa:orderLine.itemNameFa,
+     itemNamePs:orderLine.itemNamePs,itemNameEn:orderLine.itemNameEn,
+     quantity:orderLine.quantity,note:orderLine.note,kitchenStatus:orderLine.kitchenStatus,
+     modifierSnapshot:orderLine.modifierSnapshot,unitPriceMinor:orderLine.unitPriceMinor,
+     lineTotalMinor:orderLine.lineTotalMinor})
+    .from(orderLine).where(and(eq(orderLine.tenantId,scope.tenantId),
+     eq(orderLine.locationId,scope.locationId),inArray(orderLine.roundId,roundIds)))
+    .orderBy(asc(orderLine.lineIndex)),
+   db.select({roundId:kitchenTicket.roundId,id:kitchenTicket.id,version:kitchenTicket.version,
+     pickupAcknowledgedAt:kitchenTicket.pickupAcknowledgedAt})
+    .from(kitchenTicket).where(and(eq(kitchenTicket.tenantId,scope.tenantId),
+     eq(kitchenTicket.locationId,scope.locationId),inArray(kitchenTicket.roundId,roundIds)))
+  ]);
+  // Use the page version for actions; any mismatch disables unsafe writes.
+  const ticketsByRound=new Map(tickets.map(item=>[item.roundId,item]));
+  for(const row of page.items){
+   const ticket=ticketsByRound.get(row.id);
+   if(ticket?.id===row.ticketId)
+    detailsByRound[row.id]!.ticket={
+     version:ticket.version,pickupAcknowledgedAt:ticket.pickupAcknowledgedAt};
+  }
+  for(const line of lines)detailsByRound[line.roundId]?.lines.push(line);
+ }
+ const serverMs=Math.round((performance.now()-started)*10)/10;
+ res.setHeader("Cache-Control","no-store");
+ res.setHeader("Server-Timing","kitchen-db;dur="+serverMs);
+ res.json({...page,detailsByRound,serverMs});
+}));
+
+/**
+ * P29: operational pulse, actual recorded event timestamps only.
+ * No invented targets or synthetic sample durations; percentiles are null
+ * if no tickets were completed within the service window.
+ */
+orderRouter.get("/kitchen/pulse",route(async(req,res)=>{
+ const scope=await orderScope(req);kitchenScope(scope);
+ const raw=typeof req.query.minutes==="string"?Number(req.query.minutes):60;
+ if(![60,180,360].includes(raw))
+  fail(400,"INVALID_FILTER","Supported service windows: 60, 180 or 360 minutes.");
+ const from=new Date(Date.now()-raw*60_000);
+ const completed=and(eq(kitchenTicket.tenantId,scope.tenantId),
+  eq(kitchenTicket.locationId,scope.locationId),sql`${kitchenTicket.readyAt} >= ${from}`);
+ const [samples,backlog]=await Promise.all([
+  db.select({
+   completed:count(),
+   prepMedianMinutes:sql<number|null>`percentile_cont(0.5) within group
+    (order by extract(epoch from (${kitchenTicket.readyAt} - ${kitchenTicket.createdAt}))/60)`,
+   prepP95Minutes:sql<number|null>`percentile_cont(0.95) within group
+    (order by extract(epoch from (${kitchenTicket.readyAt} - ${kitchenTicket.createdAt}))/60)`
+  }).from(kitchenTicket).where(completed),
+  db.select({
+   pendingReceipt:count(),
+   oldestPendingReceiptAt:sql<Date|null>`min(${kitchenTicket.pickedUpAt})`
+  }).from(kitchenTicket).where(and(
+   eq(kitchenTicket.tenantId,scope.tenantId),eq(kitchenTicket.locationId,scope.locationId),
+   eq(kitchenTicket.status,"picked_up"),
+   sql`${kitchenTicket.pickupAcknowledgedAt} IS NULL`))
+ ]);
+ const row=samples[0],pending=backlog[0];
+ const format=(value:number|null|undefined)=>
+  value===null||value===undefined||!Number.isFinite(Number(value))?
+   null:Math.round(Number(value)*10)/10;
+ res.setHeader("Cache-Control","no-store");
+ res.json({minutes:raw,from,checkedAt:new Date(),
+  completed:row?.completed??0,prepMedianMinutes:format(row?.prepMedianMinutes),
+  prepP95Minutes:format(row?.prepP95Minutes),
+  pendingReceipt:pending?.pendingReceipt??0,
+  oldestPendingReceiptAt:pending?.oldestPendingReceiptAt??null});
+}));
 // P27 display summary is calculated across the full scoped queue, never just the current page.
 orderRouter.get("/kitchen/overview",route(async(req,res)=>{
  const scope=await orderScope(req);kitchenScope(scope);
