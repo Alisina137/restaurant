@@ -130,8 +130,7 @@ async function list(req:import("express").Request,mode:"mine"|"management"|"kitc
  const table=mode==="kitchen"&&typeof req.query.table==="string"?req.query.table.trim():"";
  if(table.length>60)fail(400,"INVALID_FILTER","Table search is too long.");
  // Filter BEFORE pagination/count. Never narrow only the visible ten rows in the browser.
- const safeTable=table.replace(/[\\%_]/g,"\\ const where=and(eq(orderRound.tenantId,scope.tenantId),eq(orderRound.locationId,scope.locationId),
-   inArray(kitchenTicket.status,statuses),");
+ const safeTable=table.replace(/[\\%_]/g,(char)=>"\\"+char);
  const where=and(eq(orderRound.tenantId,scope.tenantId),eq(orderRound.locationId,scope.locationId),
    inArray(kitchenTicket.status,statuses),
    table?ilike(kitchenTicket.tableLabel,"%"+safeTable+"%"):undefined,
