@@ -15,6 +15,9 @@ import {k6} from "@/lib/kitchen-copy";
 import {k27} from "@/lib/kitchen27-copy";
 import {k28} from "@/lib/kitchen28-copy";
 import {k29} from "@/lib/kitchen29-copy";
+import {k30} from "@/lib/kitchen30-copy";
+import {eligibleObservationIds,validKitchenVisibility,validObservationResult,
+ type KitchenVisibility,type KitchenObservationResult} from "@/lib/kitchen30";
 import {displayTime,currentDisplayMode,validCardDetail,validKitchenCardPage,validKitchenPulse} from "@/lib/kitchen29";
 import {actionOutcome,advanceCursor,cleanUncertain,isTicketState,saveUncertain,validateWatermark,
  type KitchenTicketState,type KitchenWatermark,type KitchenChanges,type UncertainAction} from "@/lib/kitchen28";
@@ -245,6 +248,9 @@ export function KitchenOperations({tab}:{tab:Tab}){
  const [pulse,setPulse]=useState<KitchenPulse|null>(null),[pulseError,setPulseError]=useState(false);
  const [pulseMinutes,setPulseMinutes]=useState<60|180|360>(60),[pulseRetry,setPulseRetry]=useState(0);
  const [displayMode,setDisplayMode]=useState<"standard"|"large">("standard");
+ const [visibility,setVisibility]=useState<KitchenVisibility|null>(null);
+ const [visibilityError,setVisibilityError]=useState(false),[visibilityRetry,setVisibilityRetry]=useState(0);
+ const [telemetryError,setTelemetryError]=useState(false);
  const [loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false);
  const [busyId,setBusyId]=useState(""),[error,setError]=useState(""),[summaryError,setSummaryError]=useState(false);
  const [notice,setNotice]=useState(""),[selected,setSelected]=useState<string|null>(null);
@@ -266,8 +272,10 @@ export function KitchenOperations({tab}:{tab:Tab}){
  const hydrated=useRef(false),lastBeep=useRef(0),revision=useRef<number|null>(null);
  const actionLock=useRef(false),requestId=useRef(0),mounted=useRef(true);
  const cursor=useRef<number|null>(null),replayLock=useRef(false),scopeGuard=useRef(scopeKey);
+ const receiptSent=useRef<Set<string>>(new Set()),receiptBusy=useRef(false);
  useEffect(()=>{
   scopeGuard.current=scopeKey;cursor.current=null;revision.current=null;
+  receiptSent.current.clear();setTelemetryError(false);setVisibility(null);
   setMutationWarning("");setVerifiedState("");setReplayStatus("");
   try{
    const restored=cleanUncertain(JSON.parse(localStorage.getItem(uncertainKey)??"[]"),Date.now());
@@ -309,6 +317,33 @@ export function KitchenOperations({tab}:{tab:Tab}){
   return()=>{active=false;clearInterval(interval);
    document.removeEventListener("visibilitychange",visible);};
  },[scopeKey,pulseMinutes,pulseRetry]);
+
+ useEffect(()=>{
+  let active=true;
+  const refresh=async()=>{
+   if(document.hidden)return;
+   try{
+    const value=await jsonRequest<KitchenVisibility>(
+     "/api/orders/kitchen/visibility?minutes="+pulseMinutes);
+    if(!validKitchenVisibility(value))throw Error("INVALID_KITCHEN_VISIBILITY");
+    if(active){setVisibility(value);setVisibilityError(false);}
+   }catch(err){
+    if(!active)return;
+    if(err instanceof Phase2Error&&err.status===401){
+     window.location.assign("/login?expired=1");return;
+    }
+    // Never present stale measurements as if verified by a recent GET.
+    setVisibilityError(true);setVisibility(null);
+   }
+  };
+  setVisibility(null);setVisibilityError(false);
+  void refresh();
+  const timer=setInterval(()=>void refresh(),60000);
+  const onVisible=()=>{if(!document.hidden)void refresh();};
+  document.addEventListener("visibilitychange",onVisible);
+  return()=>{active=false;clearInterval(timer);
+   document.removeEventListener("visibilitychange",onVisible);};
+ },[scopeKey,pulseMinutes,visibilityRetry]);
  const isHistory=tab==="history";
  const path=isHistory?
   "/api/orders/kitchen/history?page="+page+"&status="+encodeURIComponent(applied.status)+
@@ -397,6 +432,56 @@ export function KitchenOperations({tab}:{tab:Tab}){
   known.current.clear();hydrated.current=false;revision.current=null;
   void load();
  },[load]);
+ /**
+  * P30 observation receipts follow a complete successful page render, not
+  * the server read, a background tab, a placeholder, or an SSE event. Two RAF
+  * callbacks allow the browser to present the page before reporting. The
+  * endpoint only stores the FIRST server-clock receipt and is safe to retry;
+  * this is technical telemetry, NEVER a kitchen business action.
+  */
+ useEffect(()=>{
+  if(isHistory||loading||!!error||!data?.items.length)return;
+  const expectedScope=scopeKey;
+  let live=true,frameOne=0,frameTwo=0;
+  const report=async()=>{
+   if(!live||document.hidden||receiptBusy.current||
+    scopeGuard.current!==expectedScope)return;
+   const ticketIds=eligibleObservationIds(data.items,cardDetails,receiptSent.current);
+   if(!ticketIds.length)return;
+   receiptBusy.current=true;
+   try{
+    const result=await jsonRequest<KitchenObservationResult>(
+     "/api/orders/kitchen/display-observed",{
+      method:"POST",body:JSON.stringify({ticketIds})
+     });
+    if(!validObservationResult(result,ticketIds.length))
+     throw Error("INVALID_OBSERVATION_RECEIPT");
+    if(!live||scopeGuard.current!==expectedScope)return;
+    ticketIds.forEach(id=>receiptSent.current.add(id));
+    setTelemetryError(false);
+    setVisibilityRetry(value=>value+1);
+   }catch(err){
+    if(!live||scopeGuard.current!==expectedScope)return;
+    setTelemetryError(true);
+    if(err instanceof Phase2Error&&err.status===401)
+     window.location.assign("/login?expired=1");
+   }finally{receiptBusy.current=false;}
+  };
+  const schedule=()=>{
+   if(document.hidden)return;
+   frameOne=requestAnimationFrame(()=>{
+    frameTwo=requestAnimationFrame(()=>{void report();});
+   });
+  };
+  schedule();
+  const timer=setInterval(schedule,15000);
+  const onVisible=()=>{if(!document.hidden)schedule();};
+  document.addEventListener("visibilitychange",onVisible);
+  return()=>{
+   live=false;cancelAnimationFrame(frameOne);cancelAnimationFrame(frameTwo);
+   clearInterval(timer);document.removeEventListener("visibilitychange",onVisible);
+  };
+ },[data,cardDetails,isHistory,loading,error,scopeKey]);
  /**
   * Cursor replay is an invalidation feed, not a queue mutation stream.
   * The revision row is locked before event seq allocation server-side, so
@@ -713,6 +798,53 @@ export function KitchenOperations({tab}:{tab:Tab}){
     <button className="button button-small" type="button"
      onClick={()=>setPulseRetry(value=>value+1)}>{k29(locale,"retry")}</button>
    </div>}
+   <div className="k30-observation" aria-label={k30(locale,"section")}>
+    <div className="k30-heading">
+     <div>
+      <h3>{k30(locale,"section")}</h3>
+      <p>{k30(locale,"explain")}</p>
+     </div>
+     <button type="button" onClick={()=>setVisibilityRetry(value=>value+1)}>
+      <RefreshCw size={16} aria-hidden="true"/> {k30(locale,"refresh")}
+     </button>
+    </div>
+    <div className="k30-metrics">
+     <div className="k30-metric">
+      <span>{k30(locale,"coverage")}</span>
+      <strong>{visibility&&!visibilityError?
+       visibility.observedCount+" / "+visibility.acceptedCount:"—"}</strong>
+      <small>{k30(locale,"observed")} · {k30(locale,"signal")}</small>
+     </div>
+     <div className="k30-metric">
+      <span>{k30(locale,"p95")}</span>
+      <strong>{visibility&&!visibilityError&&visibility.displayP95Seconds!==null?
+       displayTime(visibility.displayP95Seconds)+" s":"—"}</strong>
+      <small>{k30(locale,"median")}: {visibility&&!visibilityError&&
+       visibility.displayMedianSeconds!==null?
+       displayTime(visibility.displayMedianSeconds)+" s":k30(locale,"noSample")}</small>
+     </div>
+     <div className={"k30-metric"+(visibility&&!visibilityError&&
+      visibility.activeWithoutReceipt>0?" k30-warning":"")}>
+      <span>{k30(locale,"missing")}</span>
+      <strong>{visibility&&!visibilityError?
+       visibility.activeWithoutReceipt:"—"}</strong>
+      <small>{k30(locale,"oldest")}: {visibility&&!visibilityError&&
+       visibility.oldestWithoutReceiptAt?
+       elapsedLabel(elapsedMinutes(visibility.oldestWithoutReceiptAt,now)):"—"}</small>
+     </div>
+    </div>
+    <div className="k30-note">
+     <ShieldAlert size={16} aria-hidden="true"/>
+     <span>{k30(locale,"measurement")} {k30(locale,"historical")}</span>
+    </div>
+    {telemetryError&&<div role="status" className="k30-fail">
+     <ShieldAlert size={18}/>{k30(locale,"deliveryError")}
+    </div>}
+    {visibilityError&&<div role="status" className="k30-fail">
+     <ShieldAlert size={18}/>{k30(locale,"error")}
+    </div>}
+    <div className="k30-note"><span>{k30(locale,"scoped")} {k30(locale,"retries")}</span></div>
+   </div>
    <div className="k29-pulse-footer">
     <span>{k29(locale,"oneRequest")} · {k29(locale,"serverTime")}: {serverMs===null?
      "—":displayTime(serverMs)+" ms"}</span>

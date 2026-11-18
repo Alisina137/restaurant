@@ -292,6 +292,7 @@ export const kitchenTicket=pgTable("kitchen_tickets",{
  pickedUpBy:text("picked_up_by").references(()=>user.id),
  pickupAcknowledgedAt:timestamp("pickup_acknowledged_at",{withTimezone:true}),
  pickupAcknowledgedBy:text("pickup_acknowledged_by").references(()=>user.id),
+ firstDisplayedAt:timestamp("first_displayed_at",{withTimezone:true}),
  servedAt:timestamp("served_at",{withTimezone:true}),
  servedBy:text("served_by").references(()=>user.id),
  lastNotifiedAt:timestamp("last_notified_at",{withTimezone:true}),

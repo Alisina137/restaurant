@@ -1,5 +1,5 @@
 import {Router} from "express";
-import {and,asc,count,desc,eq,ilike,inArray,sql} from "drizzle-orm";
+import {and,asc,count,desc,eq,ilike,inArray,isNull,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
 import {diningTable,diningVisit,kitchenTicket,orderLine,orderRound,orderRevision,orderActivity} from "./schema";
@@ -202,6 +202,87 @@ orderRouter.get("/kitchen/cards",route(async(req,res)=>{
  res.json({...page,detailsByRound,serverMs});
 }));
 
+
+/**
+ * P30 foreground KDS observation: this is anonymous operational telemetry.
+ * It is NOT a kitchen transition, waiter handoff, proof of human sight, or
+ * financial mutation. One immutable first receipt per ticket, recorded using
+ * the database clock and authorized tenant/location. Safe to retry after loss
+ * of response (UPDATE only where NULL), unlike business workflow actions.
+ */
+orderRouter.post("/kitchen/display-observed",route(async(req,res)=>{
+ const scope=await orderScope(req);kitchenScope(scope);
+ const body=bodyObject(req);
+ const candidate=body.ticketIds;
+ if(!Array.isArray(candidate)||candidate.length<1||candidate.length>10||
+  !candidate.every(value=>typeof value==="string"&&
+   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)))
+  fail(400,"INVALID_TICKETS","Provide between one and ten valid ticket IDs.");
+ const ids=[...new Set(candidate as string[])];
+ const changed=await db.update(kitchenTicket)
+  .set({firstDisplayedAt:sql`clock_timestamp()`})
+  .where(and(eq(kitchenTicket.tenantId,scope.tenantId),
+   eq(kitchenTicket.locationId,scope.locationId),
+   inArray(kitchenTicket.id,ids),
+   inArray(kitchenTicket.status,["new","preparing","ready","picked_up"]),
+   isNull(kitchenTicket.firstDisplayedAt)))
+  .returning({id:kitchenTicket.id});
+ res.setHeader("Cache-Control","no-store");
+ res.json({accepted:changed.length,submitted:ids.length});
+}));
+
+/**
+ * P30: measure first *client-reported* kitchen queue render after acceptance.
+ * A ticket is sampled only if accepted inside the selected window and a KDS
+ * actually reported its first foreground render. No synthetic receipt for
+ * old orders, failed writes, hidden tabs, or missing hardware tests.
+ * Unsampled tickets are NEVER silently treated as a fast or slow receipt.
+ */
+orderRouter.get("/kitchen/visibility",route(async(req,res)=>{
+ const scope=await orderScope(req);kitchenScope(scope);
+ const minutes=typeof req.query.minutes==="string"?Number(req.query.minutes):60;
+ if(![60,180,360].includes(minutes))
+  fail(400,"INVALID_FILTER","Supported observation windows: 60, 180 or 360 minutes.");
+ const from=new Date(Date.now()-minutes*60_000);
+ const sample=and(eq(kitchenTicket.tenantId,scope.tenantId),
+  eq(kitchenTicket.locationId,scope.locationId),
+  sql`${kitchenTicket.createdAt} >= ${from}`);
+ const observedCondition=sql`${kitchenTicket.firstDisplayedAt} IS NOT NULL`;
+ const duration=sql`greatest(0,extract(epoch from
+  (${kitchenTicket.firstDisplayedAt} - ${kitchenTicket.createdAt})))`;
+ const [window,unobserved]=await Promise.all([
+  db.select({
+   acceptedCount:count(),
+   observedCount:sql<number>`count(*) filter (where ${observedCondition})::integer`,
+   displayMedianSeconds:sql<number|null>`percentile_cont(0.5) within group
+    (order by ${duration}) filter (where ${observedCondition})`,
+   displayP95Seconds:sql<number|null>`percentile_cont(0.95) within group
+    (order by ${duration}) filter (where ${observedCondition})`
+  }).from(kitchenTicket).where(sample),
+  db.select({activeWithoutReceipt:count(),
+   oldestWithoutReceiptAt:sql<Date|null>`min(${kitchenTicket.createdAt})`})
+   .from(kitchenTicket).where(and(
+    eq(kitchenTicket.tenantId,scope.tenantId),
+    eq(kitchenTicket.locationId,scope.locationId),
+    inArray(kitchenTicket.status,["new","preparing","ready","picked_up"]),
+    isNull(kitchenTicket.firstDisplayedAt)))
+ ]);
+ const first=window[0],backlog=unobserved[0];
+ const format=(value:number|null|undefined)=>
+  value===null||value===undefined||!Number.isFinite(Number(value))?
+   null:Math.round(Number(value)*10)/10;
+ res.setHeader("Cache-Control","no-store");
+ res.json({
+  minutes,from,checkedAt:new Date(),
+  acceptedCount:first?.acceptedCount??0,
+  observedCount:Number(first?.observedCount??0),
+  displayMedianSeconds:format(first?.displayMedianSeconds),
+  displayP95Seconds:format(first?.displayP95Seconds),
+  activeWithoutReceipt:backlog?.activeWithoutReceipt??0,
+  oldestWithoutReceiptAt:backlog?.oldestWithoutReceiptAt??null,
+  evidence:"foreground_client_report"
+ });
+}));
 /**
  * P29: operational pulse, actual recorded event timestamps only.
  * No invented targets or synthetic sample durations; percentiles are null
