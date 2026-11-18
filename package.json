@@ -24,6 +24,7 @@
     "mobile24:verify": "node scripts/verify-mobile24.mjs && pnpm --filter @dineflow/api exec tsx ../mobile/src/mobile24-ci.ts",
     "mobile25:verify": "node scripts/verify-mobile25.mjs && pnpm --filter @dineflow/api exec tsx ../mobile/src/mobile25-ci.ts",
     "mobile26:verify": "node scripts/verify-mobile26.mjs && pnpm --filter @dineflow/api exec tsx ../mobile/src/mobile26-ci.ts",
+    "kitchen27:verify": "node scripts/verify-kitchen27.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/kitchen27-ci.ts",
     "typecheck": "pnpm --filter @dineflow/shared typecheck && pnpm --filter @dineflow/api typecheck && pnpm --filter @dineflow/web typecheck && pnpm --filter @dineflow/mobile typecheck",
     "test": "pnpm --filter @dineflow/shared test && pnpm --filter @dineflow/api test",
     "build:web": "cross-env NODE_ENV=production pnpm --filter @dineflow/web build",
