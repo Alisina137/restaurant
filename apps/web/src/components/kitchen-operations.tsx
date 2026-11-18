@@ -227,10 +227,31 @@ export function KitchenOperations({tab}:{tab:Tab}){
   return()=>{mounted.current=false;requestId.current++;clearInterval(clock);};
  },[]);
  useEffect(()=>{
-  // No cross-account alert permission; each browser account opts in separately.
-  try{setSound(localStorage.getItem(soundKey)==="1");}catch{setSound(false);}
-  return()=>{void soundRef.current?.close();soundRef.current=null;};
- },[soundKey]);
+  // Consent persists per account, but browser autoplay may require a new gesture.
+  // Never display 'Sound on' unless the AudioContext can actually run.
+  let active=true;
+  const previous=soundRef.current;
+  soundRef.current=null;
+  if(previous)void previous.close();
+  const resume=async()=>{
+   let enabled=false;
+   try{enabled=localStorage.getItem(soundKey)==="1";}catch{/* storage disabled */}
+   if(!enabled||!active){if(active)setSound(false);return;}
+   try{
+    const context=new AudioContext();
+    if(!active){void context.close();return;}
+    soundRef.current=context;
+    await context.resume();
+    if(!active)return;
+    if(context.state!=="running")throw new Error("AUDIO_LOCKED");
+    setSound(true);
+   }catch{
+    if(active){setSound(false);setSoundError(k27(locale,"soundBlocked"));}
+   }
+  };
+  void resume();
+  return()=>{active=false;void soundRef.current?.close();soundRef.current=null;};
+ },[soundKey,locale]);
  const load=useCallback(async(silent=false)=>{
   if(document.hidden)return;
   const sequence=++requestId.current;
