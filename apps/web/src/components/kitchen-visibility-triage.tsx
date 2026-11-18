@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useState} from "react";
+import {useEffect,useState,type FormEvent} from "react";
 import type {Locale} from "@dineflow/shared";
 import {AlertTriangle,ChevronDown,ChevronUp,Clock3,RefreshCw,Search,ShieldAlert} from "lucide-react";
 import {jsonRequest,Phase2Error} from "@/lib/phase2-api";
@@ -11,6 +11,7 @@ type Props={locale:Locale;scopeKey:string;now:number;count:number|null;onInspect
 export function KitchenVisibilityTriage({locale,scopeKey,now,count,onInspect}:Props){
  const [open,setOpen]=useState(false),[page,setPage]=useState(1);
  const [age,setAge]=useState<(typeof AGE_FILTERS)[number]>(30);
+ const [draftTable,setDraftTable]=useState(""),[table,setTable]=useState("");
  const [data,setData]=useState<VisibilityGapPage|null>(null),[error,setError]=useState(false);
  const [loading,setLoading]=useState(false),[retry,setRetry]=useState(0);
  useEffect(()=>{
@@ -22,8 +23,9 @@ export function KitchenVisibilityTriage({locale,scopeKey,now,count,onInspect}:Pr
    setLoading(true);
    try{
     const result=await jsonRequest<VisibilityGapPage>(
-     "/api/orders/kitchen/unobserved?page="+page+"&minAgeSeconds="+age);
-    if(!validGapPage(result,age)||result.page!==page)
+     "/api/orders/kitchen/unobserved?page="+page+"&minAgeSeconds="+age+
+      "&table="+encodeURIComponent(table));
+    if(!validGapPage(result,age,table)||result.page!==page)
      throw new Error("INVALID_VISIBILITY_GAP_PAGE");
     if(live&&current===sequence){setData(result);setError(false);}
    }catch(err){
@@ -39,7 +41,12 @@ export function KitchenVisibilityTriage({locale,scopeKey,now,count,onInspect}:Pr
   const onVisible=()=>{if(!document.hidden)void refresh();};
   document.addEventListener("visibilitychange",onVisible);
   return()=>{live=false;clearInterval(interval);document.removeEventListener("visibilitychange",onVisible);};
- },[open,scopeKey,page,age,retry]);
+ },[open,scopeKey,page,age,table,retry]);
+ function applyTable(event:FormEvent<HTMLFormElement>){
+  event.preventDefault();
+  if(draftTable.trim().length>60)return;
+  setPage(1);setTable(draftTable.trim());
+ }
  const ageLabel=(value:number)=>value<60?value+"s":
   Math.ceil(value/60)+"m "+(value%60)+"s";
  return <section className="k31-triage" aria-label={k31(locale,"title")}>
@@ -65,6 +72,16 @@ export function KitchenVisibilityTriage({locale,scopeKey,now,count,onInspect}:Pr
         "age60":value===180?"age180":"age300")}</option>)}
      </select>
     </label>
+    <form className="k31-table-search" role="search" onSubmit={applyTable}>
+     <label htmlFor="k31-table-search">{k31(locale,"tableSearch")}</label>
+     <div><input id="k31-table-search" value={draftTable} maxLength={60}
+      onChange={event=>setDraftTable(event.target.value)}
+      placeholder={k31(locale,"tableSearch")}/>
+      <button type="submit" disabled={loading}>{k31(locale,"searchTable")}</button>
+      {(draftTable||table)&&<button type="button" onClick={()=>{
+       setDraftTable("");setTable("");setPage(1);}}>{k31(locale,"clear")}</button>}
+     </div>
+    </form>
     <button type="button" className="k31-refresh" disabled={loading}
      onClick={()=>setRetry(value=>value+1)}>
      <RefreshCw size={16}/>{k31(locale,"refresh")}
