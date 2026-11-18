@@ -1,4 +1,5 @@
 import type {KitchenCardDetail} from "./order-web-types";
+import {validCardDetail} from "./kitchen29";
 export type KitchenVisibility={
  minutes:60|180|360;from:string;checkedAt:string;
  acceptedCount:number;observedCount:number;displayMedianSeconds:number|null;
@@ -21,7 +22,7 @@ export function eligibleObservationIds(
    !/^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i.test(row.ticketId)||
    sent.has(row.ticketId))continue;
   const detail=details[row.id];
-  if(!detail||detail.ticket.version!==row.ticketVersion||!detail.lines.length)continue;
+  if(!validCardDetail(detail,row.ticketVersion))continue;
   ids.push(row.ticketId);
  }
  return [...new Set(ids)];
