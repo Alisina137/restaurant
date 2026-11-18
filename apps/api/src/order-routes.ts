@@ -174,7 +174,9 @@ orderRouter.get("/kitchen/overview",route(async(req,res)=>{
  res.json({new:value("new"),preparing:value("preparing"),ready,
   waiting15m,oldestNewAt:byStatus("new")?.oldestAt??null,
   oldestPreparingAt:byStatus("preparing")?.oldestAt??null,
-  oldestReadyAt:byStatus("ready")?.oldestAt??byStatus("picked_up")?.oldestAt??null,
+  oldestReadyAt:[byStatus("ready")?.oldestAt,byStatus("picked_up")?.oldestAt]
+   .filter((value):value is Date=>value instanceof Date)
+   .sort((a,b)=>a.getTime()-b.getTime())[0]??null,
   checkedAt:new Date().toISOString()});
 }));
 orderRouter.get("/my/stats",route(async(req,res)=>{
