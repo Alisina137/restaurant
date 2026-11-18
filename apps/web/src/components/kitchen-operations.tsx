@@ -243,10 +243,25 @@ export function KitchenOperations({tab}:{tab:Tab}){
  const [now,setNow]=useState(0),[streamConnected,setStreamConnected]=useState(false);
  const [lastSync,setLastSync]=useState<number|null>(null),[sound,setSound]=useState(false);
  const [soundError,setSoundError]=useState("");
+ const [uncertain,setUncertain]=useState<UncertainAction[]>([]);
+ const [mutationWarning,setMutationWarning]=useState(""),[verifiedState,setVerifiedState]=useState("");
+ const [replayStatus,setReplayStatus]=useState(""),[replaying,setReplaying]=useState(false);
+ const scopeKey=workspace.user.id+":"+(workspace.tenantId??"none");
+ const uncertainKey="dineflow:kitchen:uncertain:v1:"+scopeKey;
  const soundKey="dineflow:kitchen:sound:v27:"+workspace.user.id+":"+(workspace.tenantId??"none");
  const soundRef=useRef<AudioContext|null>(null),known=useRef<Set<string>>(new Set());
  const hydrated=useRef(false),lastBeep=useRef(0),revision=useRef<number|null>(null);
  const actionLock=useRef(false),requestId=useRef(0),mounted=useRef(true);
+ const cursor=useRef<number|null>(null),replayLock=useRef(false),scopeGuard=useRef(scopeKey);
+ useEffect(()=>{
+  scopeGuard.current=scopeKey;cursor.current=null;revision.current=null;
+  setMutationWarning("");setVerifiedState("");setReplayStatus("");
+  try{
+   const restored=cleanUncertain(JSON.parse(localStorage.getItem(uncertainKey)??"[]"),Date.now());
+   setUncertain(restored);
+   localStorage.setItem(uncertainKey,JSON.stringify(restored));
+  }catch{setUncertain([]);}
+ },[uncertainKey,scopeKey]);
  const isHistory=tab==="history";
  const path=isHistory?
   "/api/orders/kitchen/history?page="+page+"&status="+encodeURIComponent(applied.status)+
@@ -330,30 +345,77 @@ export function KitchenOperations({tab}:{tab:Tab}){
   known.current.clear();hydrated.current=false;revision.current=null;
   void load();
  },[load]);
+ /**
+  * Cursor replay is an invalidation feed, not a queue mutation stream.
+  * The revision row is locked before event seq allocation server-side, so
+  * a committed cursor never skips an earlier uncommitted kitchen event.
+  */
+ const synchronize=useCallback(async()=>{
+  if(document.hidden||replayLock.current)return;
+  replayLock.current=true;setReplaying(true);
+  const currentScope=scopeKey;
+  let more=false;
+  try{
+   if(cursor.current===null){
+    const mark=await jsonRequest<KitchenWatermark>("/api/orders/kitchen/watermark");
+    if(!validateWatermark(mark))throw new Error("INVALID_WATERMARK");
+    if(scopeGuard.current!==currentScope)return;
+    cursor.current=mark.cursor;revision.current=mark.revision;
+    // Always load AFTER the watermark; events committed during GET are then
+    // either included in this snapshot or picked up in the next replay pass.
+    await load(true);
+    setReplayStatus("");
+   }else{
+    let next=cursor.current,changed=false;
+    for(let batchNumber=0;batchNumber<8;batchNumber++){
+     const batch=await jsonRequest<KitchenChanges>("/api/orders/changes?after="+next);
+     const advanced=advanceCursor(next,batch);
+     if(advanced===null)throw new Error("INVALID_EVENT_SEQUENCE");
+     if(scopeGuard.current!==currentScope)return;
+     changed ||=advanced!==next;next=advanced;more=batch.hasMore;
+     if(!more)break;
+    }
+    cursor.current=next;
+    if(changed||more)await load(true);
+    if(scopeGuard.current===currentScope)
+     setReplayStatus(more?k28(locale,"replay"):"");
+   }
+  }catch(err){
+   if(scopeGuard.current!==currentScope)return;
+   if(err instanceof Phase2Error&&err.status===401){
+    window.location.assign("/login?expired=1");return;
+   }
+   setReplayStatus(k28(locale,"syncIssue"));
+   // Never discard the cursor or pretend failed pages were replayed.
+   await load(true);
+  }finally{
+   replayLock.current=false;if(mounted.current)setReplaying(false);
+   if(more&&mounted.current&&scopeGuard.current===currentScope)
+    setTimeout(()=>{if(mounted.current&&!document.hidden)void synchronize();},250);
+  }
+ },[load,locale,scopeKey]);
  useEffect(()=>{
-  // Do not create a new stream per background polling tick. SSE is a hint;
-  // the authoritative page is always reconciled through scoped HTTP GETs.
   const source=new EventSource(API_URL+"/api/orders/events",{withCredentials:true});
-  source.onopen=()=>setStreamConnected(true);
+  source.onopen=()=>{setStreamConnected(true);void synchronize();};
   source.onerror=()=>setStreamConnected(false);
   const onVersion=(event:MessageEvent<string>)=>{
    try{
     const value=JSON.parse(event.data) as {version:unknown};
     if(typeof value.version!=="number"||!Number.isSafeInteger(value.version))return;
-    if(revision.current!==null&&revision.current!==value.version&& !document.hidden)
-     void load(true);
+    if(revision.current!==null&&revision.current!==value.version&&!document.hidden)
+     void synchronize();
     revision.current=value.version;
-   }catch{/* Polling remains active when a message is malformed. */}
+   }catch{/* Periodic replay is the fallback. */}
   };
   source.addEventListener("orders",onVersion as EventListener);
-  const interval=setInterval(()=>{if(!document.hidden)void load(true);},12000);
-  const visible=()=>{if(!document.hidden)void load(true);};
+  void synchronize();
+  const interval=setInterval(()=>{if(!document.hidden)void synchronize();},12000);
+  const visible=()=>{if(!document.hidden)void synchronize();};
   document.addEventListener("visibilitychange",visible);
-  return()=>{
-   source.removeEventListener("orders",onVersion as EventListener);source.close();
-   clearInterval(interval);document.removeEventListener("visibilitychange",visible);
+  return()=>{source.removeEventListener("orders",onVersion as EventListener);
+   source.close();clearInterval(interval);document.removeEventListener("visibilitychange",visible);
   };
- },[load]);
+ },[synchronize]);
  useEffect(()=>{
   if(tab!=="new"||!data||loading||error)return;
   const current=new Set(data.items.map(item=>item.ticketId));
