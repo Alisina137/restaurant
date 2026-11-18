@@ -637,7 +637,7 @@ export function KitchenOperations({tab}:{tab:Tab}){
      {busyId===item.ticketId?k28(locale,"verifying"):k28(locale,"verify")}
     </button>
    </div>)}
-  </section>
+  </section>}
   {!!error&&<InlineFeedback message={error} retry={()=>void load(false)}
    onRetryLabel={k27(locale,"retry")}/>}
   {summaryError&&<div className="k27-warning" role="status">{k27(locale,"refreshFailed")}</div>}
