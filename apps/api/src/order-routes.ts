@@ -283,6 +283,48 @@ orderRouter.get("/kitchen/visibility",route(async(req,res)=>{
   evidence:"foreground_client_report"
  });
 }));
+
+/**
+ * P31 operator diagnostics, NOT a claim that a ticket was unseen by a person.
+ * Returns the oldest active tickets missing a client-reported foreground render.
+ * No side effects and no customer, guest, tender or staff identity.
+ * Filter BEFORE pagination; reuse the P30 scoped partial index.
+ */
+orderRouter.get("/kitchen/unobserved",route(async(req,res)=>{
+ const scope=await orderScope(req);kitchenScope(scope);
+ const rawPage=typeof req.query.page==="string"?Number(req.query.page):1;
+ if(!Number.isSafeInteger(rawPage)||rawPage<1||rawPage>1000)
+  fail(400,"INVALID_PAGE","Page must be between 1 and 1000.");
+ const minAgeSeconds=typeof req.query.minAgeSeconds==="string"?
+  Number(req.query.minAgeSeconds):30;
+ if(![0,30,60,180,300].includes(minAgeSeconds))
+  fail(400,"INVALID_FILTER","Supported minimum ages: 0, 30, 60, 180, 300 seconds.");
+ const table=typeof req.query.table==="string"?req.query.table.trim():"";
+ if(table.length>60)fail(400,"INVALID_FILTER","Table search must have at most 60 characters.");
+ const safeTable=table.replace(/[\\\\%_]/g,char=>"\\"+char);
+ const where=and(eq(kitchenTicket.tenantId,scope.tenantId),
+  eq(kitchenTicket.locationId,scope.locationId),
+  inArray(kitchenTicket.status,["new","preparing","ready","picked_up"]),
+  isNull(kitchenTicket.firstDisplayedAt),
+  table?ilike(kitchenTicket.tableLabel,"%"+safeTable+"%"):undefined,
+  sql`${kitchenTicket.createdAt} <= now() - (${minAgeSeconds} * interval '1 second')`);
+ const [rows,totals]=await Promise.all([
+  db.select({ticketId:kitchenTicket.id,roundId:kitchenTicket.roundId,
+   tableLabel:kitchenTicket.tableLabel,roundNumber:orderRound.roundNumber,
+   status:kitchenTicket.status,createdAt:kitchenTicket.createdAt,
+   version:kitchenTicket.version})
+   .from(kitchenTicket).innerJoin(orderRound,eq(orderRound.id,kitchenTicket.roundId))
+   .where(where).orderBy(asc(kitchenTicket.createdAt),asc(kitchenTicket.id))
+   .limit(10).offset((rawPage-1)*10),
+  db.select({total:count(),oldestAt:sql<Date|null>`min(${kitchenTicket.createdAt})`})
+   .from(kitchenTicket).where(where)
+ ]);
+ res.setHeader("Cache-Control","no-store");
+ res.json({items:rows,page:rawPage,perPage:10,total:totals[0]?.total??0,
+  minAgeSeconds,table,oldestAt:totals[0]?.oldestAt??null,
+  checkedAt:new Date().toISOString(),evidence:"missing_foreground_render_report"});
+}));
+
 /**
  * P29: operational pulse, actual recorded event timestamps only.
  * No invented targets or synthetic sample durations; percentiles are null
