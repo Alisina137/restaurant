@@ -2,7 +2,7 @@ import {Router} from "express";
 import {and,asc,desc,eq,gt,gte,inArray,isNull,lt,lte,ne,count,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
-import {diningVisit,kitchenTicket,orderLine,orderOutbox,orderRound,staffNotification,orderActivity,restaurantSetting} from "./schema";
+import {diningVisit,kitchenTicket,orderLine,orderOutbox,orderRound,staffNotification,orderActivity,restaurantSetting,orderRevision} from "./schema";
 import {bodyObject,fail,int,route,field} from "./menu-helpers";
 import {kitchenScope,orderChanged,orderId,orderScope,type OrderScope} from "./order-core";
 
@@ -311,6 +311,29 @@ serviceRouter.post("/notifications/:id/read",route(async(req,res)=>{
      isNull(staffNotification.readAt)));
  res.json({read:true});
 }));
+/**
+ * Snapshot high-water mark for paginated cursor replay.
+ * Read revision BEFORE the max seq, under a shared lock so a concurrent
+ * transaction cannot publish revision+outbox halfway through this snapshot.
+ * Client must request this watermark before its first full queue load.
+ */
+serviceRouter.get("/kitchen/watermark",route(async(req,res)=>{
+ const scope=await orderScope(req);kitchenScope(scope);
+ const mark=await db.transaction(async tx=>{
+  await tx.execute(sql`SELECT location_id FROM order_revisions
+   WHERE location_id=${scope.locationId} AND tenant_id=${scope.tenantId} FOR SHARE`);
+  const [revision]=await tx.select({version:orderRevision.version})
+   .from(orderRevision).where(and(eq(orderRevision.locationId,scope.locationId),
+    eq(orderRevision.tenantId,scope.tenantId))).limit(1);
+  const [last]=await tx.select({cursor:sql<number>`coalesce(max(${orderOutbox.seq}),0)::bigint`})
+   .from(orderOutbox).where(and(eq(orderOutbox.tenantId,scope.tenantId),
+    eq(orderOutbox.locationId,scope.locationId)));
+  return {cursor:Number(last?.cursor??0),revision:revision?.version??0};
+ });
+ res.setHeader("Cache-Control","no-store");
+ res.json({...mark,checkedAt:new Date().toISOString()});
+}));
+
 serviceRouter.get("/changes",route(async(req,res)=>{
  const scope=await orderScope(req);
  const raw=typeof req.query.after==="string"?Number(req.query.after):0;
