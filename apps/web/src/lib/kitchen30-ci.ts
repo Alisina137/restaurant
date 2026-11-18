@@ -8,7 +8,7 @@ const row=(id:string,ticketId:string,version=1,status="new")=>
 const data=(version:number)=>({
  ticket:{version,pickupAcknowledgedAt:null},round:{orderNote:"Kitchen request",totalMinor:3000},
  lines:[{id:"dish",quantity:2,itemNameFa:"غذا",itemNamePs:"خواړه",
-  itemNameEn:"Meal",kitchenStatus:"new",note:"no spice",
+  itemNameEn:"Meal",kitchenStatus:"new" as const,note:"no spice",
   modifierSnapshot:[],unitPriceMinor:1500,lineTotalMinor:3000}]
 });
 const first=row("round1",id1),second=row("round2",id2);
