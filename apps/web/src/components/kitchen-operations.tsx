@@ -798,6 +798,53 @@ export function KitchenOperations({tab}:{tab:Tab}){
     <button className="button button-small" type="button"
      onClick={()=>setPulseRetry(value=>value+1)}>{k29(locale,"retry")}</button>
    </div>}
+   <div className="k30-observation" aria-label={k30(locale,"section")}>
+    <div className="k30-heading">
+     <div>
+      <h3>{k30(locale,"section")}</h3>
+      <p>{k30(locale,"explain")}</p>
+     </div>
+     <button type="button" onClick={()=>setVisibilityRetry(value=>value+1)}>
+      <RefreshCw size={16} aria-hidden="true"/> {k30(locale,"refresh")}
+     </button>
+    </div>
+    <div className="k30-metrics">
+     <div className="k30-metric">
+      <span>{k30(locale,"coverage")}</span>
+      <strong>{visibility&&!visibilityError?
+       visibility.observedCount+" / "+visibility.acceptedCount:"—"}</strong>
+      <small>{k30(locale,"observed")} · {k30(locale,"signal")}</small>
+     </div>
+     <div className="k30-metric">
+      <span>{k30(locale,"p95")}</span>
+      <strong>{visibility&&!visibilityError&&visibility.displayP95Seconds!==null?
+       displayTime(visibility.displayP95Seconds)+" s":"—"}</strong>
+      <small>{k30(locale,"median")}: {visibility&&!visibilityError&&
+       visibility.displayMedianSeconds!==null?
+       displayTime(visibility.displayMedianSeconds)+" s":k30(locale,"noSample")}</small>
+     </div>
+     <div className={"k30-metric"+(visibility&&!visibilityError&&
+      visibility.activeWithoutReceipt>0?" k30-warning":"")}>
+      <span>{k30(locale,"missing")}</span>
+      <strong>{visibility&&!visibilityError?
+       visibility.activeWithoutReceipt:"—"}</strong>
+      <small>{k30(locale,"oldest")}: {visibility&&!visibilityError&&
+       visibility.oldestWithoutReceiptAt?
+       elapsedLabel(elapsedMinutes(visibility.oldestWithoutReceiptAt,now)):"—"}</small>
+     </div>
+    </div>
+    <div className="k30-note">
+     <ShieldAlert size={16} aria-hidden="true"/>
+     <span>{k30(locale,"measurement")} {k30(locale,"historical")}</span>
+    </div>
+    {telemetryError&&<div role="status" className="k30-fail">
+     <ShieldAlert size={18}/>{k30(locale,"deliveryError")}
+    </div>}
+    {visibilityError&&<div role="status" className="k30-fail">
+     <ShieldAlert size={18}/>{k30(locale,"error")}
+    </div>}
+    <div className="k30-note"><span>{k30(locale,"scoped")} {k30(locale,"retries")}</span></div>
+   </div>
    <div className="k29-pulse-footer">
     <span>{k29(locale,"oneRequest")} · {k29(locale,"serverTime")}: {serverMs===null?
      "—":displayTime(serverMs)+" ms"}</span>
