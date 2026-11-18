@@ -64,7 +64,7 @@ async function main(){
  const [actor]=await db.select({id:user.id}).from(user)
   .where(eq(user.email,"waiter-ci@example.test")).limit(1);
  assert.ok(section&&actor,"Fixture requires seeded active section and waiter.");
- const suffix=randomUUID().slice(0,8),prefix="LOAD31"+suffix;
+ const suffix=randomUUID().slice(0,5),prefix="L31"+suffix;
  const category=await expect<{id:string}>(await request("/api/menu/categories","POST",{
   nameFa:"آزمایش "+suffix,namePs:"ازموینه "+suffix,
   nameEn:"P31 Load "+suffix,description:"",sortOrder:99,published:true},owner),201);
