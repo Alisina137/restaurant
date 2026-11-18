@@ -5,18 +5,18 @@ export type VisibilityGapRow={
 };
 export type VisibilityGapPage={
  items:VisibilityGapRow[];page:number;perPage:10;total:number;
- minAgeSeconds:0|30|60|180|300;oldestAt:string|null;checkedAt:string;
+ minAgeSeconds:0|30|60|180|300;table:string;oldestAt:string|null;checkedAt:string;
  evidence:"missing_foreground_render_report";
 };
 export const AGE_FILTERS=[0,30,60,180,300] as const;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export function validGapPage(raw:unknown,requestedAge:number):raw is VisibilityGapPage{
+export function validGapPage(raw:unknown,requestedAge:number,requestedTable=""):raw is VisibilityGapPage{
  if(!raw||typeof raw!=="object")return false;
  const p=raw as Partial<VisibilityGapPage>;
  return Array.isArray(p.items)&&p.items.length<=10&&
   Number.isSafeInteger(p.page)&&Number(p.page)>=1&&Number(p.page)<=1000&&
   p.perPage===10&&Number.isSafeInteger(p.total)&&Number(p.total)>=p.items.length&&
-  p.minAgeSeconds===requestedAge&&AGE_FILTERS.includes(p.minAgeSeconds)&&
+  p.minAgeSeconds===requestedAge&&p.table===requestedTable&&AGE_FILTERS.includes(p.minAgeSeconds)&&
   (p.oldestAt===null||typeof p.oldestAt==="string"&&Number.isFinite(Date.parse(p.oldestAt)))&&
   typeof p.checkedAt==="string"&&Number.isFinite(Date.parse(p.checkedAt))&&
   p.evidence==="missing_foreground_render_report"&&
