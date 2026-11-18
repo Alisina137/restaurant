@@ -191,7 +191,7 @@ function TicketCard({row,inlineDetail,locale,now,busy,stale,uncertain,onAction,o
    <button type="button" className="button button-small" onClick={()=>setRetry(value=>value+1)}>
     <RefreshCw size={15}/>{k27(locale,"reloadDetails")}</button>
   </div>}
-  {view?<><Details view={view} locale={locale} compact/>
+  {view?<><Details detail={view} locale={locale} compact/>
    {status==="preparing"&&remaining.length>0&&<div className="k27-line-actions">
     <h3>{k6(locale,"markLineReady")}</h3>
     {remaining.map(line=><button type="button" className="k27-line-action" key={line.id}
