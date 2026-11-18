@@ -15,7 +15,7 @@ check(screen,["KitchenOperations","TicketCard","DetailModal","useDialogFocus",
  "k27-progress","k27-cook-note","k27-line-action","lineId",
  "/api/orders/kitchen/overview","&table=","tab","aria-current",
  "PageControls","InlineFeedback","LoadingSkeleton","useInteraction",
- "confirm({","actionLock","VERSION_CONFLICT","onLine","handoff",
+ "confirm({","actionLock","actionOutcome","onLine","handoff",
  "EventSource","visibilitychange","setInterval","newTicketIds",
  "soundKey","audio.state","aria-pressed","k27-warning","oldest"],
  "kitchen workflow");

@@ -12,6 +12,9 @@ import {API_URL} from "@/lib/auth-client";
 import {name,amount,type WebDetail,type WebPage} from "@/lib/order-web-types";
 import {k6} from "@/lib/kitchen-copy";
 import {k27} from "@/lib/kitchen27-copy";
+import {k28} from "@/lib/kitchen28-copy";
+import {actionOutcome,advanceCursor,cleanUncertain,isTicketState,saveUncertain,validateWatermark,
+ type KitchenTicketState,type KitchenWatermark,type KitchenChanges,type UncertainAction} from "@/lib/kitchen28";
 import {elapsedMinutes,elapsedLabel,newTicketIds,preparedSummary,priority,validSummary,
  type KitchenOverview,type QueueStatus} from "@/lib/kitchen27";
 import {useInteraction} from "./ui/interaction-provider";
@@ -86,11 +89,18 @@ function Details({detail,locale,compact=false}:{detail:WebDetail;locale:Locale;c
 function DetailModal({id,locale,onClose}:{id:string;locale:Locale;onClose:()=>void}){
  const modalRef=useDialogFocus<HTMLElement>(true,onClose);
  const [detail,setDetail]=useState<WebDetail|null>(null),[error,setError]=useState("");
+ const [serverState,setServerState]=useState<KitchenTicketState|null>(null);
  const [retry,setRetry]=useState(0);
- useEffect(()=>{let active=true;setDetail(null);setError("");
+ useEffect(()=>{let active=true;setDetail(null);setError("");setServerState(null);
   void jsonRequest<WebDetail>("/api/orders/rounds/"+encodeURIComponent(id))
-   .then(result=>{if(active)setDetail(result);})
-   .catch(err=>{if(active)setError(err instanceof Error?err.message:k27(locale,"needsMoreData"));});
+   .then(async result=>{
+    if(active)setDetail(result);
+    if(result.ticket){
+     const status=await jsonRequest<KitchenTicketState>(
+      "/api/orders/kitchen/tickets/"+encodeURIComponent(result.ticket.id)+"/state");
+     if(active&&isTicketState(status))setServerState(status);
+    }
+   }).catch(err=>{if(active)setError(err instanceof Error?err.message:k27(locale,"needsMoreData"));});
   return()=>{active=false;};
  },[id,locale,retry]);
  return <div className="dialog-backdrop kitchen-backdrop" role="presentation"
@@ -112,6 +122,17 @@ function DetailModal({id,locale,onClose}:{id:string;locale:Locale;onClose:()=>vo
     <Label status={(detail.ticket?.status??"new") as Status} locale={locale}/>
    </div>
    <Details detail={detail} locale={locale}/>
+   <div className="k28-proof" aria-label={k28(locale,"receipt")}>
+    <div><strong>{k28(locale,"kitchenHandoff")}</strong>
+     <time>{formatDate(detail.ticket?.pickedUpAt??null,locale)}</time></div>
+    <div><strong>{k28(locale,"receipt")}</strong>
+     <time>{formatDate(detail.ticket?.pickupAcknowledgedAt??null,locale)}</time></div>
+    <div><strong>{k28(locale,"waiterAlert")}</strong>
+     <span>{!serverState?"—":!serverState.waiterAlertExists?k28(locale,"alertNone"):
+      serverState.waiterSeenAt?k28(locale,"alertSeen"):k28(locale,"alertUnread")}</span></div>
+    <div><strong>{k6(locale,"served")}</strong>
+     <time>{formatDate(detail.ticket?.servedAt??null,locale)}</time></div>
+   </div>
    <div className="kitchen-activity"><h3>{k6(locale,"history")}</h3>
     {detail.activity.map(item=><div key={item.id}>
      <span>{item.action.replaceAll("."," · ")}</span>
@@ -121,10 +142,11 @@ function DetailModal({id,locale,onClose}:{id:string;locale:Locale;onClose:()=>vo
   </section>
  </div>;
 }
-function TicketCard({row,locale,now,busy,stale,onAction,onLine,onView}:{
- row:TicketRow;locale:Locale;now:number;busy:boolean;stale:boolean;
+function TicketCard({row,locale,now,busy,stale,uncertain,onAction,onLine,onView,onVerify}:{
+ row:TicketRow;locale:Locale;now:number;busy:boolean;stale:boolean;uncertain:boolean;
  onAction:(row:TicketRow,kind:"start"|"ready"|"handoff"|"notify")=>void;
  onLine:(row:TicketRow,lineId:string)=>void;onView:(id:string)=>void;
+ onVerify:(ticketId:string)=>void;
 }){
  const [detail,setDetail]=useState<WebDetail|null>(null),[error,setError]=useState("");
  const [retry,setRetry]=useState(0);
@@ -138,7 +160,7 @@ function TicketCard({row,locale,now,busy,stale,onAction,onLine,onView}:{
   (row.readyAt??row.createdAt):row.createdAt;
  const elapsed=elapsedMinutes(ageStart,now);
  const attention=priority(status,row.createdAt,row.readyAt,now)==="attention";
- const canChange=!busy&&!stale&&!!detail&&!error&&detail.ticket?.version===row.ticketVersion;
+ const canChange=!busy&&!stale&&!uncertain&&!!detail&&!error&&detail.ticket?.version===row.ticketVersion;
  const remaining=detail?.lines.filter(line=>["new","preparing"].includes(line.kitchenStatus))??[];
  return <article className={"kitchen-ticket k27-ticket "+status+(attention?" k27-attention":"")}>
   <header className="kitchen-ticket-top k27-ticket-top">
@@ -174,6 +196,18 @@ function TicketCard({row,locale,now,busy,stale,onAction,onLine,onView}:{
    </div>}
   </>:!error&&<div className="list-skeleton" aria-label={ux(locale,"loading")}>
    <span/><span/></div>}
+  {["ready","picked_up"].includes(status)&&detail?.ticket&&<div className="k28-handoff">
+    <Truck size={17}/>
+    <span>{status==="picked_up"?
+     detail.ticket.pickupAcknowledgedAt?k28(locale,"receiptConfirmed"):k28(locale,"receiptPending"):
+     k28(locale,"alertSent")}</span>
+   </div>}
+   {uncertain&&<div role="alert" className="k28-uncertain-card">
+    <strong>{k28(locale,"uncertain")}</strong>
+    <span>{k28(locale,"actionsLocked")}</span>
+    <button className="button button-primary" type="button" disabled={busy}
+     onClick={()=>onVerify(row.ticketId)}>{busy?k28(locale,"verifying"):k28(locale,"verify")}</button>
+   </div>}
   {status==="picked_up"&&<p className="k27-served-hint">
    <Truck size={16}/>{k27(locale,"noMoreHandoff")}</p>}
   <footer className="kitchen-ticket-actions k27-actions">
@@ -209,10 +243,25 @@ export function KitchenOperations({tab}:{tab:Tab}){
  const [now,setNow]=useState(0),[streamConnected,setStreamConnected]=useState(false);
  const [lastSync,setLastSync]=useState<number|null>(null),[sound,setSound]=useState(false);
  const [soundError,setSoundError]=useState("");
+ const [uncertain,setUncertain]=useState<UncertainAction[]>([]);
+ const [mutationWarning,setMutationWarning]=useState(""),[verifiedState,setVerifiedState]=useState("");
+ const [replayStatus,setReplayStatus]=useState(""),[replaying,setReplaying]=useState(false);
+ const scopeKey=workspace.user.id+":"+(workspace.tenantId??"none");
+ const uncertainKey="dineflow:kitchen:uncertain:v1:"+scopeKey;
  const soundKey="dineflow:kitchen:sound:v27:"+workspace.user.id+":"+(workspace.tenantId??"none");
  const soundRef=useRef<AudioContext|null>(null),known=useRef<Set<string>>(new Set());
  const hydrated=useRef(false),lastBeep=useRef(0),revision=useRef<number|null>(null);
  const actionLock=useRef(false),requestId=useRef(0),mounted=useRef(true);
+ const cursor=useRef<number|null>(null),replayLock=useRef(false),scopeGuard=useRef(scopeKey);
+ useEffect(()=>{
+  scopeGuard.current=scopeKey;cursor.current=null;revision.current=null;
+  setMutationWarning("");setVerifiedState("");setReplayStatus("");
+  try{
+   const restored=cleanUncertain(JSON.parse(localStorage.getItem(uncertainKey)??"[]"),Date.now());
+   setUncertain(restored);
+   localStorage.setItem(uncertainKey,JSON.stringify(restored));
+  }catch{setUncertain([]);}
+ },[uncertainKey,scopeKey]);
  const isHistory=tab==="history";
  const path=isHistory?
   "/api/orders/kitchen/history?page="+page+"&status="+encodeURIComponent(applied.status)+
@@ -296,30 +345,77 @@ export function KitchenOperations({tab}:{tab:Tab}){
   known.current.clear();hydrated.current=false;revision.current=null;
   void load();
  },[load]);
+ /**
+  * Cursor replay is an invalidation feed, not a queue mutation stream.
+  * The revision row is locked before event seq allocation server-side, so
+  * a committed cursor never skips an earlier uncommitted kitchen event.
+  */
+ const synchronize=useCallback(async()=>{
+  if(document.hidden||replayLock.current)return;
+  replayLock.current=true;setReplaying(true);
+  const currentScope=scopeKey;
+  let more=false;
+  try{
+   if(cursor.current===null){
+    const mark=await jsonRequest<KitchenWatermark>("/api/orders/kitchen/watermark");
+    if(!validateWatermark(mark))throw new Error("INVALID_WATERMARK");
+    if(scopeGuard.current!==currentScope)return;
+    cursor.current=mark.cursor;revision.current=mark.revision;
+    // Always load AFTER the watermark; events committed during GET are then
+    // either included in this snapshot or picked up in the next replay pass.
+    await load(true);
+    setReplayStatus("");
+   }else{
+    let next=cursor.current,changed=false;
+    for(let batchNumber=0;batchNumber<8;batchNumber++){
+     const batch=await jsonRequest<KitchenChanges>("/api/orders/changes?after="+next);
+     const advanced=advanceCursor(next,batch);
+     if(advanced===null)throw new Error("INVALID_EVENT_SEQUENCE");
+     if(scopeGuard.current!==currentScope)return;
+     changed ||=advanced!==next;next=advanced;more=batch.hasMore;
+     if(!more)break;
+    }
+    cursor.current=next;
+    if(changed||more)await load(true);
+    if(scopeGuard.current===currentScope)
+     setReplayStatus(more?k28(locale,"replay"):"");
+   }
+  }catch(err){
+   if(scopeGuard.current!==currentScope)return;
+   if(err instanceof Phase2Error&&err.status===401){
+    window.location.assign("/login?expired=1");return;
+   }
+   setReplayStatus(k28(locale,"syncIssue"));
+   // Never discard the cursor or pretend failed pages were replayed.
+   await load(true);
+  }finally{
+   replayLock.current=false;if(mounted.current)setReplaying(false);
+   if(more&&mounted.current&&scopeGuard.current===currentScope)
+    setTimeout(()=>{if(mounted.current&&!document.hidden)void synchronize();},250);
+  }
+ },[load,locale,scopeKey]);
  useEffect(()=>{
-  // Do not create a new stream per background polling tick. SSE is a hint;
-  // the authoritative page is always reconciled through scoped HTTP GETs.
   const source=new EventSource(API_URL+"/api/orders/events",{withCredentials:true});
-  source.onopen=()=>setStreamConnected(true);
+  source.onopen=()=>{setStreamConnected(true);void synchronize();};
   source.onerror=()=>setStreamConnected(false);
   const onVersion=(event:MessageEvent<string>)=>{
    try{
     const value=JSON.parse(event.data) as {version:unknown};
     if(typeof value.version!=="number"||!Number.isSafeInteger(value.version))return;
-    if(revision.current!==null&&revision.current!==value.version&& !document.hidden)
-     void load(true);
+    if(revision.current!==null&&revision.current!==value.version&&!document.hidden)
+     void synchronize();
     revision.current=value.version;
-   }catch{/* Polling remains active when a message is malformed. */}
+   }catch{/* Periodic replay is the fallback. */}
   };
   source.addEventListener("orders",onVersion as EventListener);
-  const interval=setInterval(()=>{if(!document.hidden)void load(true);},12000);
-  const visible=()=>{if(!document.hidden)void load(true);};
+  void synchronize();
+  const interval=setInterval(()=>{if(!document.hidden)void synchronize();},12000);
+  const visible=()=>{if(!document.hidden)void synchronize();};
   document.addEventListener("visibilitychange",visible);
-  return()=>{
-   source.removeEventListener("orders",onVersion as EventListener);source.close();
-   clearInterval(interval);document.removeEventListener("visibilitychange",visible);
+  return()=>{source.removeEventListener("orders",onVersion as EventListener);
+   source.close();clearInterval(interval);document.removeEventListener("visibilitychange",visible);
   };
- },[load]);
+ },[synchronize]);
  useEffect(()=>{
   if(tab!=="new"||!data||loading||error)return;
   const current=new Set(data.items.map(item=>item.ticketId));
@@ -350,15 +446,40 @@ export function KitchenOperations({tab}:{tab:Tab}){
   setSound(next);
   try{localStorage.setItem(soundKey,next?"1":"0");}catch{/* Preference remains session-local. */}
  }
+ function storeUncertain(next:UncertainAction[]){
+  setUncertain(next);
+  try{localStorage.setItem(uncertainKey,JSON.stringify(next));}
+  catch{/* Keep this tab blocked even if storage is unavailable. */}
+ }
+ async function verifyTicket(ticketId:string){
+  if(actionLock.current)return;
+  actionLock.current=true;setBusyId(ticketId);setMutationWarning("");setVerifiedState("");
+  try{
+   const state=await jsonRequest<KitchenTicketState>(
+    "/api/orders/kitchen/tickets/"+encodeURIComponent(ticketId)+"/state");
+   if(!isTicketState(state)||state.ticketId!==ticketId)throw new Error("INVALID_TICKET_STATE");
+   storeUncertain(uncertain.filter(item=>item.ticketId!==ticketId));
+   setVerifiedState(k28(locale,"verified")+" · "+state.tableLabel+
+    " · "+k6(locale,state.status)+" · v"+state.version);
+   await load(true);
+  }catch(err){
+   if(err instanceof Phase2Error&&err.status===401){
+    window.location.assign("/login?expired=1");return;
+   }
+   setMutationWarning(k28(locale,"syncIssue"));
+  }finally{actionLock.current=false;setBusyId("");}
+ }
  async function action(row:TicketRow,kind:"start"|"ready"|"handoff"|"notify",lineId?:string){
-  if(actionLock.current||!!error)return;
+  if(actionLock.current||!!error||uncertain.some(item=>item.ticketId===row.ticketId))return;
   const key=lineId?"confirmLineReady":kind==="handoff"?"confirmHandoff":
    kind==="notify"?"confirmNotify":kind==="start"?"confirmStart":"confirmReady";
   const question=key==="confirmReady"?k27(locale,"confirmReady"):k6(locale,key);
   const allowed=await confirm({title:k6(locale,"ticket")+" #"+row.roundNumber,
    description:question,confirmLabel:ux(locale,"confirm"),cancelLabel:ux(locale,"cancel")});
-  if(!allowed||actionLock.current)return;
-  actionLock.current=true;setBusyId(row.ticketId);setError("");setNotice("");
+  if(!allowed||actionLock.current||uncertain.some(item=>item.ticketId===row.ticketId))return;
+  actionLock.current=true;setBusyId(row.ticketId);
+  setMutationWarning("");setVerifiedState("");setNotice("");
+  let submitted=false;
   let endpoint="/api/orders/tickets/"+encodeURIComponent(row.ticketId);
   const body:Record<string,unknown>={version:row.ticketVersion};
   if(lineId)endpoint+="/lines/"+encodeURIComponent(lineId)+"/ready";
@@ -366,14 +487,35 @@ export function KitchenOperations({tab}:{tab:Tab}){
    endpoint+="/transition";body.nextStatus=kind==="start"?"preparing":"ready";
   }else endpoint+="/"+(kind==="handoff"?"handoff":"notify");
   try{
+   // Explicit server preflight avoids acting on cards changed before the
+   // confirmation dialog was opened. Versioned writes remain the final guard.
+   const latest=await jsonRequest<KitchenTicketState>(
+    "/api/orders/kitchen/tickets/"+encodeURIComponent(row.ticketId)+"/state");
+   if(!isTicketState(latest)||latest.ticketId!==row.ticketId)
+    throw new Error("INVALID_TICKET_STATE");
+   if(latest.version!==row.ticketVersion||latest.status!==row.status){
+    setMutationWarning(k28(locale,"changed"));
+    await load(true);return;
+   }
+   submitted=true;
    await jsonRequest(endpoint,{method:"POST",body:JSON.stringify(body)});
    setNotice(k6(locale,kind==="start"?"preparing":kind==="handoff"?"handedOff":
     kind==="notify"?"notifyAgain":"lineReady"));
    await load(true);
   }catch(err){
-   setError(err instanceof Phase2Error&&
-    ["VERSION_CONFLICT","INVALID_TRANSITION","NOT_READY"].includes(err.code)?
-     k27(locale,"updatedInOtherTab"):err instanceof Error?err.message:k6(locale,"error"));
+   const code=err instanceof Phase2Error?err.code:null;
+   const outcome=actionOutcome(err instanceof Phase2Error?err.status:null,code);
+   if(submitted&&outcome==="unknown"){
+    storeUncertain(saveUncertain(uncertain,{ticketId:row.ticketId,action:kind,
+     version:row.ticketVersion,time:Date.now()}));
+    setMutationWarning(k28(locale,"uncertain"));
+   }else if(outcome==="conflict"){
+    setMutationWarning(k28(locale,"changed"));
+   }else if(outcome==="denied"){
+    setMutationWarning(k27(locale,"roleChanged"));
+   }else{
+    setMutationWarning(err instanceof Phase2Error?err.message:k27(locale,"needsMoreData"));
+   }
    await load(true);
   }finally{actionLock.current=false;setBusyId("");}
  }
@@ -461,12 +603,41 @@ export function KitchenOperations({tab}:{tab:Tab}){
      formatDate(new Date(lastSync).toISOString(),locale):"—"}</small>
    </div>
    <div className="k27-queue-stats">
+    <button type="button" className="button button-small" onClick={()=>void synchronize()}
+     disabled={replaying} aria-label={k28(locale,"resync")}>
+     <RefreshCw size={15} className={replaying?"k27-spin":undefined}/>
+     {replaying?k28(locale,"replay"):k28(locale,"resync")}
+    </button>
     <span>{k27(locale,"totalActive")}: <strong>{summary&&!summaryError?allActive:"—"}</strong></span>
     <span>{k27(locale,"ticketCount")}: <strong>{data?.total??"—"}</strong></span>
     {!isHistory&&<span>{k27(locale,"allSorted")}</span>}
    </div>
   </div>
   {!!soundError&&<div role="alert" className="k27-warning">{soundError}</div>}
+  {!!replayStatus&&<div role="status" className="k28-replay-banner">
+   <span>{replayStatus}</span>
+   <span>{k28(locale,"noAutoRetry")}</span>
+  </div>}
+  {!!mutationWarning&&<div role="alert" className="k28-action-warning">
+   <ShieldAlert size={21}/><strong>{mutationWarning}</strong>
+  </div>}
+  {!!verifiedState&&<div role="status" className="k28-verified-banner">
+   <CheckCircle2 size={19}/><span>{verifiedState}</span>
+  </div>}
+  {uncertain.length>0&&<section aria-label={k28(locale,"actionsLocked")} className="k28-uncertain-list">
+   <div className="k28-uncertain-heading">
+    <ShieldAlert size={22}/><strong>{k28(locale,"uncertain")}</strong>
+   </div>
+   <p>{k28(locale,"retryAfterVerify")}</p>
+   {uncertain.map(item=><div className="k28-uncertain-row" key={item.ticketId}>
+    <code>{k6(locale,"ticket")} · {item.ticketId.slice(0,12)}</code>
+    <span>v{item.version} · {item.action}</span>
+    <button className="button button-primary" type="button" disabled={!!busyId}
+     onClick={()=>void verifyTicket(item.ticketId)}>
+     {busyId===item.ticketId?k28(locale,"verifying"):k28(locale,"verify")}
+    </button>
+   </div>)}
+  </section>}
   {!!error&&<InlineFeedback message={error} retry={()=>void load(false)}
    onRetryLabel={k27(locale,"retry")}/>}
   {summaryError&&<div className="k27-warning" role="status">{k27(locale,"refreshFailed")}</div>}
@@ -535,8 +706,10 @@ export function KitchenOperations({tab}:{tab:Tab}){
    <div className="kitchen-ticket-grid k27-ticket-grid">
     {rows.map(row=><TicketCard key={row.ticketId} row={row}
      locale={locale} now={now} busy={!!busyId} stale={!!error}
+     uncertain={uncertain.some(item=>item.ticketId===row.ticketId)}
      onAction={(ticket,kind)=>void action(ticket,kind)}
      onLine={(ticket,lineId)=>void action(ticket,"ready",lineId)}
+     onVerify={ticketId=>void verifyTicket(ticketId)}
      onView={setSelected}/>)}
    </div>:
    !error?<Surface><EmptyState icon={<UtensilsCrossed size={33}/>}

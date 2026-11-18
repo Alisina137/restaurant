@@ -1,0 +1,46 @@
+/* P28: action outcome recovery, waiter pickup proof and bounded cursor replay. */
+.k28-proof{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
+ padding:13px;border:1px solid #dae7de;border-radius:13px;background:#f8fbf9}
+.k28-proof>div{display:grid;gap:6px;padding:11px;background:white;border:1px solid #e4ece6;
+ border-radius:10px;overflow-wrap:anywhere;min-width:0}
+.k28-proof strong{color:#345e4c;font-size:12px;font-weight:850}
+.k28-proof time,.k28-proof span{color:#526e5e;font-size:12px;line-height:1.6}
+.k28-handoff{display:flex;align-items:flex-start;gap:9px;
+ background:#eef8f2;border:1px solid #cde8d7;border-radius:10px;
+ padding:11px 12px;color:#215e47;line-height:1.5;font-size:12px;font-weight:800}
+.k28-handoff svg{flex:none}
+.k28-uncertain-card{display:grid;gap:9px;padding:13px;border-radius:13px;
+ border:1px solid #dfb17b;background:#fff7eb;color:#79491f;line-height:1.55}
+.k28-uncertain-card strong{font-size:13px}
+.k28-uncertain-card span{font-size:12px}
+.k28-uncertain-card .button{min-height:48px}
+.k28-replay-banner{display:flex;flex-wrap:wrap;align-items:center;gap:11px;
+ padding:12px 14px;background:#f0f5fd;color:#2c5277;border:1px solid #ccdfef;
+ border-radius:11px;font-size:12px}
+.k28-action-warning{display:flex;align-items:flex-start;gap:10px;
+ padding:13px 15px;background:#fff5eb;border:1px solid #e4b383;color:#8c4c1b;
+ border-radius:12px;font-size:13px;line-height:1.65}
+.k28-action-warning svg{flex:none}
+.k28-verified-banner{display:flex;align-items:center;gap:10px;padding:13px;
+ color:#18654a;background:#ecf8f0;border:1px solid #c4e4d1;border-radius:12px;
+ font-size:13px;font-weight:750;line-height:1.6}
+.k28-verified-banner svg{flex:none}
+.k28-uncertain-list{display:grid;gap:11px;border:1px solid #dfb17b;
+ border-inline-start:5px solid #ad671c;border-radius:15px;padding:17px;
+ background:#fff9ef}
+.k28-uncertain-heading{display:flex;align-items:center;gap:10px;color:#7d4e21;
+ font-size:14px;line-height:1.6}
+.k28-uncertain-heading svg{flex:none}
+.k28-uncertain-list>p{margin:0;font-size:12px;color:#875d35;line-height:1.65}
+.k28-uncertain-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;
+ background:#fff;border:1px solid #efd8b8;border-radius:11px;padding:10px 12px}
+.k28-uncertain-row code{color:#334e41;overflow-wrap:anywhere;font-size:12px;flex:1;min-width:145px}
+.k28-uncertain-row span{color:#6f6a51;font-size:12px}
+.k28-uncertain-row .button{min-height:46px}
+.k27-queue-stats .button{min-height:40px;color:#255d47}
+@media(max-width:650px){.k28-proof{grid-template-columns:1fr}
+ .k28-uncertain-row .button{width:100%}
+ .k27-queue-stats .button{order:2;width:100%}}
+@media(prefers-reduced-motion:reduce){.k28-action-warning{transition:none}}
+@media print{.k28-uncertain-card,.k28-uncertain-list,.k28-replay-banner,
+ .k28-action-warning,.k28-verified-banner{display:none!important}}

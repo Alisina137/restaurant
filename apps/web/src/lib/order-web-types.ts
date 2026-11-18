@@ -5,7 +5,7 @@ export type SnapshotOption={id:string;nameFa:string;namePs:string;nameEn:string;
 export type SnapshotGroup={groupId:string;nameFa:string;namePs:string;nameEn:string;options:SnapshotOption[]};
 export type SnapshotLine={id:string;itemNameFa:string;itemNamePs:string;itemNameEn:string;quantity:number;note:string;kitchenStatus:"new"|"preparing"|"ready"|"picked_up"|"served"|"voided";unitPriceMinor:number;lineTotalMinor:number;modifierSnapshot:SnapshotGroup[]};
 export type WebDetail={round:{id:string;tableId:string;visitId:string;roundNumber:number;submittedBy:string;
- totalMinor:number;subtotalMinor:number;orderNote:string;createdAt:string};ticket:{id:string;version:number;status:string;tableLabel:string}|null;
+ totalMinor:number;subtotalMinor:number;orderNote:string;createdAt:string};ticket:{id:string;version:number;status:string;tableLabel:string;readyAt:string|null;pickedUpAt:string|null;pickupAcknowledgedAt:string|null;servedAt:string|null;lastNotifiedAt:string|null;notifyCount:number}|null;
  lines:SnapshotLine[];activity:{id:string;action:string;createdAt:string}[]};
 export const name=(x:{nameFa:string;namePs:string;nameEn:string},locale:Locale)=>(locale==="en"?x.nameEn:locale==="ps-AF"?x.namePs:x.nameFa)||x.nameFa;
 export const amount=(cents:number,locale:Locale)=>new Intl.NumberFormat(locale,{minimumFractionDigits:2,maximumFractionDigits:2}).format(cents/100)+" AFN";
