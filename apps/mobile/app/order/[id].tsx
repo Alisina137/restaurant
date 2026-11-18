@@ -11,6 +11,7 @@ import {p10m} from "../../src/phase10-copy";
 import {type OrderDetail,nameOf,price} from "../../src/order-types";
 import {readyToDeliver} from "../../src/mobile24-ops";
 import {m24} from "../../src/mobile24-copy";
+import {m28} from "../../src/mobile28-copy";
 type CorrectionPreview={request:{id:string;status:"pending"|"approved"|"rejected"|"applied";reason:string}|null;
  canRequest:boolean};
 const freshKey=()=>("waiter-cancel-"+Date.now().toString(36)+
@@ -22,7 +23,8 @@ export default function OrderDetailScreen(){
  const [cancelOpen,setCancelOpen]=useState(false),[cancelReason,setCancelReason]=useState("");
  const [correction,setCorrection]=useState<CorrectionPreview|null>(null),[cancelBusy,setCancelBusy]=useState(false);
  const [cancelKey,setCancelKey]=useState(freshKey);
- const requestRef=useRef(0),serveRef=useRef(false),cancelRef=useRef(false);
+ const requestRef=useRef(0),serveRef=useRef(false),cancelRef=useRef(false),pickupRef=useRef(false);
+ const [pickupBusy,setPickupBusy]=useState(false),[pickupUncertain,setPickupUncertain]=useState(false);
  const [visitIsOpen,setVisitIsOpen]=useState<boolean|null>(null);
  const load=useCallback(async(silent=false)=>{
   const request=++requestRef.current;
@@ -38,6 +40,7 @@ export default function OrderDetailScreen(){
    ]);
    if(request!==requestRef.current)return;
    setDetail(result);setCorrection(preview);setVisitIsOpen(activeVisit?.visit.status==="open");
+   setPickupUncertain(false);
    setError("");
   }catch(e){
    if(request!==requestRef.current)return;
@@ -51,8 +54,31 @@ export default function OrderDetailScreen(){
   const app=AppState.addEventListener("change",state=>{if(state==="active")void load(true);});
   return()=>{requestRef.current++;clearInterval(interval);app.remove();};
  },[load]));
+ function confirmPickup(){
+  if(!detail?.ticket||!id||pickupRef.current||pickupUncertain||
+   detail.ticket.status!=="picked_up"||detail.ticket.pickupAcknowledgedAt)return;
+  Alert.alert(m28(locale,"pickup"),m28(locale,"confirmPickup"),[
+   {text:o5(locale,"cancel"),style:"cancel"},
+   {text:o5(locale,"confirm"),onPress:()=>void executePickup()}
+  ]);
+ }
+ async function executePickup(){
+  const ticket=detail?.ticket;
+  if(!ticket||!id||pickupRef.current||pickupUncertain)return;
+  pickupRef.current=true;setPickupBusy(true);setError("");
+  try{
+   await floorRequest("/api/orders/tickets/"+encodeURIComponent(ticket.id)+"/pickup-ack",
+    {method:"POST",body:{version:ticket.version}});
+   await load();
+   Alert.alert(m28(locale,"pickup"),m28(locale,"acknowledged"));
+  }catch(e){
+   setPickupUncertain(true);
+   setError(e instanceof FloorRequestError&&e.status===409?
+    m28(locale,"conflict"):m28(locale,"pickupError"));
+  }finally{pickupRef.current=false;setPickupBusy(false);}
+ }
  async function serve(lineId?:string){
-  if(!id||!detail?.ticket||serving||serveRef.current)return;
+  if(!id||!detail?.ticket||serving||serveRef.current||pickupUncertain)return;
   const question=o5(locale,lineId?"confirmServeLine":"confirmServed");
   Alert.alert(o5(locale,"markServed"),question,[
    {text:o5(locale,"cancel"),style:"cancel"},
@@ -60,7 +86,7 @@ export default function OrderDetailScreen(){
   ]);
  }
  async function executeServe(lineId?:string){
-  if(!id||!detail?.ticket||serveRef.current)return;
+  if(!id||!detail?.ticket||serveRef.current||pickupUncertain)return;
   serveRef.current=true;setServing(true);setError("");
   try{
    const path="/api/orders/rounds/"+encodeURIComponent(id)+(lineId?"/lines/"+encodeURIComponent(lineId):"")+"/serve";
@@ -124,7 +150,7 @@ export default function OrderDetailScreen(){
       {!!line.note&&<Text style={styles.note}>{o5(locale,"note")}: {line.note}</Text>}
       {detail.ticket&&["ready","picked_up"].includes(detail.ticket.status)&&
         ["ready","picked_up"].includes(line.kitchenStatus)&&
-        <Pressable disabled={serving} style={styles.lineAction} onPress={()=>void serve(line.id)}>
+        <Pressable disabled={serving||pickupUncertain} style={styles.lineAction} onPress={()=>void serve(line.id)}>
          <Ionicons name="checkmark-circle-outline" size={20} color={theme.brand}/>
          <Text style={styles.lineActionText}>{o5(locale,"serveLine")}</Text></Pressable>}
 
@@ -147,9 +173,29 @@ export default function OrderDetailScreen(){
       detail.ticket?.status==="picked_up"?o5(locale,"handoffStatus"):
       detail.ticket?.status==="ready"?o5(locale,"readyHint"):
       detail.ticket?.status==="preparing"?o5(locale,"preparingHint"):o5(locale,"newHint")}</Text></View>
+   {detail.ticket?.status==="picked_up"&&<View style={styles.pickupCard}>
+     <View style={styles.pickupTitle}>
+      <Ionicons name="hand-left-outline" color={theme.brand} size={22}/>
+      <Text style={styles.pickupHeading}>{m28(locale,"pickup")}</Text>
+     </View>
+     <Text style={styles.muted}>{m28(locale,detail.ticket.pickupAcknowledgedAt?"pickupDone":"pickupHint")}</Text>
+     <Text style={styles.muted}>{m28(locale,"serveSeparate")}</Text>
+     {!detail.ticket.pickupAcknowledgedAt&&<Pressable accessibilityRole="button"
+      disabled={pickupBusy||pickupUncertain||serving}
+      style={[styles.primary,(pickupBusy||pickupUncertain)&&{opacity:.5}]}
+      onPress={confirmPickup}>
+      {pickupBusy?<ActivityIndicator color="#fff"/>:
+       <Ionicons name="checkmark-done-outline" color="#fff" size={20}/>}
+      <Text style={styles.primaryText}>{pickupBusy?o5(locale,"busy"):m28(locale,"pickup")}</Text>
+     </Pressable>}
+     {pickupUncertain&&<Pressable accessibilityRole="button" onPress={()=>void load()}
+      style={styles.secondary}><Text style={styles.link}>{o5(locale,"refresh")}</Text></Pressable>}
+    </View>}
+   {detail.ticket?.status==="served"&&!!detail.ticket.pickupAcknowledgedAt&&
+     <View style={styles.hint}><Text style={styles.muted}>{m28(locale,"pickupDone")}</Text></View>}
    {detail.ticket&&["ready","picked_up"].includes(detail.ticket.status)&&
      detail.lines.some(l=>readyToDeliver(l.kitchenStatus))&&
-     <Pressable disabled={serving} onPress={()=>void serve()} style={[styles.primary,serving&&{opacity:.6}]}>
+     <Pressable disabled={serving||pickupUncertain||pickupBusy} onPress={()=>void serve()} style={[styles.primary,(serving||pickupUncertain)&&{opacity:.6}]}>
       {serving?<ActivityIndicator color="white"/>:<Ionicons name="checkmark-done-outline" size={20} color="white"/>}
       <Text style={styles.primaryText}>{o5(locale,"markServed")}</Text></Pressable>}
 
@@ -195,6 +241,9 @@ export default function OrderDetailScreen(){
  </ScrollView>;
 }
 const styles=StyleSheet.create({
+ pickupCard:{padding:16,borderWidth:1,borderColor:"#B9DFC9",backgroundColor:"#F5FBF6",borderRadius:16,gap:12},
+ pickupTitle:{flexDirection:"row",alignItems:"center",gap:9},
+ pickupHeading:{color:theme.ink,fontWeight:"800",fontSize:16},
  correctionForm:{gap:11,marginTop:8},
  correctionInput:{minHeight:98,backgroundColor:"#FAFCFB",borderWidth:1,borderColor:theme.border,
   borderRadius:12,padding:12,color:theme.ink,fontSize:15},
