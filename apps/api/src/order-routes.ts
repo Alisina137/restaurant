@@ -1,5 +1,5 @@
 import {Router} from "express";
-import {and,asc,count,desc,eq,inArray,sql} from "drizzle-orm";
+import {and,asc,count,desc,eq,ilike,inArray,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
 import {diningTable,diningVisit,kitchenTicket,orderLine,orderRound,orderRevision,orderActivity} from "./schema";
@@ -127,8 +127,13 @@ async function list(req:import("express").Request,mode:"mine"|"management"|"kitc
    mode==="mine"?st==="ready"?["ready","picked_up"]:st==="completed"?["served"]:["new","preparing"]:
    st==="history"?["new","preparing","ready","picked_up","served"]:["new","preparing","ready","picked_up"];
  if(!statuses.length)return {items:[],total:0,page,perPage:10};
+ const table=mode==="kitchen"&&typeof req.query.table==="string"?req.query.table.trim():"";
+ if(table.length>60)fail(400,"INVALID_FILTER","Table search is too long.");
+ // Filter BEFORE pagination/count. Never narrow only the visible ten rows in the browser.
+ const safeTable=table.replace(/[\\%_]/g,(char)=>"\\"+char);
  const where=and(eq(orderRound.tenantId,scope.tenantId),eq(orderRound.locationId,scope.locationId),
    inArray(kitchenTicket.status,statuses),
+   table?ilike(kitchenTicket.tableLabel,"%"+safeTable+"%"):undefined,
    mode==="mine"?eq(diningVisit.waiterId,scope.actorId):undefined);
  const [items,totals]=await Promise.all([
   db.select({id:orderRound.id,roundNumber:orderRound.roundNumber,visitId:orderRound.visitId,
@@ -148,6 +153,32 @@ async function list(req:import("express").Request,mode:"mine"|"management"|"kitc
 orderRouter.get("/my",route(async(req,res)=>{res.setHeader("Cache-Control","no-store");res.json(await list(req,"mine"));}));
 orderRouter.get("/management",route(async(req,res)=>{res.setHeader("Cache-Control","no-store");res.json(await list(req,"management"));}));
 orderRouter.get("/kitchen",route(async(req,res)=>{res.setHeader("Cache-Control","no-store");res.json(await list(req,"kitchen"));}));
+// P27 display summary is calculated across the full scoped queue, never just the current page.
+orderRouter.get("/kitchen/overview",route(async(req,res)=>{
+ const scope=await orderScope(req);kitchenScope(scope);
+ const rows=await db.select({
+  status:kitchenTicket.status,
+  total:count(),
+  oldestAt:sql<Date|null>`min(${kitchenTicket.createdAt})`,
+  over15m:sql<number>`count(*) filter (where ${kitchenTicket.createdAt} < now() - interval '15 minutes')::integer`
+ }).from(kitchenTicket)
+  .where(and(eq(kitchenTicket.tenantId,scope.tenantId),
+   eq(kitchenTicket.locationId,scope.locationId),
+   inArray(kitchenTicket.status,["new","preparing","ready","picked_up"])))
+  .groupBy(kitchenTicket.status);
+ const byStatus=(status:string)=>rows.find(r=>r.status===status);
+ const value=(status:string)=>byStatus(status)?.total??0;
+ const ready=value("ready")+value("picked_up");
+ const waiting15m=rows.reduce((sum,row)=>sum+Number(row.over15m??0),0);
+ res.setHeader("Cache-Control","no-store");
+ res.json({new:value("new"),preparing:value("preparing"),ready,
+  waiting15m,oldestNewAt:byStatus("new")?.oldestAt??null,
+  oldestPreparingAt:byStatus("preparing")?.oldestAt??null,
+  oldestReadyAt:[byStatus("ready")?.oldestAt,byStatus("picked_up")?.oldestAt]
+   .filter((value):value is Date=>value instanceof Date)
+   .sort((a,b)=>a.getTime()-b.getTime())[0]??null,
+  checkedAt:new Date().toISOString()});
+}));
 orderRouter.get("/my/stats",route(async(req,res)=>{
  const scope=await orderScope(req,false);
  if(scope.role!=="waiter")fail(403,"ACCESS_DENIED","Waiter role required.");
