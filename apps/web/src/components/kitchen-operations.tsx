@@ -446,15 +446,40 @@ export function KitchenOperations({tab}:{tab:Tab}){
   setSound(next);
   try{localStorage.setItem(soundKey,next?"1":"0");}catch{/* Preference remains session-local. */}
  }
+ function storeUncertain(next:UncertainAction[]){
+  setUncertain(next);
+  try{localStorage.setItem(uncertainKey,JSON.stringify(next));}
+  catch{/* Keep this tab blocked even if storage is unavailable. */}
+ }
+ async function verifyTicket(ticketId:string){
+  if(actionLock.current)return;
+  actionLock.current=true;setBusyId(ticketId);setMutationWarning("");setVerifiedState("");
+  try{
+   const state=await jsonRequest<KitchenTicketState>(
+    "/api/orders/kitchen/tickets/"+encodeURIComponent(ticketId)+"/state");
+   if(!isTicketState(state)||state.ticketId!==ticketId)throw new Error("INVALID_TICKET_STATE");
+   storeUncertain(uncertain.filter(item=>item.ticketId!==ticketId));
+   setVerifiedState(k28(locale,"verified")+" · "+state.tableLabel+
+    " · "+k6(locale,state.status)+" · v"+state.version);
+   await load(true);
+  }catch(err){
+   if(err instanceof Phase2Error&&err.status===401){
+    window.location.assign("/login?expired=1");return;
+   }
+   setMutationWarning(k28(locale,"syncIssue"));
+  }finally{actionLock.current=false;setBusyId("");}
+ }
  async function action(row:TicketRow,kind:"start"|"ready"|"handoff"|"notify",lineId?:string){
-  if(actionLock.current||!!error)return;
+  if(actionLock.current||!!error||uncertain.some(item=>item.ticketId===row.ticketId))return;
   const key=lineId?"confirmLineReady":kind==="handoff"?"confirmHandoff":
    kind==="notify"?"confirmNotify":kind==="start"?"confirmStart":"confirmReady";
   const question=key==="confirmReady"?k27(locale,"confirmReady"):k6(locale,key);
   const allowed=await confirm({title:k6(locale,"ticket")+" #"+row.roundNumber,
    description:question,confirmLabel:ux(locale,"confirm"),cancelLabel:ux(locale,"cancel")});
-  if(!allowed||actionLock.current)return;
-  actionLock.current=true;setBusyId(row.ticketId);setError("");setNotice("");
+  if(!allowed||actionLock.current||uncertain.some(item=>item.ticketId===row.ticketId))return;
+  actionLock.current=true;setBusyId(row.ticketId);
+  setMutationWarning("");setVerifiedState("");setNotice("");
+  let submitted=false;
   let endpoint="/api/orders/tickets/"+encodeURIComponent(row.ticketId);
   const body:Record<string,unknown>={version:row.ticketVersion};
   if(lineId)endpoint+="/lines/"+encodeURIComponent(lineId)+"/ready";
@@ -462,14 +487,35 @@ export function KitchenOperations({tab}:{tab:Tab}){
    endpoint+="/transition";body.nextStatus=kind==="start"?"preparing":"ready";
   }else endpoint+="/"+(kind==="handoff"?"handoff":"notify");
   try{
+   // Explicit server preflight avoids acting on cards changed before the
+   // confirmation dialog was opened. Versioned writes remain the final guard.
+   const latest=await jsonRequest<KitchenTicketState>(
+    "/api/orders/kitchen/tickets/"+encodeURIComponent(row.ticketId)+"/state");
+   if(!isTicketState(latest)||latest.ticketId!==row.ticketId)
+    throw new Error("INVALID_TICKET_STATE");
+   if(latest.version!==row.ticketVersion||latest.status!==row.status){
+    setMutationWarning(k28(locale,"changed"));
+    await load(true);return;
+   }
+   submitted=true;
    await jsonRequest(endpoint,{method:"POST",body:JSON.stringify(body)});
    setNotice(k6(locale,kind==="start"?"preparing":kind==="handoff"?"handedOff":
     kind==="notify"?"notifyAgain":"lineReady"));
    await load(true);
   }catch(err){
-   setError(err instanceof Phase2Error&&
-    ["VERSION_CONFLICT","INVALID_TRANSITION","NOT_READY"].includes(err.code)?
-     k27(locale,"updatedInOtherTab"):err instanceof Error?err.message:k6(locale,"error"));
+   const code=err instanceof Phase2Error?err.code:null;
+   const outcome=actionOutcome(err instanceof Phase2Error?err.status:null,code);
+   if(submitted&&outcome==="unknown"){
+    storeUncertain(saveUncertain(uncertain,{ticketId:row.ticketId,action:kind,
+     version:row.ticketVersion,time:Date.now()}));
+    setMutationWarning(k28(locale,"uncertain"));
+   }else if(outcome==="conflict"){
+    setMutationWarning(k28(locale,"changed"));
+   }else if(outcome==="denied"){
+    setMutationWarning(k27(locale,"roleChanged"));
+   }else{
+    setMutationWarning(err instanceof Phase2Error?err.message:k27(locale,"needsMoreData"));
+   }
    await load(true);
   }finally{actionLock.current=false;setBusyId("");}
  }
