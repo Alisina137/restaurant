@@ -17,7 +17,7 @@ check(screen,["KitchenOperations","TicketCard","DetailModal","useDialogFocus",
  "PageControls","InlineFeedback","LoadingSkeleton","useInteraction",
  "confirm({","actionLock","VERSION_CONFLICT","onLine","handoff",
  "EventSource","visibilitychange","setInterval","newTicketIds",
- "soundKey","audio.state","aria-pressed","k27-stale","oldest"],
+ "soundKey","audio.state","aria-pressed","k27-warning","oldest"],
  "kitchen workflow");
 check(pure,["elapsedMinutes","priority","newTicketIds","preparedSummary","validSummary"],"selectors");
 check(copy,["const fa:","const ps:","const en=","board:","confirmReady:"],"localization");
@@ -27,7 +27,7 @@ check(layout,['import "./kitchen27.css";'],"style registration");
 check(server,['"/kitchen/overview"',"kitchenScope(scope)","groupBy(kitchenTicket.status)",
  "table?ilike(kitchenTicket.tableLabel","limit(10)","Cache-Control"],"protected API");
 check(http,["count()","page=1&table=","new-owner-ci@example.test",
- "status,new","no-store"],"integration test");
+ "status="+tab","no-store"],"integration test");
 check(unit,["fa-AF","ps-AF","elapsedMinutes","priority","preparedSummary"],"selectors test");
 const workflow=readFileSync(new URL(".github/workflows/verify.yml",root),"utf8");
 assert.ok(workflow.includes("kitchen27:verify")&&workflow.includes("phase27-ci.ts"),"P27 absent from CI");
