@@ -28,6 +28,6 @@ has(6,['"/api/orders/kitchen/unobserved?page="',"visibilitychange",
 has(7,["KitchenVisibilityTriage","onInspect={setSelected}"]);
 has(8,[".k31-row",".k31-triage",".k31-table-search","@media(max-width:510px)"]);
 has(9,['import "./kitchen31.css";']);
-has(10,["kitchen31:verify","phase31-ci.ts","phase31-load.ts"]);
+has(10,["kitchen31:verify","phase31-ci.ts","pilot31:rehearse","ALLOW_DISPOSABLE_LOAD_REHEARSAL"]);
 has(11,["kitchen31:verify","pilot31:rehearse"]);
 console.info("PASS P31 source contracts: bounded tenant-scoped read-only triage, RTL table search and guarded 20/10/200 load harness.");
