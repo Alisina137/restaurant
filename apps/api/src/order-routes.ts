@@ -299,10 +299,14 @@ orderRouter.get("/kitchen/unobserved",route(async(req,res)=>{
   Number(req.query.minAgeSeconds):30;
  if(![0,30,60,180,300].includes(minAgeSeconds))
   fail(400,"INVALID_FILTER","Supported minimum ages: 0, 30, 60, 180, 300 seconds.");
+ const table=typeof req.query.table==="string"?req.query.table.trim():"";
+ if(table.length>60)fail(400,"INVALID_FILTER","Table search must have at most 60 characters.");
+ const safeTable=table.replace(/[\\\\%_]/g,char=>"\\"+char);
  const where=and(eq(kitchenTicket.tenantId,scope.tenantId),
   eq(kitchenTicket.locationId,scope.locationId),
   inArray(kitchenTicket.status,["new","preparing","ready","picked_up"]),
   isNull(kitchenTicket.firstDisplayedAt),
+  table?ilike(kitchenTicket.tableLabel,"%"+safeTable+"%"):undefined,
   sql`${kitchenTicket.createdAt} <= now() - (${minAgeSeconds} * interval '1 second')`);
  const [rows,totals]=await Promise.all([
   db.select({ticketId:kitchenTicket.id,roundId:kitchenTicket.roundId,
@@ -317,7 +321,7 @@ orderRouter.get("/kitchen/unobserved",route(async(req,res)=>{
  ]);
  res.setHeader("Cache-Control","no-store");
  res.json({items:rows,page:rawPage,perPage:10,total:totals[0]?.total??0,
-  minAgeSeconds,oldestAt:totals[0]?.oldestAt??null,
+  minAgeSeconds,table,oldestAt:totals[0]?.oldestAt??null,
   checkedAt:new Date().toISOString(),evidence:"missing_foreground_render_report"});
 }));
 
