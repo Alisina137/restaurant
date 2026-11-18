@@ -12,6 +12,9 @@ import {API_URL} from "@/lib/auth-client";
 import {name,amount,type WebDetail,type WebPage} from "@/lib/order-web-types";
 import {k6} from "@/lib/kitchen-copy";
 import {k27} from "@/lib/kitchen27-copy";
+import {k28} from "@/lib/kitchen28-copy";
+import {actionOutcome,advanceCursor,cleanUncertain,isTicketState,saveUncertain,validateWatermark,
+ type KitchenTicketState,type KitchenWatermark,type KitchenChanges,type UncertainAction} from "@/lib/kitchen28";
 import {elapsedMinutes,elapsedLabel,newTicketIds,preparedSummary,priority,validSummary,
  type KitchenOverview,type QueueStatus} from "@/lib/kitchen27";
 import {useInteraction} from "./ui/interaction-provider";
@@ -86,11 +89,18 @@ function Details({detail,locale,compact=false}:{detail:WebDetail;locale:Locale;c
 function DetailModal({id,locale,onClose}:{id:string;locale:Locale;onClose:()=>void}){
  const modalRef=useDialogFocus<HTMLElement>(true,onClose);
  const [detail,setDetail]=useState<WebDetail|null>(null),[error,setError]=useState("");
+ const [serverState,setServerState]=useState<KitchenTicketState|null>(null);
  const [retry,setRetry]=useState(0);
- useEffect(()=>{let active=true;setDetail(null);setError("");
+ useEffect(()=>{let active=true;setDetail(null);setError("");setServerState(null);
   void jsonRequest<WebDetail>("/api/orders/rounds/"+encodeURIComponent(id))
-   .then(result=>{if(active)setDetail(result);})
-   .catch(err=>{if(active)setError(err instanceof Error?err.message:k27(locale,"needsMoreData"));});
+   .then(async result=>{
+    if(active)setDetail(result);
+    if(result.ticket){
+     const status=await jsonRequest<KitchenTicketState>(
+      "/api/orders/kitchen/tickets/"+encodeURIComponent(result.ticket.id)+"/state");
+     if(active&&isTicketState(status))setServerState(status);
+    }
+   }).catch(err=>{if(active)setError(err instanceof Error?err.message:k27(locale,"needsMoreData"));});
   return()=>{active=false;};
  },[id,locale,retry]);
  return <div className="dialog-backdrop kitchen-backdrop" role="presentation"
@@ -112,6 +122,17 @@ function DetailModal({id,locale,onClose}:{id:string;locale:Locale;onClose:()=>vo
     <Label status={(detail.ticket?.status??"new") as Status} locale={locale}/>
    </div>
    <Details detail={detail} locale={locale}/>
+   <div className="k28-proof" aria-label={k28(locale,"receipt")}>
+    <div><strong>{k28(locale,"kitchenHandoff")}</strong>
+     <time>{formatDate(detail.ticket?.pickedUpAt??null,locale)}</time></div>
+    <div><strong>{k28(locale,"receipt")}</strong>
+     <time>{formatDate(detail.ticket?.pickupAcknowledgedAt??null,locale)}</time></div>
+    <div><strong>{k28(locale,"waiterAlert")}</strong>
+     <span>{!serverState?"—":!serverState.waiterAlertExists?k28(locale,"alertNone"):
+      serverState.waiterSeenAt?k28(locale,"alertSeen"):k28(locale,"alertUnread")}</span></div>
+    <div><strong>{k6(locale,"served")}</strong>
+     <time>{formatDate(detail.ticket?.servedAt??null,locale)}</time></div>
+   </div>
    <div className="kitchen-activity"><h3>{k6(locale,"history")}</h3>
     {detail.activity.map(item=><div key={item.id}>
      <span>{item.action.replaceAll("."," · ")}</span>
@@ -121,10 +142,11 @@ function DetailModal({id,locale,onClose}:{id:string;locale:Locale;onClose:()=>vo
   </section>
  </div>;
 }
-function TicketCard({row,locale,now,busy,stale,onAction,onLine,onView}:{
- row:TicketRow;locale:Locale;now:number;busy:boolean;stale:boolean;
+function TicketCard({row,locale,now,busy,stale,uncertain,onAction,onLine,onView,onVerify}:{
+ row:TicketRow;locale:Locale;now:number;busy:boolean;stale:boolean;uncertain:boolean;
  onAction:(row:TicketRow,kind:"start"|"ready"|"handoff"|"notify")=>void;
  onLine:(row:TicketRow,lineId:string)=>void;onView:(id:string)=>void;
+ onVerify:(ticketId:string)=>void;
 }){
  const [detail,setDetail]=useState<WebDetail|null>(null),[error,setError]=useState("");
  const [retry,setRetry]=useState(0);
@@ -138,7 +160,7 @@ function TicketCard({row,locale,now,busy,stale,onAction,onLine,onView}:{
   (row.readyAt??row.createdAt):row.createdAt;
  const elapsed=elapsedMinutes(ageStart,now);
  const attention=priority(status,row.createdAt,row.readyAt,now)==="attention";
- const canChange=!busy&&!stale&&!!detail&&!error&&detail.ticket?.version===row.ticketVersion;
+ const canChange=!busy&&!stale&&!uncertain&&!!detail&&!error&&detail.ticket?.version===row.ticketVersion;
  const remaining=detail?.lines.filter(line=>["new","preparing"].includes(line.kitchenStatus))??[];
  return <article className={"kitchen-ticket k27-ticket "+status+(attention?" k27-attention":"")}>
   <header className="kitchen-ticket-top k27-ticket-top">
@@ -174,6 +196,18 @@ function TicketCard({row,locale,now,busy,stale,onAction,onLine,onView}:{
    </div>}
   </>:!error&&<div className="list-skeleton" aria-label={ux(locale,"loading")}>
    <span/><span/></div>}
+  {["ready","picked_up"].includes(status)&&detail?.ticket&&<div className="k28-handoff">
+    <Truck size={17}/>
+    <span>{status==="picked_up"?
+     detail.ticket.pickupAcknowledgedAt?k28(locale,"receiptConfirmed"):k28(locale,"receiptPending"):
+     k28(locale,"alertSent")}</span>
+   </div>}
+   {uncertain&&<div role="alert" className="k28-uncertain-card">
+    <strong>{k28(locale,"uncertain")}</strong>
+    <span>{k28(locale,"actionsLocked")}</span>
+    <button className="button button-primary" type="button" disabled={busy}
+     onClick={()=>onVerify(row.ticketId)}>{busy?k28(locale,"verifying"):k28(locale,"verify")}</button>
+   </div>}
   {status==="picked_up"&&<p className="k27-served-hint">
    <Truck size={16}/>{k27(locale,"noMoreHandoff")}</p>}
   <footer className="kitchen-ticket-actions k27-actions">
