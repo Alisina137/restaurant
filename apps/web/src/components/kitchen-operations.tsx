@@ -15,6 +15,9 @@ import {k6} from "@/lib/kitchen-copy";
 import {k27} from "@/lib/kitchen27-copy";
 import {k28} from "@/lib/kitchen28-copy";
 import {k29} from "@/lib/kitchen29-copy";
+import {k30} from "@/lib/kitchen30-copy";
+import {eligibleObservationIds,validKitchenVisibility,validObservationResult,
+ type KitchenVisibility,type KitchenObservationResult} from "@/lib/kitchen30";
 import {displayTime,currentDisplayMode,validCardDetail,validKitchenCardPage,validKitchenPulse} from "@/lib/kitchen29";
 import {actionOutcome,advanceCursor,cleanUncertain,isTicketState,saveUncertain,validateWatermark,
  type KitchenTicketState,type KitchenWatermark,type KitchenChanges,type UncertainAction} from "@/lib/kitchen28";
@@ -245,6 +248,9 @@ export function KitchenOperations({tab}:{tab:Tab}){
  const [pulse,setPulse]=useState<KitchenPulse|null>(null),[pulseError,setPulseError]=useState(false);
  const [pulseMinutes,setPulseMinutes]=useState<60|180|360>(60),[pulseRetry,setPulseRetry]=useState(0);
  const [displayMode,setDisplayMode]=useState<"standard"|"large">("standard");
+ const [visibility,setVisibility]=useState<KitchenVisibility|null>(null);
+ const [visibilityError,setVisibilityError]=useState(false),[visibilityRetry,setVisibilityRetry]=useState(0);
+ const [telemetryError,setTelemetryError]=useState(false);
  const [loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false);
  const [busyId,setBusyId]=useState(""),[error,setError]=useState(""),[summaryError,setSummaryError]=useState(false);
  const [notice,setNotice]=useState(""),[selected,setSelected]=useState<string|null>(null);
@@ -266,8 +272,10 @@ export function KitchenOperations({tab}:{tab:Tab}){
  const hydrated=useRef(false),lastBeep=useRef(0),revision=useRef<number|null>(null);
  const actionLock=useRef(false),requestId=useRef(0),mounted=useRef(true);
  const cursor=useRef<number|null>(null),replayLock=useRef(false),scopeGuard=useRef(scopeKey);
+ const receiptSent=useRef<Set<string>>(new Set()),receiptBusy=useRef(false);
  useEffect(()=>{
   scopeGuard.current=scopeKey;cursor.current=null;revision.current=null;
+  receiptSent.current.clear();setTelemetryError(false);setVisibility(null);
   setMutationWarning("");setVerifiedState("");setReplayStatus("");
   try{
    const restored=cleanUncertain(JSON.parse(localStorage.getItem(uncertainKey)??"[]"),Date.now());
@@ -309,6 +317,33 @@ export function KitchenOperations({tab}:{tab:Tab}){
   return()=>{active=false;clearInterval(interval);
    document.removeEventListener("visibilitychange",visible);};
  },[scopeKey,pulseMinutes,pulseRetry]);
+
+ useEffect(()=>{
+  let active=true;
+  const refresh=async()=>{
+   if(document.hidden)return;
+   try{
+    const value=await jsonRequest<KitchenVisibility>(
+     "/api/orders/kitchen/visibility?minutes="+pulseMinutes);
+    if(!validKitchenVisibility(value))throw Error("INVALID_KITCHEN_VISIBILITY");
+    if(active){setVisibility(value);setVisibilityError(false);}
+   }catch(err){
+    if(!active)return;
+    if(err instanceof Phase2Error&&err.status===401){
+     window.location.assign("/login?expired=1");return;
+    }
+    // Never present stale measurements as if verified by a recent GET.
+    setVisibilityError(true);setVisibility(null);
+   }
+  };
+  setVisibility(null);setVisibilityError(false);
+  void refresh();
+  const timer=setInterval(()=>void refresh(),60000);
+  const onVisible=()=>{if(!document.hidden)void refresh();};
+  document.addEventListener("visibilitychange",onVisible);
+  return()=>{active=false;clearInterval(timer);
+   document.removeEventListener("visibilitychange",onVisible);};
+ },[scopeKey,pulseMinutes,visibilityRetry]);
  const isHistory=tab==="history";
  const path=isHistory?
   "/api/orders/kitchen/history?page="+page+"&status="+encodeURIComponent(applied.status)+
