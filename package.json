@@ -27,6 +27,7 @@
     "kitchen27:verify": "node scripts/verify-kitchen27.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/kitchen27-ci.ts",
     "kitchen28:verify": "node scripts/verify-kitchen28.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/kitchen28-ci.ts && pnpm --filter @dineflow/api exec tsx ../mobile/src/mobile28-ci.ts",
     "kitchen29:verify": "node scripts/verify-kitchen29.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/kitchen29-ci.ts",
+    "kitchen30:verify": "node scripts/verify-kitchen30.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/kitchen30-ci.ts",
     "typecheck": "pnpm --filter @dineflow/shared typecheck && pnpm --filter @dineflow/api typecheck && pnpm --filter @dineflow/web typecheck && pnpm --filter @dineflow/mobile typecheck",
     "test": "pnpm --filter @dineflow/shared test && pnpm --filter @dineflow/api test",
     "build:web": "cross-env NODE_ENV=production pnpm --filter @dineflow/web build",
