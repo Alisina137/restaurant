@@ -9,6 +9,7 @@ import "./floor21.css";
 import "./staff22.css";
 import "./kitchen27.css";
 import "./kitchen28.css";
+import "./kitchen29.css";
 import {InteractionProvider} from "@/components/ui/interaction-provider";
 import type { Metadata } from "next";
 export const metadata: Metadata = {
