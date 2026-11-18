@@ -1,7 +1,7 @@
 import type {Locale} from "@dineflow/shared";
 const en={
  title:"Display receipt gaps",subtitle:"Oldest active tickets without a foreground browser render report. Investigate connectivity and devices; a missing report does not prove food was unseen.",
- toggle:"Review missing reports",close:"Hide diagnostics",minimumAge:"Minimum age",immediate:"All ages",
+ toggle:"Review missing reports",close:"Hide diagnostics",tableSearch:"Find table",searchTable:"Search",clear:"Clear",minimumAge:"Minimum age",immediate:"All ages",
  age30:"30+ seconds",age60:"1+ minute",age180:"3+ minutes",age300:"5+ minutes",
  noResults:"No active tickets match this filter.",retry:"Retry",refresh:"Refresh diagnostics",
  failed:"Could not verify display receipt gaps. Last results are not current.",
@@ -14,7 +14,7 @@ const en={
 };
 const fa:typeof en={
  title:"گزارش‌های نمایش ثبت‌نشده",subtitle:"قدیمی‌ترین تیکت‌های فعال بدون گزارش نمایش مرورگر آشپزخانه. اتصال و دستگاه‌ها را بررسی کنید؛ نبود گزارش به معنی دیده‌نشدن غذا نیست.",
- toggle:"بررسی گزارش‌های ثبت‌نشده",close:"بستن بررسی",minimumAge:"حداقل مدت",immediate:"همه مدت‌ها",
+ toggle:"بررسی گزارش‌های ثبت‌نشده",close:"بستن بررسی",tableSearch:"جستجوی میز",searchTable:"جستجو",clear:"پاک‌کردن",minimumAge:"حداقل مدت",immediate:"همه مدت‌ها",
  age30:"۳۰+ ثانیه",age60:"۱+ دقیقه",age180:"۳+ دقیقه",age300:"۵+ دقیقه",
  noResults:"برای این فیلتر تیکت فعالی یافت نشد.",retry:"تلاش مجدد",refresh:"تازه‌سازی بررسی",
  failed:"گزارش‌های نمایش تأیید نشد. نتایج قبلی تازه نیستند.",
@@ -27,7 +27,7 @@ const fa:typeof en={
 };
 const ps:typeof en={
  title:"د ښودنې ناثبت راپورونه",subtitle:"هغه پخواني فعال ټکټونه چې د پخلنځي براوزر د ښودنې راپور نه لري. شبکه او وسیلې وګورئ؛ د راپور نشتوالی د نه لیدلو ثبوت نه دی.",
- toggle:"د ناثبت راپورونو پلټنه",close:"پلټنه پټه کړئ",minimumAge:"تر لږه موده",immediate:"ټولې مودې",
+ toggle:"د ناثبت راپورونو پلټنه",close:"پلټنه پټه کړئ",tableSearch:"میز ولټوئ",searchTable:"لټون",clear:"پاکول",minimumAge:"تر لږه موده",immediate:"ټولې مودې",
  age30:"۳۰+ ثانیې",age60:"۱+ دقیقه",age180:"۳+ دقیقې",age300:"۵+ دقیقې",
  noResults:"د دې فلټر لپاره فعال ټکټ نشته.",retry:"بیا هڅه",refresh:"پلټنه تازه کړئ",
  failed:"د ښودنې تشې ونه تایید شوې. پخوانۍ پایلې تازه نه دي.",
