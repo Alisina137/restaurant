@@ -27,7 +27,7 @@ check(layout,['import "./kitchen27.css";'],"style registration");
 check(server,['"/kitchen/overview"',"kitchenScope(scope)","groupBy(kitchenTicket.status)",
  "table?ilike(kitchenTicket.tableLabel","limit(10)","Cache-Control"],"protected API");
 check(http,["count()","page=1&table=","new-owner-ci@example.test",
- "status="+tab","no-store"],"integration test");
+ "encodeURIComponent(target)","no-store"],"integration test");
 check(unit,["fa-AF","ps-AF","elapsedMinutes","priority","preparedSummary"],"selectors test");
 const workflow=readFileSync(new URL(".github/workflows/verify.yml",root),"utf8");
 assert.ok(workflow.includes("kitchen27:verify")&&workflow.includes("phase27-ci.ts"),"P27 absent from CI");
