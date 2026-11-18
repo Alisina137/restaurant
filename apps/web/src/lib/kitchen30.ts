@@ -42,7 +42,7 @@ export function validKitchenVisibility(raw:unknown):raw is KitchenVisibility{
   return n===null||(typeof n==="number"&&Number.isFinite(n)&&n>=0);
  }))return false;
  if(v.observedCount===0&&(v.displayMedianSeconds!==null||v.displayP95Seconds!==null))return false;
- if(v.observedCount>0&&(v.displayMedianSeconds===null||v.displayP95Seconds===null||
+ if(Number(v.observedCount)>0&&(v.displayMedianSeconds===null||v.displayP95Seconds===null||
   Number(v.displayP95Seconds)<Number(v.displayMedianSeconds)))return false;
  return v.oldestWithoutReceiptAt===null||
   (typeof v.oldestWithoutReceiptAt==="string"&&Number.isFinite(Date.parse(v.oldestWithoutReceiptAt)));
