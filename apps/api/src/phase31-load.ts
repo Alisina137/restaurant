@@ -38,7 +38,7 @@ async function login(email:string){
  for(let attempt=0;attempt<7;attempt++){
   const result=await request("/api/auth/sign-in/email","POST",{email,password});
   if(result.response.status===429){await new Promise(resolve=>setTimeout(resolve,11000));continue;}
-  assert.equal(result.response.status,200,email+":await result.response.text());
+  assert.equal(result.response.status,200,email+": "+await result.response.text());
   return result.response.headers.getSetCookie().map(c=>c.split(";")[0]).join("; ");
  }
  throw Error("P31 staging test sign-in throttled");
