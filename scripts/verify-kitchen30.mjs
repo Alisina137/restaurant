@@ -22,7 +22,7 @@ includes(0,['"/kitchen/display-observed"','"/kitchen/visibility"',
  "kitchenScope(scope)","percentile_cont(0.95)","observedCount",
  'evidence:"foreground_client_report"',"Cache-Control"]);
 includes(1,["firstDisplayedAt:timestamp"]);
-includes(2,["display-observed","phase30","new-owner-ci@example.test",
+includes(2,["display-observed","P30","new-owner-ci@example.test",
  "observedCount","kitchen/visibility","firstDisplayedAt"]);
 includes(3,["ADD COLUMN","first_displayed_at","CREATE INDEX"]);
 assert.ok(JSON.parse(get(paths[4])).entries.some(e=>e.tag==="0015_phase30_kitchen_display_observed"));
