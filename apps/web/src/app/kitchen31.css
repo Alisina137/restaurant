@@ -49,3 +49,16 @@
  .k31-row button{width:100%}.k31-heading button{width:100%}
  .k31-tools{display:grid;grid-template-columns:1fr}.k31-filter select{width:100%}}
 @media print{.k31-triage{display:none!important}}
+
+.k31-table-search{display:grid;gap:5px;min-width:min(100%,310px);font-size:12px;
+ font-weight:800;color:#386575}
+.k31-table-search>div{display:flex;align-items:center;flex-wrap:wrap;gap:5px}
+.k31-table-search input{min-height:45px;flex:1;min-width:135px;max-width:220px;
+ font:inherit;padding:8px 11px;background:white;border:1px solid #bcd7de;
+ color:#244e61;border-radius:9px}
+.k31-table-search button{min-height:45px;border:1px solid #bcd7de;border-radius:9px;
+ font:inherit;font-size:12px;background:white;color:#215d66;padding:8px 11px;cursor:pointer}
+.k31-table-search button:focus-visible,.k31-table-search input:focus-visible{
+ outline:3px solid #54a0c4;outline-offset:2px}
+.k31-table-search button:disabled{opacity:.6;cursor:not-allowed}
+@media(max-width:510px){.k31-table-search input{max-width:none;width:100%}}
