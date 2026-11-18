@@ -48,7 +48,8 @@ async function main(){
  const visibility="/api/orders/kitchen/visibility?minutes=60";
  const submit="/api/orders/kitchen/display-observed";
  for(const url of [visibility,submit]){
-  assert.equal((await request(url)).status,401,url+" anonymous denied");
+  assert.equal((await request(url,url===submit?"POST":"GET",
+   url===submit?{ticketIds:[randomUUID()]}:undefined)).status,401,url+" anonymous denied");
   assert.equal((await request(url,url===submit?"POST":"GET",
    url===submit?{ticketIds:[randomUUID()]}:undefined,waiter)).status,403,url+" waiter denied");
   assert.equal((await request(url,url===submit?"POST":"GET",
