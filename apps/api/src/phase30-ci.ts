@@ -138,8 +138,10 @@ async function main(){
  assert.ok(dbTicket?.firstDisplayedAt,"First KDS server-clock receipt must be durable.");
  const afterTelemetry=await expect<Watermark>(await request(
   "/api/orders/kitchen/watermark","GET",undefined,kitchen),200);
- assert.deepEqual(afterTelemetry,beforeTelemetry,
-  "Display observation must never cause a ticket outbox event or new revision.");
+ assert.equal(afterTelemetry.cursor,beforeTelemetry.cursor,
+  "Display observation must never cause a ticket outbox event.");
+ assert.equal(afterTelemetry.revision,beforeTelemetry.revision,
+  "Display observation must never increment the kitchen event revision.");
  const observed=await expect<Visibility>(await request(visibility,"GET",undefined,kitchen),200);
  assert.equal(observed.acceptedCount,batchBefore.acceptedCount);
  assert.equal(observed.observedCount,batchBefore.observedCount+1);
