@@ -24,6 +24,10 @@ Menu → **Categories** saves through `POST /api/menu/categories`. The API now r
 
 After pulling this fix, use your existing `apps/api/.env` and run `pnpm db:migrate` (safe with current migrations), then restart `pnpm dev:api` and `pnpm dev:web`. If the API still exits, **capture the last 30 lines of the API terminal** (remove any private connection string) to identify the exact remaining cause. No new database migration is added by this patch. GitHub CI runs `pnpm menu:stability:verify` against disposable PostgreSQL: concurrent category creation, duplicate conflict, role isolation, publish, modifiers and API readiness.
 
+## Phase 34 — Deployment preflight and operator HOLD gates
+
+Before a *human-approved* HTTPS staging candidate is considered for release, run `pnpm ops:preflight --api-origin https://api.your-staging-domain.example --web-origin https://your-staging-domain.example` with real staging origins. The command reads only public liveness/readiness endpoints, verifies anonymous authorization boundaries, and checks the web sign-in and absence of the dev launcher. It cannot certify a restaurant pilot, production rollout, database backup, receipt printer, financial reconciliation or a human release decision. Automated source tests: `pnpm ops:preflight:verify`. See `docs/PHASE-34-ACCEPTANCE.md` for go/no-go and rollback responsibilities.
+
 ## Workspace
 - `apps/api` — Express 4, Drizzle/PostgreSQL, Better Auth, roles, menu, floor and kitchen/notification APIs (port **4000**).
 - `apps/web` — Next.js 16, owner/manager, kitchen, cashier and platform workspaces (port **3000**).
