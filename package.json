@@ -37,7 +37,9 @@
     "typecheck": "pnpm --filter @dineflow/shared typecheck && pnpm --filter @dineflow/api typecheck && pnpm --filter @dineflow/web typecheck && pnpm --filter @dineflow/mobile typecheck",
     "test": "pnpm --filter @dineflow/shared test && pnpm --filter @dineflow/api test",
     "build:web": "cross-env NODE_ENV=production pnpm --filter @dineflow/web build",
-    "ops:rehearsal": "pnpm --filter @dineflow/api backup:rehearsal"
+    "ops:rehearsal": "pnpm --filter @dineflow/api backup:rehearsal",
+    "ops:preflight": "node scripts/release34-preflight.mjs",
+    "ops:preflight:verify": "node --test scripts/release34-preflight.test.mjs"
   },
   "devDependencies": {
     "cross-env": "^7.0.3"
