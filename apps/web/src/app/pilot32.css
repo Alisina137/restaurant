@@ -1,0 +1,48 @@
+/* P32 owner/manager pilot readiness cockpit. Read-only measurements. */
+.p32-panel{display:grid;gap:16px;border:1px solid #ceddd6;border-radius:19px;
+ background:linear-gradient(155deg,#fff,#f6faf8);padding:clamp(15px,2vw,24px);
+ box-shadow:0 9px 33px rgba(24,62,48,.05);min-width:0}
+.p32-head{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.p32-head .eyebrow{letter-spacing:.12em;color:#2a8966;font-size:10px;font-weight:900}
+.p32-head h2{font-size:clamp(19px,2vw,24px);color:#173e33;margin:4px 0 6px;font-weight:950}
+.p32-head p{font-size:13px;line-height:1.75;color:#627b70;margin:0;max-width:750px}
+.p32-controls{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end}
+.p32-controls label{display:grid;gap:5px;font-size:12px;color:#285d49;font-weight:850}
+.p32-controls select{min-height:46px;padding:8px 13px;background:white;color:#174a35;
+ border:1px solid #b9d2c3;border-radius:10px;font:inherit;min-width:148px}
+.p32-controls button,.p32-retry{min-height:46px;border:1px solid #94c3a8;
+ color:#186545;background:#eff8f2;border-radius:10px;font:inherit;padding:10px 15px;
+ display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:800}
+.p32-controls button:disabled{opacity:.65;cursor:wait}
+.p32-controls button:focus-visible,.p32-retry:focus-visible,.p32-controls select:focus-visible{
+ outline:3px solid #3b95a6;outline-offset:3px}
+.p32-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.p32-card{min-width:0;display:grid;align-content:space-between;gap:12px;background:#fff;
+ border:1px solid #deebe3;border-radius:13px;padding:15px;min-height:110px}
+.p32-card span{font-size:12px;line-height:1.55;font-weight:700;color:#536f61}
+.p32-card strong{font-size:clamp(23px,2.4vw,32px);font-weight:950;line-height:1.2;
+ color:#185c42;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.p32-card.p32-attention{border-color:#f0d2a6;background:#fff8ee}
+.p32-card.p32-attention strong{color:#9a5d22}
+.p32-divider{height:1px;background:#d9e7dd}
+.p32-signals{display:grid;gap:8px}
+.p32-signals h3{font-size:15px;margin:0;color:#224c39}
+.p32-signal{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;border:1px solid #e8c99d;
+ border-radius:11px;background:#fff8ed;color:#85512a;font-size:12px;line-height:1.65}
+.p32-signal svg{flex:none;margin-top:2px}
+.p32-neutral{border:1px solid #c9e1d5;background:#edf8f2;color:#246344}
+.p32-footnote{font-size:12px;line-height:1.8;color:#5b736b}
+.p32-footnote strong{color:#a65928}
+.p32-status{display:flex;gap:8px;align-items:center;justify-content:space-between;
+ flex-wrap:wrap;font-size:12px;color:#5d736b}
+.p32-error{border:1px solid #edc499;background:#fff4eb;color:#8b5129;border-radius:10px;
+ padding:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:13px}
+.p32-empty{min-height:125px;display:grid;place-items:center;color:#607c6b}
+@media(max-width:1090px){.p32-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:720px){.p32-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:450px){.p32-metrics{grid-template-columns:1fr 1fr;gap:7px}
+ .p32-card{padding:11px;min-height:102px}.p32-card strong{font-size:24px}
+ .p32-head h2{font-size:20px}.p32-controls{width:100%}.p32-controls label{flex:1}
+ .p32-controls select{width:100%}}
+@media(max-width:325px){.p32-metrics{grid-template-columns:1fr}}
+@media print{.p32-controls{display:none!important}}
