@@ -73,12 +73,24 @@ async function main(){
   await request("/api/menu/catalog","GET",undefined,waiter),200);
  const dish=catalog.items.find(i=>i.id===item.id);
  assert.ok(dish,"P29 published menu item absent");
- const round=await expect<{round:{id:string};ticket:{id:string;version:number}}>(await request(
-  "/api/orders/visits/"+opened.visit.id+"/rounds","POST",{
+ // P37: use a five-line cart to exercise a single batched INSERT. Each
+ // line keeps its original note, quantity, price and immutable line ordering.
+ const payload={
   idempotencyKey:"p29_"+randomUUID().replaceAll("-",""),note:"Serve warm",
-  lines:[{itemId:item.id,itemVersion:dish.version,quantity:2,
-    note:"No chili",selections:[]}]
- },waiter),201);
+  lines:Array.from({length:5},(_,i)=>({
+   itemId:item.id,itemVersion:dish.version,quantity:i+1,
+   note:"Kitchen line "+(i+1),selections:[]
+  }))
+ };
+ const round=await expect<{round:{id:string;totalMinor:number};ticket:{id:string;version:number}}>(
+  await request("/api/orders/visits/"+opened.visit.id+"/rounds","POST",payload,waiter),201);
+ assert.equal(round.round.totalMinor,15600*15);
+ // Idempotency retry must not insert a second set of lines or a second ticket.
+ const replay=await expect<{created:boolean;round:{id:string;totalMinor:number}}>(
+  await request("/api/orders/visits/"+opened.visit.id+"/rounds","POST",payload,waiter),200);
+ assert.equal(replay.created,false);
+ assert.equal(replay.round.id,round.round.id);
+ assert.equal(replay.round.totalMinor,round.round.totalMinor);
  const path="/api/orders/kitchen/cards?status=new&table="+encodeURIComponent(label)+"&page=1";
  const response=await request(path,"GET",undefined,kitchen);
  assert.equal(response.status,200);
@@ -91,10 +103,11 @@ async function main(){
  const card=cards.detailsByRound[round.round.id];
  assert.ok(card,"Bounded card payload must include all item lines on same page");
  assert.equal(card.round.orderNote,"Serve warm");assert.equal(card.ticket.version,1);
- assert.equal(card.lines.length,1);assert.equal(card.lines[0]!.quantity,2);
- assert.equal(card.lines[0]!.note,"No chili");
- assert.equal(card.lines[0]!.itemNameEn,"Kitchen Meal");
- assert.equal(card.lines[0]!.kitchenStatus,"new");
+ assert.equal(card.lines.length,5);
+ assert.deepEqual(card.lines.map(x=>x.quantity),[1,2,3,4,5]);
+ assert.deepEqual(card.lines.map(x=>x.note),["Kitchen line 1","Kitchen line 2",
+  "Kitchen line 3","Kitchen line 4","Kitchen line 5"]);
+ assert.ok(card.lines.every(x=>x.itemNameEn==="Kitchen Meal"&&x.kitchenStatus==="new"));
  assert.ok(!("activity" in card)&&!("submittedBy" in card),
   "Kitchen card payload must omit audit and staff private fields");
  const absent=await expect<CardPage>(await request(
@@ -136,6 +149,14 @@ async function main(){
  const acknowledged=await expect<Pulse>(await request("/api/orders/kitchen/pulse?minutes=60",
   "GET",undefined,kitchen),200);
  assert.equal(acknowledged.pendingReceipt,waiting.pendingReceipt-1);
+ const updatedCards=await expect<CardPage>(await request(
+  "/api/orders/kitchen/cards?status=ready&table="+encodeURIComponent(label),
+  "GET",undefined,kitchen),200);
+ const updatedCard=updatedCards.detailsByRound[round.round.id];
+ assert.ok(updatedCard?.ticket.pickupAcknowledgedAt,
+  "P37: pickup acknowledgement must appear in kitchen cards without a redundant ticket query");
+ assert.equal(updatedCard.lines.length,5,"Original batched line snapshots remain intact");
+
  const testPages=await Promise.all(Array.from({length:12},()=>request(
   "/api/orders/kitchen/cards?status=ready&page=1","GET",undefined,kitchen)));
  assert.ok(testPages.every(r=>r.status===200),"Kitchen card payload should tolerate concurrent readers");

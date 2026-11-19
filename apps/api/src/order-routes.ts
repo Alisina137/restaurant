@@ -4,7 +4,7 @@ import {randomUUID} from "node:crypto";
 import {db} from "./db";
 import {diningTable,diningVisit,kitchenTicket,orderLine,orderRound,orderRevision,orderActivity} from "./schema";
 import {bodyObject,fail,int,route} from "./menu-helpers";
-import {orderScope,writeScope,kitchenScope,orderId,parseOrder,priceLines,orderChanged,readOrder} from "./order-core";
+import {orderScope,writeScope,kitchenScope,orderId,parseOrder,priceLines,orderChanged,readOrder,type OrderScope} from "./order-core";
 import {orderGuard} from "./finance-core";
 import {createReadyAlert} from "./phase6-service";
 export const orderRouter=Router();
@@ -86,8 +86,12 @@ orderRouter.post("/visits/:id/rounds",route(async(req,res)=>{
      visitId,tableId:table.id,roundNumber:nextNumber,submittedBy:scope.actorId,
      idempotencyKey:input.idempotencyKey,requestHash:input.hash,source:"waiter",status:"accepted",
      currency:"AFN",subtotalMinor:subtotal,taxMinor:0,serviceMinor:0,totalMinor:subtotal,orderNote:input.note});
-   for(let i=0;i<lines.length;i++)await tx.insert(orderLine).values({id:randomUUID(),
-     tenantId:scope.tenantId,locationId:scope.locationId,roundId,lineIndex:i,...lines[i]!});
+   // One multi-row INSERT preserves the original index order and transactional
+   // atomicity. A 40-item cart no longer waits on 40 sequential SQL round trips.
+   await tx.insert(orderLine).values(lines.map((line,i)=>({
+     id:randomUUID(),tenantId:scope.tenantId,locationId:scope.locationId,
+     roundId,lineIndex:i,...line
+   })));
    await tx.insert(kitchenTicket).values({id:ticketId,tenantId:scope.tenantId,locationId:scope.locationId,
      roundId,visitId,tableId:table.id,tableLabel:table.label,status:"new",version:1});
    await orderChanged(tx,scope,roundId,"order.accepted",{visitId,tableId:table.id,ticketId,roundNumber:nextNumber,
@@ -114,8 +118,11 @@ orderRouter.get("/visits/:id/rounds",route(async(req,res)=>{
  res.setHeader("Cache-Control","no-store");
  res.json({rounds,estimateMinor:amount,currency:"AFN",unsettled:rounds.length>0});
 }));
-async function list(req:import("express").Request,mode:"mine"|"management"|"kitchen"){
- const scope=await orderScope(req);
+async function list(req:import("express").Request,mode:"mine"|"management"|"kitchen",
+ resolvedScope?:OrderScope){
+ // Kitchen cards authenticate once and reuse the same tenant/location scope
+ // for both their paged rows and item detail query.
+ const scope=resolvedScope??await orderScope(req);
  if(mode==="kitchen")kitchenScope(scope);
  if(mode==="management"&&!["owner","manager"].includes(scope.role))
    fail(403,"ACCESS_DENIED","Management access required.");
@@ -135,18 +142,29 @@ async function list(req:import("express").Request,mode:"mine"|"management"|"kitc
    inArray(kitchenTicket.status,statuses),
    table?ilike(kitchenTicket.tableLabel,"%"+safeTable+"%"):undefined,
    mode==="mine"?eq(diningVisit.waiterId,scope.actorId):undefined);
- const [items,totals]=await Promise.all([
-  db.select({id:orderRound.id,roundNumber:orderRound.roundNumber,visitId:orderRound.visitId,
-    tableId:orderRound.tableId,tableLabel:kitchenTicket.tableLabel,
+ // There is no waiter assignment predicate on kitchen or manager pages;
+ // their rounds already have FK-backed visits. Avoid joining dining_visits on
+ // every polling page and exact count, but retain the waiter assignment join
+ // for /my so scope cannot broaden for a waiter.
+ const baseRows=db.select({id:orderRound.id,roundNumber:orderRound.roundNumber,
+    visitId:orderRound.visitId,tableId:orderRound.tableId,tableLabel:kitchenTicket.tableLabel,
     totalMinor:orderRound.totalMinor,orderNote:orderRound.orderNote,
     createdAt:orderRound.createdAt,status:kitchenTicket.status,ticketId:kitchenTicket.id,
-    ticketVersion:kitchenTicket.version,startedAt:kitchenTicket.startedAt,readyAt:kitchenTicket.readyAt,
-    submittedBy:orderRound.submittedBy}).from(orderRound)
-    .innerJoin(kitchenTicket,eq(kitchenTicket.roundId,orderRound.id))
-    .innerJoin(diningVisit,eq(diningVisit.id,orderRound.visitId))
-    .where(where).orderBy(asc(orderRound.createdAt)).limit(10).offset((page-1)*10),
-  db.select({n:count()}).from(orderRound).innerJoin(kitchenTicket,eq(kitchenTicket.roundId,orderRound.id))
-    .innerJoin(diningVisit,eq(diningVisit.id,orderRound.visitId)).where(where)
+    ticketVersion:kitchenTicket.version,pickupAcknowledgedAt:kitchenTicket.pickupAcknowledgedAt,
+    startedAt:kitchenTicket.startedAt,readyAt:kitchenTicket.readyAt,
+    submittedBy:orderRound.submittedBy})
+   .from(orderRound)
+   .innerJoin(kitchenTicket,eq(kitchenTicket.roundId,orderRound.id)).$dynamic();
+ const baseCount=db.select({n:count()}).from(orderRound)
+   .innerJoin(kitchenTicket,eq(kitchenTicket.roundId,orderRound.id)).$dynamic();
+ const rowsQuery=mode==="mine"?
+   baseRows.innerJoin(diningVisit,eq(diningVisit.id,orderRound.visitId)):baseRows;
+ const countQuery=mode==="mine"?
+   baseCount.innerJoin(diningVisit,eq(diningVisit.id,orderRound.visitId)):baseCount;
+ const [items,totals]=await Promise.all([
+  rowsQuery.where(where).orderBy(asc(orderRound.createdAt))
+   .limit(10).offset((page-1)*10),
+  countQuery.where(where)
  ]);
  return {items,total:totals[0]?.n??0,page,perPage:10};
 }
@@ -161,39 +179,28 @@ orderRouter.get("/kitchen",route(async(req,res)=>{res.setHeader("Cache-Control",
  */
 orderRouter.get("/kitchen/cards",route(async(req,res)=>{
  const started=performance.now();
- const page=await list(req,"kitchen");
  const scope=await orderScope(req);kitchenScope(scope);
+ const page=await list(req,"kitchen",scope);
  const roundIds=page.items.map(item=>item.id);
  const detailsByRound:Record<string,{round:{orderNote:string;totalMinor:number};
   ticket:{version:number;pickupAcknowledgedAt:Date|null};lines:unknown[]}>=Object.create(null);
  for(const row of page.items)detailsByRound[row.id]={
   round:{orderNote:row.orderNote,totalMinor:row.totalMinor},
-  ticket:{version:row.ticketVersion,pickupAcknowledgedAt:null},lines:[]
+  ticket:{version:row.ticketVersion,pickupAcknowledgedAt:row.pickupAcknowledgedAt},lines:[]
  };
  if(roundIds.length){
   // No customer, guest, payment or actor records enter the kitchen card payload.
-  const [lines,tickets]=await Promise.all([
-   db.select({roundId:orderLine.roundId,id:orderLine.id,itemNameFa:orderLine.itemNameFa,
-     itemNamePs:orderLine.itemNamePs,itemNameEn:orderLine.itemNameEn,
-     quantity:orderLine.quantity,note:orderLine.note,kitchenStatus:orderLine.kitchenStatus,
-     modifierSnapshot:orderLine.modifierSnapshot,unitPriceMinor:orderLine.unitPriceMinor,
-     lineTotalMinor:orderLine.lineTotalMinor})
-    .from(orderLine).where(and(eq(orderLine.tenantId,scope.tenantId),
-     eq(orderLine.locationId,scope.locationId),inArray(orderLine.roundId,roundIds)))
-    .orderBy(asc(orderLine.lineIndex)),
-   db.select({roundId:kitchenTicket.roundId,id:kitchenTicket.id,version:kitchenTicket.version,
-     pickupAcknowledgedAt:kitchenTicket.pickupAcknowledgedAt})
-    .from(kitchenTicket).where(and(eq(kitchenTicket.tenantId,scope.tenantId),
-     eq(kitchenTicket.locationId,scope.locationId),inArray(kitchenTicket.roundId,roundIds)))
-  ]);
-  // Use the page version for actions; any mismatch disables unsafe writes.
-  const ticketsByRound=new Map(tickets.map(item=>[item.roundId,item]));
-  for(const row of page.items){
-   const ticket=ticketsByRound.get(row.id);
-   if(ticket?.id===row.ticketId)
-    detailsByRound[row.id]!.ticket={
-     version:ticket.version,pickupAcknowledgedAt:ticket.pickupAcknowledgedAt};
-  }
+  // Only immutable line snapshots require a follow-up query. Ticket version,
+  // pickup acknowledgement and order summary already came from the same page
+  // query: no redundant ticket SELECT and no second session/tenant lookup.
+  const lines=await db.select({roundId:orderLine.roundId,id:orderLine.id,itemNameFa:orderLine.itemNameFa,
+    itemNamePs:orderLine.itemNamePs,itemNameEn:orderLine.itemNameEn,
+    quantity:orderLine.quantity,note:orderLine.note,kitchenStatus:orderLine.kitchenStatus,
+    modifierSnapshot:orderLine.modifierSnapshot,unitPriceMinor:orderLine.unitPriceMinor,
+    lineTotalMinor:orderLine.lineTotalMinor})
+   .from(orderLine).where(and(eq(orderLine.tenantId,scope.tenantId),
+    eq(orderLine.locationId,scope.locationId),inArray(orderLine.roundId,roundIds)))
+   .orderBy(asc(orderLine.lineIndex));
   for(const line of lines)detailsByRound[line.roundId]?.lines.push(line);
  }
  const serverMs=Math.round((performance.now()-started)*10)/10;
