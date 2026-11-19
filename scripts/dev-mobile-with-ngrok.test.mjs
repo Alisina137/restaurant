@@ -62,5 +62,5 @@ test("runs Expo through pnpm workspace resolution instead of guessing expo/bin/c
  assert.equal(unix.command,"pnpm");
  assert.deepEqual(unix.args.slice(0,4),["--filter","@dineflow/mobile","exec","expo"]);
  assert.ok(!readFileSync(resolve("scripts/dev-mobile-with-ngrok.mjs"),"utf8")
-  .includes("node_modules/expo/bin/cli"),"Must not require an internal Expo CLI path");
+  .includes('resolve(mobileDirectory,"node_modules/expo/bin/cli")'),"Must not require an internal Expo CLI path");
 });
