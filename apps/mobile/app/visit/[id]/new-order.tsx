@@ -216,6 +216,7 @@ export default function NewOrder(){
    }else if(code==="VISIT_LOCKED"||code==="NOT_ASSIGNED"){
     setBlocked(true);setError(m25(locale,code==="NOT_ASSIGNED"?"notAssigned":"visitClosed"));
    }else if(code==="IDEMPOTENCY_CONFLICT")setError(m25(locale,"keyConflict"));
+   else if(code==="ORDER_STATUS_UNCERTAIN")setError(m25(locale,"ambiguous"));
    else if(!prepared&&!postAttempted&&!(e instanceof FloorRequestError)){
     setError(m25(locale,"markerFailed"));
    }else if(prepared&&postAttempted&&!definite)setError(m25(locale,"ambiguous"));

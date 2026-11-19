@@ -6,6 +6,7 @@ import {diningTable,diningVisit,kitchenTicket,orderLine,orderRound,orderRevision
 import {bodyObject,fail,int,route} from "./menu-helpers";
 import {orderScope,writeScope,kitchenScope,orderId,parseOrder,priceLines,orderChanged,readOrder,type OrderScope} from "./order-core";
 import {orderGuard} from "./finance-core";
+import {CHECKOUT_LOCK_TIMEOUT_MS} from "./phase39-order-recovery";
 import {createReadyAlert} from "./phase6-service";
 export const orderRouter=Router();
 
@@ -55,6 +56,10 @@ orderRouter.post("/visits/:id/rounds",route(async(req,res)=>{
    res.status(200).json({created:false,...await readOrder(scope,prior.id)});return;
  }
  const created=await db.transaction(async tx=>{
+   // A stalled second waiter must not pin this checkout indefinitely. Keep
+   // transaction-scoped lock timeout below the API's 180-second request limit.
+   // A 55P03 is mapped to ORDER_STATUS_UNCERTAIN + same-key replay guidance.
+   await tx.execute(sql`SELECT set_config('lock_timeout', ${String(CHECKOUT_LOCK_TIMEOUT_MS)+"ms"}, true)`);
    // Visit's table lock provides one serial commit boundary for changes, seating and order rounds.
    const [target]=await tx.select({tableId:diningVisit.tableId}).from(diningVisit)
      .where(and(eq(diningVisit.id,visitId),eq(diningVisit.tenantId,scope.tenantId),

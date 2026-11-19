@@ -8,6 +8,7 @@ import {bodyObject,fail,field,int,route} from "./menu-helpers";
 import {orderChanged,parseOrder,priceLines,type CartLine} from "./order-core";
 import {bumpGuest,guestAccess,type GuestScope,type Tx} from "./guest-security";
 import {orderGuard} from "./finance-core";
+import {CHECKOUT_LOCK_TIMEOUT_MS} from "./phase39-order-recovery";
 
 export const guestOrdersRouter=Router();
 type Submission=typeof guestSubmission.$inferSelect;
@@ -72,6 +73,9 @@ async function lockedGuest(tx:Tx,scope:GuestScope){
 guestOrdersRouter.post("/orders",route(async(req,res)=>{
  const scope=await guestAccess(req),cart=parseOrder(bodyObject(req)),now=new Date();
  const created=await db.transaction(async tx=>{
+   // The same fail-closed lock budget also covers direct-to-kitchen guest
+   // submissions; guest recovery still uses its existing /orders/by-key/:key.
+   await tx.execute(sql`SELECT set_config('lock_timeout', ${String(CHECKOUT_LOCK_TIMEOUT_MS)+"ms"}, true)`);
    await lockedGuest(tx,scope);
    await orderGuard(tx,scope,scope.visitId);
    const [existing]=await tx.select().from(guestSubmission).where(and(

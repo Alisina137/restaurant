@@ -7,6 +7,8 @@ import { db } from "./db";
 import { contextFor, type IdentityContext } from "./context";
 import { auditEvent, catalogRevision, location } from "./schema";
 import { classifyMenuDbError } from "./menu-error-classifier";
+import {isIdempotentOrderSubmission,isTransientOrderDatabaseFailure,
+ ORDER_RETRY_AFTER_SECONDS,uncertainOrderResponse} from "./phase39-order-recovery";
 
 export class MenuError extends Error {
   constructor(public readonly status: number, public readonly code: string, message: string) { super(message); }
@@ -32,9 +34,24 @@ export type Handler = (req: Request, res: Response) => Promise<void>;
 export function route(handler: Handler) {
   return (req: Request, res: Response) => {
     void handler(req, res).catch((error: unknown) => {
-      if (res.headersSent) { console.error("Menu response failed after headers", error); return; }
+      if(res.headersSent){
+        // A raw driver exception can contain connection strings or request data.
+        console.error(JSON.stringify({kind:"api_handler_failed_after_headers",route:"redacted"}));
+        return;
+      }
       if (error instanceof MenuError) {
         res.status(error.status).json({ code: error.code, message: error.message }); return;
+      }
+      if(isIdempotentOrderSubmission(req)&&isTransientOrderDatabaseFailure(error)){
+        // Connection break / SQL lock cancellation may have occurred before
+        // or after commit. Never tell clients it definitely failed, and never
+        // silently issue another order using a new key.
+        console.error(JSON.stringify({kind:"order_commit_uncertain",route:"idempotent_order_submit",
+          method:req.method,code:"TRANSIENT_DATABASE_FAILURE"}));
+        res.setHeader("Retry-After",String(ORDER_RETRY_AFTER_SECONDS));
+        res.setHeader("Cache-Control","no-store");
+        res.status(503).json(uncertainOrderResponse);
+        return;
       }
       const failure=classifyMenuDbError(error);
       if(failure.status>=500){
