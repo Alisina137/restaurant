@@ -204,3 +204,9 @@ Ensure `apps/api/.env`, `apps/web/.env.local`, `apps/mobile/.env` exist and cont
 - Open P0/P1 incidents block owner and platform sign-offs. **Every incident mutation invalidates existing signature fingerprints**; a resolved or reopened issue never automatically passes a physical test or changes a cashier/order ledger. Platform dashboard displays critical incident count but not private incident prose.
 - `pnpm pilot33:verify` and disposable `phase33-ci.ts` validate tenant, role, race and signature security; see `docs/PHASE-33-ACCEPTANCE.md`. Migration `0016_phase33_pilot_incidents.sql` required.
 - **Unperformed:** physical restaurant shift, printer/Android Wi-Fi testing, actual cash/receipt reconciliation, backup restore and independent real-world sign-off. Do not infer commercial launch from CI.
+
+## Development-only interface launcher (post-P33 convenience feature)
+- `/dev/interfaces` is a secure-to-navigate six-card preview tool for the existing restaurant owner/manager, waiter Expo, cashier, kitchen, guest QR/PIN and platform admin roles. It has no auth bypass, no forged demo data and no write operations.
+- A local browser API /health/ready probe reports connected vs unavailable; Expo status is deliberately manual. Live customer entry only accepts the existing QR route and cannot redirect to third-party URLs. The layout has English/Dari/Pashto support with RTL and readable mobile/desktop styles.
+- Server-side Next.js development guard; production builds render HTTP 404. `pnpm dev:interfaces:verify` checks real paths, safe QR parsing and copy. CI checks the production 404 by booting the built web app. No migration or extra dependencies.
+- Documentation: `docs/DEV-INTERFACE-LAUNCHER.md`. Still requires actual user accounts, a real customer visit/PIN and an Expo physical device; not pilot certification.
