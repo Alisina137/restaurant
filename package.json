@@ -9,7 +9,7 @@
   "scripts": {
     "dev:api": "pnpm --filter @dineflow/api dev",
     "dev:web": "pnpm --filter @dineflow/web dev",
-    "dev:mobile": "pnpm --filter @dineflow/mobile start",
+    "dev:mobile": "node scripts/dev-mobile-with-ngrok.mjs",
     "db:migrate": "pnpm --filter @dineflow/api db:migrate",
     "seed:dev": "pnpm --filter @dineflow/api seed:dev",
     "ui:verify": "node scripts/verify-design-system.mjs",
@@ -39,7 +39,9 @@
     "build:web": "cross-env NODE_ENV=production pnpm --filter @dineflow/web build",
     "ops:rehearsal": "pnpm --filter @dineflow/api backup:rehearsal",
     "ops:preflight": "node scripts/release34-preflight.mjs",
-    "ops:preflight:verify": "node --test scripts/release34-preflight.test.mjs"
+    "ops:preflight:verify": "node --test scripts/release34-preflight.test.mjs",
+    "dev:mobile:lan": "node scripts/dev-mobile-with-ngrok.mjs --lan",
+    "mobile:tunnel:verify": "node --test scripts/dev-mobile-with-ngrok.test.mjs"
   },
   "devDependencies": {
     "cross-env": "^7.0.3"
