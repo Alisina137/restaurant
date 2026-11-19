@@ -230,3 +230,11 @@ Ensure `apps/api/.env`, `apps/web/.env.local`, `apps/mobile/.env` exist and cont
 - Regression coverage: `pnpm phase35:verify`, pure worker/threshold unit tests through `pnpm test`, disposable P35 HTTP role contract in CI; no new database migrations or npm dependencies.
 - Physical incident observation, real Android/kitchen/printer rehearsal, external pager setup, restore drills and independent real-money reconciliation remain pending and cannot be represented as complete by automated signals.
 - Runbook: `docs/PHASE-35-ACCEPTANCE.md`. Next: proposed Phase 36 performance/availability tuning against actual measured traces.
+
+## Phase 36 — Performance & Availability Evidence
+- Added bounded in-memory API response sampling (max 1,024 completed non-health requests from last five minutes), with sanitized route groups, p50/p95, HTTP 5xx/429, slow request counts. Never stores query strings, QR/visit IDs, credentials, payloads, or customer/financial details.
+- Reuses existing platform-admin `GET /api/health/operations`, adds process-local performance/pool pressure, 20-sample insufficiency disclosure and diagnostic-only signals; preserves anonymous denial, role guards, no-store, legacy Phase 35 fields and `pilotCertified:false`.
+- Platform Overview now shows localized responsive API response/DB pool metrics and top sanitized route category table, alongside the real recovery panel, using existing 30-second foreground refresh.
+- Set bounded HTTP reception timeouts and added partial index `order_outbox_pending_order_idx` for `delivered_at IS NULL` ordered reconciliation and oldest backlog. **Additive migration 0017; run `pnpm db:migrate`**.
+- Phase 36 unit, static contract and disposable protected HTTP/SQL-index checks; CI executes them via existing `pnpm test`, `pnpm phase35:verify` and Phase 35 API integration.
+- **Not complete:** real staging profiling, p95/p99 under actual phone/tablet load, incident and SLA attestation, physical printer, bank reconciliation, restore, customer experience or human pilot GO. See `docs/PHASE-36-ACCEPTANCE.md`. Next Phase 37: targeted bottleneck remediation using measured traces.
