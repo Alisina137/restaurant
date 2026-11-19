@@ -60,6 +60,7 @@ jobs:
       - run: pnpm mobile24:verify
       - run: pnpm mobile25:verify
       - run: pnpm mobile26:verify
+      - run: pnpm mobile:tunnel:verify
       - run: pnpm kitchen27:verify
       - run: pnpm kitchen28:verify
       - run: pnpm kitchen29:verify
