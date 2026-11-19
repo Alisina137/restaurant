@@ -37,6 +37,7 @@ import {tenantPilotRouter,platformPilotRouter} from "./phase14-pilot";
 import {validateProductionEnvironment,hardenedHeadersAndLogs,createIpRateLimiter} from "./production-hardening";
 import {startOutboxReconciliation} from "./outbox-reconciler";
 import {evaluateOperations,outboxRuntimeMonitor} from "./phase35-operations";
+import {assessAvailability,httpPerformanceMonitor} from "./phase36-performance";
 
 validateProductionEnvironment();
 // A draining API must not tell load balancers it can accept new work.
@@ -119,9 +120,16 @@ app.get("/api/health/operations",requireIdentity,async(req:AuthorizedRequest,res
    Math.max(0,Math.floor((Date.now()-new Date(oldestPendingAt).getTime())/1000));
   const worker=outboxRuntimeMonitor.snapshot();
   const assessment=evaluateOperations(pending,ageSeconds,worker);
+  // A pool's waitingCount is local pressure; it is not proof that a DB query failed.
+  const poolPressure={total:pool.totalCount,idle:pool.idleCount,waiting:pool.waitingCount,
+   maxConfigured:10};
+  const httpPerformance=httpPerformanceMonitor.snapshot();
+  const availability=assessAvailability(httpPerformance,poolPressure);
   res.setHeader("Cache-Control","no-store");
   res.json({...assessment,pendingOutbox:pending,oldestPendingAt,
-   oldestPendingAgeSeconds:ageSeconds,polling:"database_revision",reconciler:worker});
+   oldestPendingAgeSeconds:ageSeconds,polling:"database_revision",reconciler:worker,
+   performance:{...httpPerformance,pool:poolPressure,availability,
+    uptimeSeconds:Math.floor(process.uptime())}});
  }catch{
   res.status(503).json({code:"SERVICE_UNAVAILABLE",message:"Operations summary unavailable"});
  }
@@ -171,6 +179,11 @@ app.use((_req, res) => res.status(404).json({ code: "NOT_FOUND", message: "Route
 app.use((_error: unknown, _req: Request, res: Response, _next: NextFunction) => res.status(400).json({ code: "BAD_REQUEST", message: "Invalid request" }));
 const port = Number(process.env.PORT ?? "4000");
 const server=app.listen(port,()=>console.info("DineFlow API listening on port "+port));
+// Bounded header/body reception for stalled clients. Generous request timeout
+// accommodates slower restaurant/mobile links and small audited image uploads.
+server.headersTimeout=45_000;
+server.requestTimeout=180_000;
+server.keepAliveTimeout=5_000;
 const stopOutbox=startOutboxReconciliation();
 function shutdown(signal:string){
  if(draining)return;draining=true;

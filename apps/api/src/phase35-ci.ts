@@ -1,6 +1,7 @@
 import "dotenv/config";
 import assert from "node:assert/strict";
 import {setTimeout as delay} from "node:timers/promises";
+import {pool} from "./db";
 
 if(process.env.NODE_ENV==="production"||!process.env.DEMO_PASSWORD)
  throw new Error("Phase 35 requires a disposable development/CI database with seeded accounts.");
@@ -37,6 +38,9 @@ async function run(){
  assert.equal((await request("/api/health/operations",owner)).status,403);
  assert.equal((await request("/api/health/operations",platform,"POST")).status,404,
   "Read-only monitoring must not permit a mutation method");
+ // P36: collect actual completed request samples without synthetic counters.
+ const burst=await Promise.all(Array.from({length:24},()=>request("/api/context")));
+ assert.ok(burst.every(x=>x.status===401));
  const http=await request("/api/health/operations",platform);
  assert.equal(http.status,200,"authorized platform operator must see operations");
  assert.match(http.headers.get("cache-control")??"",/no-store/);
@@ -57,6 +61,33 @@ async function run(){
  const serialized=JSON.stringify(body);
  for(const sensitive of ["DATABASE_URL","BETTER_AUTH_SECRET","password","userEmail","guestPin","payload"])
   assert.equal(serialized.includes(sensitive),false,"No private diagnostics: "+sensitive);
+ // P36: platform-only five-minute rolling API evidence, never a global SLA.
+ const performance=(body as Ops & {performance?:{
+  sampleCount:number;sampleCapacity:number;windowSeconds:number;
+  sampledFrom:string; p50Ms:number|null;p95Ms:number|null;
+  pool:{total:number;idle:number;waiting:number;maxConfigured:number};
+  availability:{actualSlaCertified:boolean};
+  routeGroups:Array<{route:string;count:number;p95Ms:number}>;
+ }}).performance;
+ assert.ok(performance,"Phase 36 performance evidence required");
+ assert.equal(performance.sampleCapacity,1024);
+ assert.equal(performance.windowSeconds,300);
+ assert.equal(performance.sampledFrom,"completed_api_requests_on_this_instance");
+ assert.ok(performance.sampleCount>=20);
+ assert.ok(performance.p50Ms!==null&&performance.p95Ms!==null);
+ assert.equal(performance.availability.actualSlaCertified,false);
+ assert.ok(performance.pool.total>=performance.pool.idle);
+ assert.equal(performance.pool.maxConfigured,10);
+ assert.ok(performance.routeGroups.length<=5);
+ // Migration is genuinely present in the disposable PostgreSQL database.
+ const index=await pool.query<{indexname:string;indexdef:string}>(`
+  SELECT indexname,indexdef FROM pg_indexes WHERE schemaname=current_schema()
+  AND tablename='order_outbox' AND indexname='order_outbox_pending_order_idx'`);
+ assert.equal(index.rows.length,1,"P36 ordered pending outbox index required");
+ assert.match(index.rows[0]!.indexdef,/delivered_at IS NULL/i);
+ console.info("PASS P36: real protected latency counters, safe pool pressure, and migrated partial index.");
  console.info("PASS P35: platform-only read-only recovery monitoring, stable payload, sanitized observability, no pilot certification.");
 }
-run().catch(error=>{console.error(error);process.exitCode=1;});
+run().then(async()=>{await pool.end();}).catch(async error=>{
+ console.error(error);await pool.end();process.exitCode=1;
+});

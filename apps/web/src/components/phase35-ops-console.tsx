@@ -5,6 +5,7 @@ import {AlertTriangle,Activity,RefreshCw,ShieldAlert,ShieldCheck} from "lucide-r
 import type {Locale} from "@dineflow/shared";
 import {useWorkspace} from "./workspace-provider";
 import {jsonRequest} from "@/lib/phase2-api";
+import {PlatformPerformancePanel,type PerformanceDiagnostics} from "./phase36-performance-panel";
 
 type Signal="OUTBOX_BACKLOG"|"OUTBOX_DELAY"|"OUTBOX_CRITICAL_DELAY"|
  "WORKER_DISABLED"|"WORKER_RETRYING"|"WORKER_STALLED"|"WORKER_STARTING";
@@ -14,6 +15,7 @@ type Pulse={
  scope:"server_instance_and_shared_outbox";
  pendingOutbox:number;oldestPendingAt:string|null;oldestPendingAgeSeconds:number|null;
  polling:"database_revision";
+ performance?:PerformanceDiagnostics;
  reconciler:{
   mode:"starting"|"active"|"disabled"|"stopped";
   startedAt:string|null;lastAttemptAt:string|null;lastSuccessAt:string|null;
@@ -144,6 +146,7 @@ export function PlatformOperationsPulse(){
     <div><span>{copy.worker}</span><strong>{copy[data.reconciler.mode]}</strong></div>
     <div><span>{copy.lastSuccess}</span><strong>{dateTime(data.reconciler.lastSuccessAt,locale)}</strong></div>
    </div>
+   <PlatformPerformancePanel data={data.performance} locale={locale}/>
    <div className="p35-ops-signals">
     {data.signals.filter(signal=>signal!=="WORKER_STARTING").length===0?
      <p><Activity size={17} aria-hidden="true"/>{copy.none}</p>:
