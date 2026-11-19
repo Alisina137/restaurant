@@ -18,6 +18,12 @@ Restaurant owners and managers can open `/app/reports` to view real Sales, Items
 ## Development Interface Launcher (local-only)
 Run `pnpm dev:api` and `pnpm dev:web` in separate PowerShell terminals, then open **http://localhost:3000/dev/interfaces**. A premium six-card developer page links to management, kitchen, cashier and platform web roles, gives the waiter Expo Go launch command, and safely opens a real customer QR entry when an issued table link is pasted. It checks the public API readiness endpoint, explains independent staff sign-ins and the guest PIN requirement, and is localized in English, Dari and Pashto. It has **no authentication bypass**, no synthetic orders and no demo passwords. Production builds return **404** at the launcher route. For instructions see `docs/DEV-INTERFACE-LAUNCHER.md`.
 
+## Menu category stability (second Menu tab)
+
+Menu → **Categories** saves through `POST /api/menu/categories`. The API now registers the Node PostgreSQL pool's idle-connection `error` event so transient Neon/PgBouncer disconnects cannot surface as an uncaught EventEmitter exception that terminates the Express server. Category duplicate-name conflicts return an actionable 409; missing menu tables/columns return a safe 503 with a **development-only** migration hint; transient DB failures remain retryable errors. The category editor keeps the form open and reports these errors in the selected UI language.
+
+After pulling this fix, use your existing `apps/api/.env` and run `pnpm db:migrate` (safe with current migrations), then restart `pnpm dev:api` and `pnpm dev:web`. If the API still exits, **capture the last 30 lines of the API terminal** (remove any private connection string) to identify the exact remaining cause. No new database migration is added by this patch. GitHub CI runs `pnpm menu:stability:verify` against disposable PostgreSQL: concurrent category creation, duplicate conflict, role isolation, publish, modifiers and API readiness.
+
 ## Workspace
 - `apps/api` — Express 4, Drizzle/PostgreSQL, Better Auth, roles, menu, floor and kitchen/notification APIs (port **4000**).
 - `apps/web` — Next.js 16, owner/manager, kitchen, cashier and platform workspaces (port **3000**).
