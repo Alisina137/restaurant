@@ -13,6 +13,7 @@ import "./kitchen29.css";
 import "./kitchen30.css";
 import "./kitchen31.css";
 import "./pilot32.css";
+import "./pilot33.css";
 import {InteractionProvider} from "@/components/ui/interaction-provider";
 import type { Metadata } from "next";
 export const metadata: Metadata = {
