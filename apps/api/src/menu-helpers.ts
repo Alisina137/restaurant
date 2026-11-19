@@ -6,6 +6,7 @@ import { auth } from "./auth";
 import { db } from "./db";
 import { contextFor, type IdentityContext } from "./context";
 import { auditEvent, catalogRevision, location } from "./schema";
+import { classifyMenuDbError } from "./menu-error-classifier";
 
 export class MenuError extends Error {
   constructor(public readonly status: number, public readonly code: string, message: string) { super(message); }
@@ -35,15 +36,13 @@ export function route(handler: Handler) {
       if (error instanceof MenuError) {
         res.status(error.status).json({ code: error.code, message: error.message }); return;
       }
-      const dbError = error as { code?: string; constraint?: string; cause?: { code?: string; constraint?: string } };
-      if (dbError.code === "23505" || dbError.cause?.code === "23505") {
-        const constraint = dbError.constraint ?? dbError.cause?.constraint ?? "";
-        const code = constraint.includes("sku") ? "DUPLICATE_SKU" :
-          constraint.includes("category_active_name") ? "DUPLICATE_CATEGORY" : "DUPLICATE";
-        res.status(409).json({ code, message: "A menu entry with these unique details already exists." }); return;
+      const failure=classifyMenuDbError(error);
+      if(failure.status>=500){
+       // Only a stable category is logged; raw DB errors could disclose data.
+       console.error(JSON.stringify({kind:"menu_request_failed",code:failure.code,
+        method:req.method,route:"/api/menu"}));
       }
-      console.error("Menu operation failed", error);
-      res.status(503).json({ code: "SERVICE_UNAVAILABLE", message: "Could not complete the request. Try again." });
+      res.status(failure.status).json({code:failure.code,message:failure.message});
     });
   };
 }

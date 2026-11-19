@@ -10,6 +10,7 @@ import { API_URL } from "@/lib/auth-client";
 import { jsonRequest, Phase2Error } from "@/lib/phase2-api";
 import { m3 } from "@/lib/menu-copy";
 import { m20 } from "@/lib/menu20-copy";
+import {menuRuntimeError} from "@/lib/menu-runtime-copy";
 import {MenuHealth,type MenuSummary} from "./menu-health";
 import { money, nameFor, type Category, type Catalog, type EditorData, type Group, type ItemDetail,
   type ItemRow, type Page } from "@/lib/menu-types";
@@ -26,6 +27,10 @@ const tabs=[{key:"items",icon:UtensilsCrossed},{key:"categories",icon:Layers3},
 type Popup={kind:"item";value?:ItemDetail}|{kind:"category";value?:Category}|{kind:"group";value?:Group};
 const noData:EditorData={categories:[],groups:[],revision:{version:0}};
 function apiError(e:unknown,locale:Locale){
+  if(e instanceof Phase2Error){
+    const helpful=menuRuntimeError(locale,e.code);
+    if(helpful)return helpful;
+  }
   if(e instanceof Phase2Error&&e.code==="VERSION_CONFLICT")return m3(locale,"versionConflict");
   if(e instanceof Phase2Error&&e.code==="DUPLICATE_SKU")return m3(locale,"duplicateSku");
   if(e instanceof Phase2Error&&e.code==="CATEGORY_UNPUBLISHED")return m20(locale,"missingCategory");
@@ -251,7 +256,7 @@ export function MenuConsole({tab}: {tab:MenuTab}){
     </section>}
     {tab==="categories"&&<section className="settings-card menu-panel">
       <header className="section-heading"><div><h2>{m3(locale,"categories")}</h2><p className="muted">{m20(locale,"categoryInfo")}</p></div>
-        <button className="button button-primary" onClick={()=>setPopup({kind:"category"})}><CirclePlus size={18}/>{m3(locale,"newCategory")}</button></header>
+        <button className="button button-primary" disabled={busy} onClick={()=>setPopup({kind:"category"})}><CirclePlus size={18}/>{m3(locale,"newCategory")}</button></header>
       <ArchiveToggle locale={locale} archived={archived} setArchived={v=>{setArchived(v);setPage(1);}}/>
       {loading?<Skeleton locale={locale}/>:cats?.items.length?<div className="menu-category-grid">
         {cats.items.map(cat=><article key={cat.id} className="menu-entity-card">
