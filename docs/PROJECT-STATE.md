@@ -222,3 +222,11 @@ Ensure `apps/api/.env`, `apps/web/.env.local`, `apps/mobile/.env` exist and cont
 - API reports 503 on `/api/health/ready` during graceful shutdown. No database migration or new user navigation is needed.
 - Real pilot, independent financial reconciliation, physical receipt/Android review, database/media restore, alerts/on-call, observed incident prioritization and a human GO/HOLD decision remain pending.
 - Acceptance and rollback: `docs/PHASE-34-ACCEPTANCE.md`. Next: Phase 35 — address real operator-observed recovery gaps.
+
+## Phase 35 status — Recovery monitoring and operator triage
+- Backend internal revision outbox now records **instance-local** start/scan/retry/success/processed metrics without leaking SQL error details or altering the durable event workflow.
+- Platform-only read-only `GET /api/health/operations` keeps backwards-compatible counts/status, adds timestamped classification (`ok`, `investigate`, `urgent`), bounded named signals, current server worker diagnostics, explicit `pilotCertified:false` and mixed-instance scope.
+- Platform overview replaces stale service status with a responsive three-locale **Operational recovery** panel, independent 30-second visible-only refresh, non-stale error handling, and real navigation to pilot blockers/support.
+- Regression coverage: `pnpm phase35:verify`, pure worker/threshold unit tests through `pnpm test`, disposable P35 HTTP role contract in CI; no new database migrations or npm dependencies.
+- Physical incident observation, real Android/kitchen/printer rehearsal, external pager setup, restore drills and independent real-money reconciliation remain pending and cannot be represented as complete by automated signals.
+- Runbook: `docs/PHASE-35-ACCEPTANCE.md`. Next: proposed Phase 36 performance/availability tuning against actual measured traces.
