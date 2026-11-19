@@ -61,12 +61,27 @@ type LineSnapshot={
 export async function priceLines(tx:Transaction,scope:Pick<OrderScope,"tenantId"|"locationId">,lines:CartLine[]){
  const result:LineSnapshot[]=[];
  let subtotal=0;
+ // Cache only within this single PostgreSQL transaction. We retain the existing
+ // FOR SHARE locks until COMMIT, so repeated cart lines cannot accept a price or
+ // modifier snapshot that was updated between two reads. Never cache across
+ // requests, restaurants, or transactions (even if item UUIDs happen to match).
+ const lockedItems=new Map<string,typeof menuItem.$inferSelect>();
+ const lockedGroups=new Map<string,{
+  group:typeof menuModifierGroup.$inferSelect;
+  options:(typeof menuModifierOption.$inferSelect)[];
+ }>();
  for(const line of lines){
-   // PostgreSQL row locks serialize price/stock updates with submission. Different visits
-   // can accept concurrently while all commit against authoritative menu data.
-   await tx.execute(sql`SELECT id FROM menu_items WHERE id=${line.itemId} AND tenant_id=${scope.tenantId} FOR SHARE`);
-   const [item]=await tx.select().from(menuItem).where(and(eq(menuItem.id,line.itemId),
-     eq(menuItem.tenantId,scope.tenantId),eq(menuItem.locationId,scope.locationId))).limit(1);
+   let item=lockedItems.get(line.itemId);
+   if(!item){
+     // One item lock and scoped SELECT per distinct item, not per cart line.
+     await tx.execute(sql`SELECT id FROM menu_items WHERE id=${line.itemId} AND tenant_id=${scope.tenantId} FOR SHARE`);
+     const [found]=await tx.select().from(menuItem).where(and(eq(menuItem.id,line.itemId),
+       eq(menuItem.tenantId,scope.tenantId),eq(menuItem.locationId,scope.locationId))).limit(1);
+     if(!found||!found.published||found.archivedAt||found.soldOut)
+       fail(409,"ITEM_UNAVAILABLE","An item is unpublished, archived or sold out. Update your cart.");
+     item=found;
+     lockedItems.set(line.itemId,item);
+   }
    if(!item||!item.published||item.archivedAt||item.soldOut)
      fail(409,"ITEM_UNAVAILABLE","An item is unpublished, archived or sold out. Update your cart.");
    if(item.version!==line.itemVersion)
@@ -82,14 +97,24 @@ export async function priceLines(tx:Transaction,scope:Pick<OrderScope,"tenantId"
    let addons=0;
    const modifierSnapshot:LineSnapshot["modifierSnapshot"]=[];
    for(const selection of line.selections){
-     // Locks serialize simultaneous modifier reconfiguration with checkout.
-     await tx.execute(sql`SELECT id FROM menu_modifier_groups WHERE id=${selection.groupId} FOR SHARE`);
-     const [group]=await tx.select().from(menuModifierGroup).where(and(eq(menuModifierGroup.id,selection.groupId),
-       eq(menuModifierGroup.tenantId,scope.tenantId),eq(menuModifierGroup.locationId,scope.locationId))).limit(1);
-     if(!group||group.archivedAt||group.version!==selection.version)
+     let locked=lockedGroups.get(selection.groupId);
+     if(!locked){
+       // Group PATCH updates lock this row before rewriting options. Holding
+       // this share lock lets us safely reuse its option snapshot for repeated
+       // lines; checks below still validate every line's group version/choices.
+       await tx.execute(sql`SELECT id FROM menu_modifier_groups WHERE id=${selection.groupId} FOR SHARE`);
+       const [group]=await tx.select().from(menuModifierGroup).where(and(eq(menuModifierGroup.id,selection.groupId),
+         eq(menuModifierGroup.tenantId,scope.tenantId),eq(menuModifierGroup.locationId,scope.locationId))).limit(1);
+       if(!group||group.archivedAt)
+         fail(409,"MODIFIER_CHANGED","Modifier group changed. Review the menu.");
+       const options=await tx.select().from(menuModifierOption)
+         .where(eq(menuModifierOption.groupId,group.id));
+       locked={group,options};
+       lockedGroups.set(selection.groupId,locked);
+     }
+     const {group,options:selected}=locked;
+     if(group.version!==selection.version)
        fail(409,"MODIFIER_CHANGED","Modifier group changed. Review the menu.");
-     const selected=await tx.select().from(menuModifierOption)
-       .where(eq(menuModifierOption.groupId,group.id));
      const choices=selection.optionIds.map(id=>selected.find(o=>o.id===id));
      if(selection.optionIds.length<group.minSelections||selection.optionIds.length>group.maxSelections||
        (group.selectionMode==="single"&&selection.optionIds.length>1)||
