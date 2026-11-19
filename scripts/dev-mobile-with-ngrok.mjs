@@ -9,7 +9,6 @@ import {resolve,dirname} from "node:path";
 import {fileURLToPath} from "node:url";
 
 const repositoryRoot=resolve(dirname(fileURLToPath(import.meta.url)),"..");
-const mobileDirectory=resolve(repositoryRoot,"apps/mobile");
 const inspector="http://127.0.0.1:4040/api/tunnels";
 const API_PORT=4000;
 const pause=(ms)=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -52,6 +51,25 @@ export function expoArguments(argv=[]){
  throw new Error("Use pnpm dev:mobile (Expo tunnel) or pnpm dev:mobile:lan (Expo LAN).");
 }
 
+/**
+ * Resolve Expo through pnpm's own workspace-aware executable, not by guessing
+ * apps/mobile/node_modules/expo/bin/cli (the Expo CLI path and hoisting layout
+ * vary between pnpm/Expo versions). On Windows a .cmd launcher must run via
+ * cmd.exe; when available pnpm's JavaScript entry point avoids shell quoting.
+ */
+export function expoRunnerCommand(expoArgs,env=process.env,platform=process.platform,nodePath=process.execPath){
+ const pnpmArgs=["--filter","@dineflow/mobile","exec","expo",...expoArgs];
+ const entry=env.npm_execpath;
+ if(entry&&/\\.(?:c|m)?js$/i.test(entry)&&existsSync(entry)){
+  return {command:nodePath,args:[entry,...pnpmArgs]};
+ }
+ if(platform==="win32"){
+  return {command:env.ComSpec||"cmd.exe",
+   args:["/d","/s","/c","pnpm "+pnpmArgs.join(" ")]};
+ }
+ return {command:"pnpm",args:pnpmArgs};
+}
+
 async function agentApiUrl(fetchImpl=globalThis.fetch){
  try{
   const response=await fetchImpl(inspector,{signal:AbortSignal.timeout(1200)});
@@ -92,8 +110,9 @@ export async function runMobile(argv=process.argv.slice(2),deps={}){
  const fetchImpl=deps.fetchImpl??globalThis.fetch;
  const spawnImpl=deps.spawnImpl??spawn;
  const mode=expoArguments(argv);
- const expoCli=resolve(mobileDirectory,"node_modules/expo/bin/cli");
- if(!existsSync(expoCli))throw new Error("Expo CLI is missing. Run pnpm install from the restaurant project folder.");
+ // Expo's supported pnpm CLI resolution works with hoisted and isolated
+ // node_modules layouts; no hard-coded assumption about Expo's internal files.
+ const runner=expoRunnerCommand(mode,process.env);
 
  await requireApi(fetchImpl);
  let url=await agentApiUrl(fetchImpl);
@@ -138,15 +157,15 @@ export async function runMobile(argv=process.argv.slice(2),deps={}){
   output.log("[DineFlow] Using EXPO_PUBLIC_API_URL for this Expo run; apps/mobile/.env is unchanged.");
   output.log("[DineFlow] Expo Go: "+(mode.includes("--lan")?"LAN":"tunnel")+" mode. Press Ctrl+C to stop Expo and the API ngrok tunnel.");
   const environment=expoEnvironment(url,process.env);
-  expo=spawnImpl(process.execPath,[expoCli,...mode],{
-   cwd:mobileDirectory,stdio:"inherit",env:environment,windowsHide:false
+  expo=spawnImpl(runner.command,runner.args,{
+   cwd:repositoryRoot,stdio:"inherit",env:environment,windowsHide:false
   });
   const result=await new Promise((resolve,reject)=>{
    expo.once("error",reject);
    expo.once("exit",(code,signal)=>resolve({code,signal}));
   });
   if(!stopping&&result.code!==0){
-   output.error("[DineFlow] Expo exited. If its own tunnel conflicts with ngrok, use pnpm dev:mobile:lan while the phone is on the same Wi-Fi.");
+   output.error("[DineFlow] Expo failed. If dependencies are missing, run pnpm install. If the Expo tunnel conflicts with ngrok, use pnpm dev:mobile:lan on the same Wi-Fi.");
    process.exitCode=result.code??1;
   }
  }finally{
