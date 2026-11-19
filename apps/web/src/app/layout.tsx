@@ -22,5 +22,14 @@ export const metadata: Metadata = {
   description: "Secure restaurant workspace for service teams."
 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="fa-AF" dir="rtl" suppressHydrationWarning><body><InteractionProvider>{children}</InteractionProvider></body></html>;
+  return (
+    <html lang="fa-AF" dir="rtl" suppressHydrationWarning>
+      {/* Browser extensions (e.g. Titans Quick View) may inject data-* attributes
+          directly into <body> before React hydrates. Suppress only this element's
+          attribute warning; child subtree hydration warnings still surface. */}
+      <body suppressHydrationWarning>
+        <InteractionProvider>{children}</InteractionProvider>
+      </body>
+    </html>
+  );
 }
