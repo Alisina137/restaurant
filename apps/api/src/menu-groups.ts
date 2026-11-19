@@ -48,9 +48,11 @@ groupRouter.post("/",route(async(req,res)=>{
     await tx.insert(menuModifierGroup).values({id,tenantId:scope.tenantId,locationId:scope.locationId,
       nameFa:input.nameFa,namePs:input.namePs,nameEn:input.nameEn,
       selectionMode:input.selectionMode,minSelections:input.minSelections,maxSelections:input.maxSelections});
-    for(const o of input.options)await tx.insert(menuModifierOption).values({id:randomUUID(),groupId:id,
-      nameFa:o.nameFa,namePs:o.namePs,nameEn:o.nameEn,deltaMinor:o.deltaMinor,
-      active:o.active,sortOrder:o.sortOrder});
+    // One bounded INSERT for 1–30 options, not 30 sequential network hops.
+    await tx.insert(menuModifierOption).values(input.options.map(o=>({
+      id:randomUUID(),groupId:id,nameFa:o.nameFa,namePs:o.namePs,nameEn:o.nameEn,
+      deltaMinor:o.deltaMinor,active:o.active,sortOrder:o.sortOrder
+    })));
     await changed(tx,scope,"menu.modifier_group_created",{groupId:id});
   });
   res.status(201).json({id,created:true});
@@ -71,13 +73,19 @@ groupRouter.patch("/:id",route(async(req,res)=>{
       .returning({id:menuModifierGroup.id});
     if(!done)fail(409,"VERSION_CONFLICT","Modifier group changed. Reload.");
     const submitted=new Set(input.options.flatMap(o=>o.id?[o.id]:[]));
-    for(const old of oldOptions)if(!submitted.has(old.id))await tx.update(menuModifierOption)
-      .set({active:false}).where(eq(menuModifierOption.id,old.id));
+    const removed=oldOptions.filter(o=>!submitted.has(o.id)).map(o=>o.id);
+    if(removed.length)await tx.update(menuModifierOption).set({active:false})
+      .where(and(eq(menuModifierOption.groupId,id),inArray(menuModifierOption.id,removed)));
+    // Preserve optimistic group version protection, per-option updates and
+    // disabled historical options; only consolidate independent INSERT rows.
+    const additions:typeof menuModifierOption.$inferInsert[]=[];
     for(const o of input.options){
       const values={nameFa:o.nameFa,namePs:o.namePs,nameEn:o.nameEn,deltaMinor:o.deltaMinor,active:o.active,sortOrder:o.sortOrder};
-      if(o.id)await tx.update(menuModifierOption).set(values).where(and(eq(menuModifierOption.id,o.id),eq(menuModifierOption.groupId,id)));
-      else await tx.insert(menuModifierOption).values({id:randomUUID(),groupId:id,...values});
+      if(o.id)await tx.update(menuModifierOption).set(values)
+        .where(and(eq(menuModifierOption.id,o.id),eq(menuModifierOption.groupId,id)));
+      else additions.push({id:randomUUID(),groupId:id,...values});
     }
+    if(additions.length)await tx.insert(menuModifierOption).values(additions);
     await changed(tx,scope,"menu.modifier_group_updated",{groupId:id});
   });
   res.json({saved:true});
