@@ -36,6 +36,7 @@ import {tenantSaasRouter,platformSaasRouter} from "./phase12-platform";
 import {tenantPilotRouter,platformPilotRouter} from "./phase14-pilot";
 import {validateProductionEnvironment,hardenedHeadersAndLogs,createIpRateLimiter} from "./production-hardening";
 import {startOutboxReconciliation} from "./outbox-reconciler";
+import {evaluateOperations,outboxRuntimeMonitor} from "./phase35-operations";
 
 validateProductionEnvironment();
 // A draining API must not tell load balancers it can accept new work.
@@ -116,10 +117,11 @@ app.get("/api/health/operations",requireIdentity,async(req:AuthorizedRequest,res
   const oldestPendingAt=state?.oldest??null;
   const ageSeconds=oldestPendingAt===null?null:
    Math.max(0,Math.floor((Date.now()-new Date(oldestPendingAt).getTime())/1000));
+  const worker=outboxRuntimeMonitor.snapshot();
+  const assessment=evaluateOperations(pending,ageSeconds,worker);
   res.setHeader("Cache-Control","no-store");
-  res.json({status:pending>5000||(ageSeconds!==null&&ageSeconds>60)?"attention":"ok",
-   pendingOutbox:pending,oldestPendingAt,oldestPendingAgeSeconds:ageSeconds,
-   polling:"database_revision"});
+  res.json({...assessment,pendingOutbox:pending,oldestPendingAt,
+   oldestPendingAgeSeconds:ageSeconds,polling:"database_revision",reconciler:worker});
  }catch{
   res.status(503).json({code:"SERVICE_UNAVAILABLE",message:"Operations summary unavailable"});
  }
