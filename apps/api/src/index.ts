@@ -38,6 +38,8 @@ import {validateProductionEnvironment,hardenedHeadersAndLogs,createIpRateLimiter
 import {startOutboxReconciliation} from "./outbox-reconciler";
 
 validateProductionEnvironment();
+// A draining API must not tell load balancers it can accept new work.
+let draining=false;
 const app = express();
 if(process.env.TRUST_PROXY_HOPS)app.set("trust proxy",Number(process.env.TRUST_PROXY_HOPS));
 app.use(hardenedHeadersAndLogs);
@@ -53,6 +55,7 @@ app.use(express.json({ limit: "32kb" }));
 
 app.get("/api/health", (_req, res) => { res.json({ status: "ok" }); });
 app.get("/api/health/ready", async (_req, res) => {
+  if(draining){ res.status(503).json({code:"SHUTTING_DOWN",message:"Service is draining"});return; }
   try { await db.execute(sql`select 1`); res.json({ status: "ready" }); }
   catch { res.status(503).json({ code: "DB_UNAVAILABLE", message: "Database unavailable" }); }
 });
@@ -167,7 +170,6 @@ app.use((_error: unknown, _req: Request, res: Response, _next: NextFunction) => 
 const port = Number(process.env.PORT ?? "4000");
 const server=app.listen(port,()=>console.info("DineFlow API listening on port "+port));
 const stopOutbox=startOutboxReconciliation();
-let draining=false;
 function shutdown(signal:string){
  if(draining)return;draining=true;
  console.info(JSON.stringify({kind:"shutdown",signal}));
