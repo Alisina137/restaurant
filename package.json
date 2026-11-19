@@ -31,7 +31,7 @@
     "kitchen31:verify": "node scripts/verify-kitchen31.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/kitchen31-ci.ts",
     "pilot32:verify": "node scripts/verify-pilot32.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/pilot32-ci.ts",
     "pilot33:verify": "node scripts/verify-pilot33.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/pilot33-ci.ts",
-    "menu:stability:verify": "pnpm --filter @dineflow/api exec tsx src/menu-stability-ci.ts",
+    "menu:stability:verify": "pnpm --filter @dineflow/api exec tsx src/menu-stability-ci.ts && pnpm --filter @dineflow/api exec tsx src/phase38-ci.ts",
     "dev:interfaces:verify": "node scripts/verify-dev-launcher.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/dev-interface-launcher-ci.ts",
     "pilot31:rehearse": "pnpm --filter @dineflow/api exec tsx src/phase31-load.ts",
     "typecheck": "pnpm --filter @dineflow/shared typecheck && pnpm --filter @dineflow/api typecheck && pnpm --filter @dineflow/web typecheck && pnpm --filter @dineflow/mobile typecheck",
@@ -44,7 +44,8 @@
     "mobile:tunnel:verify": "node --test scripts/dev-mobile-with-ngrok.test.mjs",
     "phase35:verify": "node scripts/verify-phase35.mjs && pnpm phase36:verify",
     "phase36:verify": "node scripts/verify-phase36.mjs && pnpm phase37:verify",
-    "phase37:verify": "node scripts/verify-phase37.mjs"
+    "phase37:verify": "node scripts/verify-phase37.mjs && pnpm phase38:verify",
+    "phase38:verify": "node scripts/verify-phase38.mjs"
   },
   "devDependencies": {
     "cross-env": "^7.0.3"
