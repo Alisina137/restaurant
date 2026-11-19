@@ -1,11 +1,11 @@
 import {Router,type Request} from "express";
 import {fromNodeHeaders} from "better-auth/node";
 import {createHash,randomUUID} from "node:crypto";
-import {eq,desc,sql} from "drizzle-orm";
+import {and,count,eq,desc,inArray,isNull,min,sql} from "drizzle-orm";
 import {auth} from "./auth";
 import {db} from "./db";
 import {contextFor} from "./context";
-import {auditEvent,pilotGateEvent,pilotSignoffEvent,platformAdmin,tenant} from "./schema";
+import {auditEvent,pilotGateEvent,pilotSignoffEvent,platformAdmin,tenant,location,diningVisit,diningCheck,cashierShift,diningTable,menuItem,kitchenTicket,orderOutbox} from "./schema";
 import {bodyObject,fail,field,route} from "./menu-helpers";
 
 /** The user must perform these gates: this page only records accountable, manually verified evidence. */
@@ -82,6 +82,74 @@ tenantPilotRouter.get("/",route(async(req,res)=>{
  const a=await actor(req),status=await snapshot(db,a.tenantId!);
  res.setHeader("Cache-Control","no-store");
  res.json({...status,canEdit:a.role==="owner"});
+}));
+
+/**
+ * P32 read-only operational pulse for the real restaurant owner/manager pilot.
+ * This is diagnostic evidence only: it does not update, validate, or sign any
+ * of the twelve accountable physical acceptance gates.
+ */
+tenantPilotRouter.get("/operations",route(async(req,res)=>{
+ const a=await actor(req);
+ const minutes=typeof req.query.minutes==="string"?Number(req.query.minutes):60;
+ if(![60,180,360].includes(minutes))
+  fail(400,"INVALID_FILTER","Select a 60, 180 or 360-minute reporting window.");
+ const [loc]=await db.select({id:location.id}).from(location)
+  .where(eq(location.tenantId,a.tenantId!)).limit(1);
+ if(!loc)fail(409,"LOCATION_NOT_READY","Restaurant location has not been provisioned.");
+ const since=new Date(Date.now()-minutes*60000),tenantId=a.tenantId!;
+ const [ticketRows,visits,checks,shifts,outbox,tables,menu]=await Promise.all([
+  db.select({
+   acceptedWindow:sql<number>`count(*) filter (where ${kitchenTicket.createdAt} >= ${since})::integer`,
+   observedWindow:sql<number>`count(*) filter (where
+    ${kitchenTicket.createdAt} >= ${since} AND ${kitchenTicket.firstDisplayedAt} IS NOT NULL)::integer`,
+   activeTickets:sql<number>`count(*) filter (where
+    ${kitchenTicket.status} IN ('new','preparing','ready','picked_up'))::integer`,
+   activeWithoutReport:sql<number>`count(*) filter (where
+    ${kitchenTicket.status} IN ('new','preparing','ready','picked_up')
+    AND ${kitchenTicket.firstDisplayedAt} IS NULL)::integer`,
+   pickupPending:sql<number>`count(*) filter (where
+    ${kitchenTicket.status} = 'picked_up'
+    AND ${kitchenTicket.pickupAcknowledgedAt} IS NULL)::integer`,
+   oldestUnreportedAt:sql<Date|null>`min(${kitchenTicket.createdAt}) filter (where
+    ${kitchenTicket.status} IN ('new','preparing','ready','picked_up')
+    AND ${kitchenTicket.firstDisplayedAt} IS NULL)`
+  }).from(kitchenTicket).where(and(eq(kitchenTicket.tenantId,tenantId),
+   eq(kitchenTicket.locationId,loc.id))),
+  db.select({n:count()}).from(diningVisit).where(and(eq(diningVisit.tenantId,tenantId),
+   eq(diningVisit.locationId,loc.id),eq(diningVisit.status,"open"))),
+  db.select({n:count()}).from(diningCheck).where(and(eq(diningCheck.tenantId,tenantId),
+   eq(diningCheck.locationId,loc.id),eq(diningCheck.status,"open"))),
+  db.select({n:count()}).from(cashierShift).where(and(eq(cashierShift.tenantId,tenantId),
+   eq(cashierShift.locationId,loc.id),eq(cashierShift.status,"open"))),
+  db.select({n:count(),oldestAt:min(orderOutbox.createdAt)})
+   .from(orderOutbox).where(and(eq(orderOutbox.tenantId,tenantId),
+    eq(orderOutbox.locationId,loc.id),isNull(orderOutbox.deliveredAt))),
+  db.select({n:count()}).from(diningTable).where(and(eq(diningTable.tenantId,tenantId),
+   eq(diningTable.locationId,loc.id),eq(diningTable.active,true),
+   isNull(diningTable.archivedAt))),
+  db.select({n:count()}).from(menuItem).where(and(eq(menuItem.tenantId,tenantId),
+   eq(menuItem.locationId,loc.id),eq(menuItem.published,true),
+   isNull(menuItem.archivedAt)))
+ ]);
+ const ticket=ticketRows[0],pending=outbox[0];
+ const age=(date:Date|null|undefined)=>date?
+  Math.max(0,Math.floor((Date.now()-date.getTime())/1000)):null;
+ res.setHeader("Cache-Control","no-store");
+ res.json({minutes,from:since.toISOString(),checkedAt:new Date().toISOString(),
+  evidence:"tenant_scoped_database_snapshot",tenantId,locationId:loc.id,
+  acceptedWindow:ticket?.acceptedWindow??0,observedWindow:ticket?.observedWindow??0,
+  activeTickets:ticket?.activeTickets??0,
+  activeWithoutReport:ticket?.activeWithoutReport??0,
+  oldestUnreportedAt:ticket?.oldestUnreportedAt??null,
+  pickupPending:ticket?.pickupPending??0,
+  openVisits:visits[0]?.n??0,openChecks:checks[0]?.n??0,
+  openCashierShifts:shifts[0]?.n??0,
+  activeTables:tables[0]?.n??0,publishedItems:menu[0]?.n??0,
+  pendingOutbox:pending?.n??0,oldestPendingOutboxAt:pending?.oldestAt??null,
+  oldestPendingOutboxAgeSeconds:age(pending?.oldestAt),
+  measurement:"Outbox delivery means internal in-app revision processing, NOT delivery to a kitchen device. Missing display reports are not proof humans missed orders.",
+  pilotCertified:false});
 }));
 tenantPilotRouter.post("/gates",route(async(req,res)=>{
  const a=await actor(req);if(a.role!=="owner")fail(403,"OWNER_REQUIRED","Only the owner can attest pilot evidence.");

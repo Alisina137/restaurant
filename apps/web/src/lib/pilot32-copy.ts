@@ -1,0 +1,62 @@
+import type {Locale} from "@dineflow/shared";
+const en={
+ title:"Live operating snapshot",subtitle:"Read-only restaurant database signals to help plan a supervised service shift. Not a pilot test or automated launch approval.",
+ window:"Reporting window",hour:"Last hour",three:"Last 3 hours",six:"Last 6 hours",
+ refresh:"Refresh signals",checked:"Verified at",failed:"Live signals unavailable. No healthy state is inferred.",
+ retry:"Retry",accepted:"Accepted kitchen tickets",observed:"Browser render reports",
+ active:"Active kitchen tickets",missing:"Active without render report",
+ pickups:"Waiter pickup receipts pending",visits:"Open table visits",
+ checks:"Unsettled open checks",shifts:"Open cashier shifts",
+ tables:"Enabled tables",menu:"Published menu items",
+ outbox:"Internal event publication pending",outboxOldest:"Oldest pending publication",
+ noOutbox:"No pending internal events reported",minute:"min",unknown:"Not verified",
+ warning:"Signals to investigate",unreported:"Missing browser render reports — check active displays; not proof unseen.",
+ outboxWarn:"Internal publication delayed — investigate outbox and network; this is not a device delivery check.",
+ receipt:"Kitchen handoffs require waiter acknowledgment.",
+ normal:"No current investigation signals from these counters. All physical pilot checks are still required.",
+ limits:"No production approval: cash and receipt reconciliation, physical tablets/QR printers, network failures, backups, accessibility and independent review require real human evidence.",
+ methodology:"Counts are current database observations, not a verified physical shift or network SLA. Published means internal event processing only.",
+ windowNote:"Accepted/rendered counts use the chosen time window; active, cash and outbox counts cover current outstanding records.",
+};
+const fa:typeof en={
+ title:"نمای عملیاتی زنده",subtitle:"شاخص‌های فقط‌خواندنی دیتابیس برای برنامه‌ریزی شیفت نظارت‌شده. به معنی آزمایش عملی یا اجازه راه‌اندازی نیست.",
+ window:"بازه گزارش",hour:"یک ساعت اخیر",three:"۳ ساعت اخیر",six:"۶ ساعت اخیر",
+ refresh:"تازه‌سازی شاخص‌ها",checked:"آخرین بررسی",failed:"شاخص‌های زنده در دسترس نیست؛ نتیجه سالم فرض نمی‌شود.",
+ retry:"تلاش مجدد",accepted:"تیکت‌های پذیرفته‌شده آشپزخانه",observed:"گزارش‌های نمایش مرورگر",
+ active:"تیکت‌های فعال آشپزخانه",missing:"فعال بدون گزارش نمایش",
+ pickups:"تأیید دریافت گارسون در انتظار",visits:"میزهای باز",
+ checks:"صورت‌حساب‌های باز",shifts:"شیفت‌های باز صندوق",
+ tables:"میزهای فعال",menu:"غذاهای منتشرشده",
+ outbox:"رویدادهای داخلی منتشرنشده",outboxOldest:"قدیمی‌ترین انتشار در انتظار",
+ noOutbox:"رویداد داخلی در انتظار ثبت نشد",minute:"دقیقه",unknown:"تأیید نشده",
+ warning:"شاخص‌های نیازمند بررسی",unreported:"گزارش نمایش مرورگر موجود نیست — دستگاه‌ها را بررسی کنید؛ به معنی دیده‌نشدن نیست.",
+ outboxWarn:"انتشار داخلی به تأخیر افتاده — رویدادها و اتصال را بررسی کنید؛ تحویل به دستگاه تأیید نشده است.",
+ receipt:"تحویل غذا در انتظار تأیید دریافت گارسون است.",
+ normal:"این شمارنده‌ها مورد نیازمند بررسی نشان نمی‌دهند؛ آزمایش عملی همچنان ضروری است.",
+ limits:"هنوز اجازه راه‌اندازی نیست: حساب صندوق، رسید واقعی، تبلت، چاپگر، قطعی شبکه، پشتیبان و بازبینی مستقل باید واقعاً بررسی شوند.",
+ methodology:"اعداد فقط وضعیت دیتابیس‌اند، نه گواه شیفت واقعی یا سرعت شبکه. انتشار یعنی پردازش رویداد داخلی.",
+ windowNote:"سفارش‌های پذیرفته و نمایش‌شده از بازه انتخابی‌اند؛ سایر شمارنده‌ها وضعیت فعلی را نشان می‌دهند.",
+};
+const ps:typeof en={
+ title:"د عملیاتو ژوندۍ کتنه",subtitle:"د څارل شوي شیفټ د پلان لپاره یوازې د لوستلو ډیټابېس شمېرې. د عملي ازموینې یا خپرېدو تایید نه دی.",
+ window:"د راپور موده",hour:"وروستی ساعت",three:"وروستي ۳ ساعتونه",six:"وروستي ۶ ساعتونه",
+ refresh:"شمېرې تازه کړئ",checked:"وروستۍ کتنه",failed:"ژوندۍ شمېرې نشته؛ روغ حالت نه فرض کېږي.",
+ retry:"بیا هڅه",accepted:"منل شوي د پخلنځي ټکټونه",observed:"د براوزر ښودنې راپورونه",
+ active:"د پخلنځي فعال ټکټونه",missing:"فعال بې له ښودنې راپور",
+ pickups:"د ګارسون اخیستل ناتایید",visits:"پرانیستي میزونه",
+ checks:"پرانیستي حسابونه",shifts:"د صندوق پرانیستي شیفټونه",
+ tables:"فعال میزونه",menu:"خپاره شوي خواړه",
+ outbox:"ناخپاره شوي داخلي پېښې",outboxOldest:"تر ټولو پخوانۍ داخلي پېښه",
+ noOutbox:"د داخلي پېښو پاتې کار نشته",minute:"دقیقې",unknown:"نه دي تایید شوي",
+ warning:"د پلټنې وړ شمېرې",unreported:"د براوزر راپور نشته — سکرینونه وګورئ؛ د نه لیدلو ثبوت نه دی.",
+ outboxWarn:"داخلي خپرول ځنډېدلي — پېښې او شبکه وګورئ؛ د وسیلې رسید نه دی تایید شوی.",
+ receipt:"د پخلنځي سپارل د ګارسون تایید ته انتظار لري.",
+ normal:"دا شمېرې اوس د پلټنې اړتیا نه ښيي؛ واقعي آزموینې بیا هم اړینې دي.",
+ limits:"د خپرېدو اجازه نشته: واقعي صندوق، رسید، ټابلیټ، چاپګر، انټرنېټ، بیک اپ او خپلواکه کتنه اړینه ده.",
+ methodology:"دا یوازې د ډیټابېس شمېرې دي، نه د شیفټ یا شبکې تصدیق. خپرول د داخلي پېښو پروسس دی.",
+ windowNote:"منل شوي/ښودل شوي ټکټونه د ټاکلې مودې دي؛ نور شمېرې اوسنی حالت ښيي.",
+};
+export type Pilot32Key=keyof typeof en;
+export function p32(locale:Locale,key:Pilot32Key):string{
+ return (locale==="fa-AF"?fa:locale==="ps-AF"?ps:en)[key];
+}
