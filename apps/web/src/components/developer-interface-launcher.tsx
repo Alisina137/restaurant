@@ -201,7 +201,7 @@ export function DeveloperInterfaceLauncher(){
     <div className="dl-section-head"><div><span className="dl-section-eyebrow">04 / GET STARTED</span>
      <h2>{dl(locale,"run")}</h2><p>{dl(locale,"runHint")}</p></div><ClipboardList size={28}/></div>
     <div className="dl-command">
-     <span>{dl(locale,"project")}</span><code dir="ltr">cd C:\\projects\\restaurant</code>
+     <span>{dl(locale,"project")}</span><code dir="ltr">{"cd C:\\projects\\restaurant"}</code>
      <button type="button" onClick={()=>void copyText("cd C:\\projects\\restaurant","project")}
       aria-label={dl(locale,"copy")+" "+dl(locale,"project")}>
       <Copy size={15}/>{copied==="project"?dl(locale,"copied"):dl(locale,"copy")}</button>
