@@ -16,7 +16,8 @@ test("an idle pg connection error is handled without throwing or leaking credent
   });
  }finally{console.error=old;}
  assert.equal(log.length,1);
- assert.match(log[0],/postgres_idle_connection_error/);
- assert.match(log[0],/ECONNRESET/);
- assert.doesNotMatch(log[0],/password|private-host|postgres:\/\//);
+ const message=log[0]??"";
+ assert.match(message,/postgres_idle_connection_error/);
+ assert.match(message,/ECONNRESET/);
+ assert.doesNotMatch(message,/password|private-host|postgres:\/\//);
 });
