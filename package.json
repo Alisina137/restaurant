@@ -42,7 +42,7 @@
     "ops:preflight:verify": "node --test scripts/release34-preflight.test.mjs",
     "dev:mobile:lan": "node scripts/dev-mobile-with-ngrok.mjs --lan",
     "mobile:tunnel:verify": "node --test scripts/dev-mobile-with-ngrok.test.mjs",
-    "phase35:verify": "node scripts/verify-phase35.mjs",
+    "phase35:verify": "node scripts/verify-phase35.mjs && pnpm phase36:verify",
     "phase36:verify": "node scripts/verify-phase36.mjs"
   },
   "devDependencies": {
