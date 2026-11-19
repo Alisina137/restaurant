@@ -5,7 +5,7 @@ const pricing=get("apps/api/src/order-core.ts");
 const group=get("apps/api/src/menu-groups.ts");
 const waiter=get("apps/api/src/order-routes.ts");
 const guest=get("apps/api/src/guest-orders.ts");
-const p05=get("apps/api/src/phase5-ci.ts");
+const p38=get("apps/api/src/phase38-ci.ts");
 const p03=get("apps/api/src/phase3-ci.ts");
 
 const pricingScope=pricing.slice(pricing.indexOf("export async function priceLines"),
@@ -55,12 +55,17 @@ assert.ok(group.includes("eq(menuModifierGroup.version,v)"),
  "Optimistic concurrency guard must survive bulk operation");
 assert.ok(group.includes('await changed(tx,scope,"menu.modifier_group_updated"'),
  "Audit and catalog revision must be advanced");
-assert.ok(p05.includes("Array.from({length:40}"),
+assert.ok(p38.includes("Array.from({length:40}"),
  "Integration must exercise maximum supported 40 repeated cart lines");
-assert.ok(p05.includes("P38 unique line")&&p05.includes("modifierSnapshot"),
+assert.ok(p38.includes("P38 separate instruction")&&p38.includes("modifierSnapshot"),
  "Regression must verify per-line independent note and modifier pricing");
-assert.ok(p05.includes("Stale modifier version on the last repeated line"),
+assert.ok(p38.includes("MODIFIER_CHANGED")&&p38.includes("PRICE_CHANGED")&&p38.includes("INVALID_MODIFIERS"),
  "Wrong group version on a later line must abort the whole order");
+assert.ok(p38.includes('dbUrl.pathname!=="/dineflow_ci"')&&p38.includes('process.env.CI!=="true"'),
+ "Dedicated HTTP checkout integration must never run on a production or shared database");
+const pkg=JSON.parse(get("package.json"));
+assert.ok(pkg.scripts["menu:stability:verify"].includes("src/phase38-ci.ts"),
+ "CI must run the independent disposable P38 HTTP checkout AFTER fixture-dependent P06");
 assert.ok(p03.includes("Array.from({length:30}"),
  "Integration must exercise 30-option group create");
 assert.ok(p03.includes("afterOptions.options.length,32")&&
