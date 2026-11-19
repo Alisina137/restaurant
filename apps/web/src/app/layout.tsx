@@ -16,6 +16,7 @@ import "./pilot32.css";
 import "./pilot33.css";
 import "./dev-launcher.css";
 import "./phase35.css";
+import "./phase36.css";
 import {InteractionProvider} from "@/components/ui/interaction-provider";
 import type { Metadata } from "next";
 export const metadata: Metadata = {
