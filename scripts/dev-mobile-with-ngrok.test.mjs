@@ -2,7 +2,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
-import {findApiTunnel,expoEnvironment,expoArguments} from "./dev-mobile-with-ngrok.mjs";
+import {findApiTunnel,expoEnvironment,expoArguments,expoRunnerCommand} from "./dev-mobile-with-ngrok.mjs";
 
 const valid={tunnels:[
  {proto:"https",public_url:"https://other.ngrok-free.app",config:{addr:"http://localhost:8081"}},
@@ -46,4 +46,21 @@ test("root pnpm dev:mobile and LAN scripts use managed tunnel launcher",()=>{
  const scripts=JSON.parse(readFileSync(resolve("package.json"),"utf8")).scripts;
  assert.equal(scripts["dev:mobile"],"node scripts/dev-mobile-with-ngrok.mjs");
  assert.equal(scripts["dev:mobile:lan"],"node scripts/dev-mobile-with-ngrok.mjs --lan");
+});
+
+test("runs Expo through pnpm workspace resolution instead of guessing expo/bin/cli",()=>{
+ const entry=resolve("scripts/dev-mobile-with-ngrok.mjs");
+ const args=expoArguments();
+ const managed=expoRunnerCommand(args,{npm_execpath:entry},"win32","node-test");
+ assert.equal(managed.command,"node-test");
+ assert.deepEqual(managed.args.slice(0,5),[entry,"--filter","@dineflow/mobile","exec","expo"]);
+ assert.deepEqual(managed.args.slice(5),args);
+ const win=expoRunnerCommand(args,{ComSpec:"cmd-test"},"win32");
+ assert.equal(win.command,"cmd-test");
+ assert.match(win.args[3],/^pnpm --filter @dineflow\/mobile exec expo start --tunnel --clear --go$/);
+ const unix=expoRunnerCommand(expoArguments(["--lan"]),{},"linux");
+ assert.equal(unix.command,"pnpm");
+ assert.deepEqual(unix.args.slice(0,4),["--filter","@dineflow/mobile","exec","expo"]);
+ assert.ok(!readFileSync(resolve("scripts/dev-mobile-with-ngrok.mjs"),"utf8")
+  .includes('resolve(mobileDirectory,"node_modules/expo/bin/cli")'),"Must not require an internal Expo CLI path");
 });

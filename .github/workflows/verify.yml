@@ -61,6 +61,8 @@ jobs:
       - run: pnpm mobile25:verify
       - run: pnpm mobile26:verify
       - run: pnpm mobile:tunnel:verify
+      - name: Resolve Expo CLI through pnpm workspace (no ngrok or Metro start)
+        run: pnpm --filter @dineflow/mobile exec expo --version
       - run: pnpm kitchen27:verify
       - run: pnpm kitchen28:verify
       - run: pnpm kitchen29:verify
