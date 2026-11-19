@@ -43,4 +43,23 @@ assert.ok(css.includes('dir="rtl"'),"RTL drawer positioning must be explicit");
 assert.ok(css.includes("@media print"),"Navigation must not appear on receipts or printed reports");
 assert.ok(layout.indexOf("workspace-navigation.css")>layout.indexOf("design-system.css"),
   "Navigation CSS must override legacy mobile bottom navigation");
+// Desktop scroll isolation: independently scroll only workspace content, not the
+// sidebar, header, or document. A too-long navigation list remains usable.
+const desktop=css.split("@media(min-width:769px){")[1]?.split("@media(max-width:768px){")[0];
+assert.ok(desktop,"Desktop navigation layout media rule missing");
+assert.match(desktop,/\.workspace-layout\s*\{[^}]*height:100dvh;[^}]*overflow:hidden;/s,
+  "Desktop shell must be viewport-bounded and stop document scrolling");
+assert.match(desktop,/\.workspace-layout \.sidebar\s*\{[^}]*position:relative;[^}]*height:100%;/s,
+  "Desktop sidebar must stay inside the non-scrolling shell");
+assert.match(desktop,/\.workspace-layout \.sidebar-nav\.workspace-sidebar-nav\s*\{[^}]*min-height:0;/s,
+  "Long navigation must scroll in its own available space");
+assert.match(desktop,/\.workspace-layout \.workspace-column\s*\{[^}]*height:100%;[^}]*overflow:hidden;/s,
+  "Desktop content column must not scroll the whole page");
+assert.match(desktop,/\.workspace-layout \.workspace-main\s*\{[^}]*overflow-y:auto;/s,
+  "Main content must be the independent vertical scroll surface");
+const mobile=css.split("@media(max-width:768px){")[1]?.split("@media(max-width:390px){")[0];
+assert.match(mobile,/position:fixed;/,"Mobile drawer must retain viewport-fixed overlay");
+assert.match(css,/\.workspace-layout \.workspace-main\s*\{[^}]*overflow:visible!important;/s,
+  "Print styles must unclip full-length receipts and reports");
+
 console.log("Phase 16 navigation contract verified:",hrefs.length,"existing route links and accessibility states.");
