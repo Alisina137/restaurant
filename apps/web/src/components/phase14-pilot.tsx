@@ -5,6 +5,8 @@ import {ArrowLeft,ArrowRight,ClipboardCheck,ShieldCheck,RefreshCw,CheckCircle2,
  AlertTriangle,Clock3,FileText,Building2} from "lucide-react";
 import {useWorkspace} from "./workspace-provider";
 import {PilotOperationsSnapshot} from "./pilot-operations-snapshot";
+import {PilotIncidentRegister} from "./pilot-incident-register";
+import {p33} from "@/lib/pilot33-copy";
 import {postSaas,useSaasData} from "@/lib/phase12-api";
 import type {Locale} from "@dineflow/shared";
 
@@ -13,6 +15,7 @@ type Gate={key:string;title:string;help:string;review:{id:number;result:"passed"
 type Signature={id:number;decision:string;note:string;actorId:string;
  ownerSignoffId:number|null;fingerprint:string;createdAt:string};
 type Pilot={tenantId:string;gates:Gate[];completed:number;total:number;complete:boolean;
+ incidents:{total:number;open:number;blocking:number};
  fingerprint:string;ownerSignoff:Signature|null;platformDecision:Signature|null;
  status:"blocked"|"awaiting_owner"|"awaiting_platform"|"held"|"signed_off";
  canEdit?:boolean;restaurant?:{id:string;name:string;status:string}};
@@ -122,13 +125,21 @@ export function PilotReview({tenantId}:{tenantId?:string}){
  function submitGate(ev:FormEvent){
   ev.preventDefault();void submit("/api/pilot/gates",{key:selected,result,evidence});
  }
- const canApprove=data?.complete&&data.ownerSignoff?.fingerprint===data.fingerprint;
+ const canApprove=data?.complete&&data.incidents?.blocking===0&&
+  data.ownerSignoff?.fingerprint===data.fingerprint;
  return <div className="content-stack p14-console">
   {isPlatform&&<Link className="text-link" href="/platform/pilots"><ArrowLeft size={17}/>{t(locale,"back")}</Link>}
   <div className="page-heading"><div><span className="eyebrow">DINEFLOW / PILOT OPERATIONS</span>
    <h1>{data?.restaurant?.name??t(locale,"title")}</h1><p>{t(locale,"intro")}</p></div>
    <button className="button" onClick={()=>void load()} disabled={busy||loading}><RefreshCw size={16}/>{t(locale,"refresh")}</button></div>
   {!isPlatform&&<PilotOperationsSnapshot locale={locale} scopeKey={workspace.user.id+":"+(workspace.tenantId??"none")}/>}
+  {data&&data.incidents?.blocking>0&&<div className="p33-blocking-strip" role="alert">
+   <AlertTriangle size={21}/><strong>{data.incidents.blocking}</strong>
+   <span>{p33(locale,"platformBlock")}</span>
+  </div>}
+  {!isPlatform&&<PilotIncidentRegister key={workspace.user.id+":"+(workspace.tenantId??"none")}
+   locale={locale} scopeKey={workspace.user.id+":"+(workspace.tenantId??"none")}
+   isOwner={canEdit} onChanged={()=>void load()}/>}
   <div className="p14-notice" role="note"><AlertTriangle size={21}/><p>{t(locale,"limited")}</p></div>
   {error&&<div className="form-error" role="alert">{error}</div>}
   {problem&&<div className="form-error" role="alert">{problem}</div>}
@@ -182,7 +193,7 @@ export function PilotReview({tenantId}:{tenantId?:string}){
        onClick={()=>void submit(path+"/decision",{decision:"approved",note})}><CheckCircle2 size={17}/>{t(locale,"approve")}</button>
       <button className="button" disabled={note.trim().length<30||busy}
        onClick={()=>void submit(path+"/decision",{decision:"hold",note})}><AlertTriangle size={17}/>{t(locale,"hold")}</button>
-     </>:<button className="button button-primary" disabled={!data.complete||note.trim().length<30||busy}
+     </>:<button className="button button-primary" disabled={!data.complete||data.incidents?.blocking>0||note.trim().length<30||busy}
        onClick={()=>void submit("/api/pilot/signoff",{note})}><ShieldCheck size={17}/>{t(locale,"sign")}</button>}</div>
     {isPlatform&&!canApprove&&<p className="muted">{t(locale,"approveOnly")}</p>}
    </section>}
