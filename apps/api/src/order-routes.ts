@@ -59,7 +59,7 @@ orderRouter.post("/visits/:id/rounds",route(async(req,res)=>{
    // A stalled second waiter must not pin this checkout indefinitely. Keep
    // transaction-scoped lock timeout below the API's 180-second request limit.
    // A 55P03 is mapped to ORDER_STATUS_UNCERTAIN + same-key replay guidance.
-   await tx.execute(sql`SET LOCAL lock_timeout = '${CHECKOUT_LOCK_TIMEOUT_MS}ms'`);
+   await tx.execute(sql`SELECT set_config('lock_timeout', ${String(CHECKOUT_LOCK_TIMEOUT_MS)+"ms"}, true)`);
    // Visit's table lock provides one serial commit boundary for changes, seating and order rounds.
    const [target]=await tx.select({tableId:diningVisit.tableId}).from(diningVisit)
      .where(and(eq(diningVisit.id,visitId),eq(diningVisit.tenantId,scope.tenantId),
