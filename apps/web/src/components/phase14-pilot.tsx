@@ -4,6 +4,7 @@ import Link from "next/link";
 import {ArrowLeft,ArrowRight,ClipboardCheck,ShieldCheck,RefreshCw,CheckCircle2,
  AlertTriangle,Clock3,FileText,Building2} from "lucide-react";
 import {useWorkspace} from "./workspace-provider";
+import {PilotOperationsSnapshot} from "./pilot-operations-snapshot";
 import {postSaas,useSaasData} from "@/lib/phase12-api";
 import type {Locale} from "@dineflow/shared";
 
@@ -127,6 +128,7 @@ export function PilotReview({tenantId}:{tenantId?:string}){
   <div className="page-heading"><div><span className="eyebrow">DINEFLOW / PILOT OPERATIONS</span>
    <h1>{data?.restaurant?.name??t(locale,"title")}</h1><p>{t(locale,"intro")}</p></div>
    <button className="button" onClick={()=>void load()} disabled={busy||loading}><RefreshCw size={16}/>{t(locale,"refresh")}</button></div>
+  {!isPlatform&&<PilotOperationsSnapshot locale={locale} scopeKey={workspace.user.id+":"+(workspace.tenantId??"none")}/>}
   <div className="p14-notice" role="note"><AlertTriangle size={21}/><p>{t(locale,"limited")}</p></div>
   {error&&<div className="form-error" role="alert">{error}</div>}
   {problem&&<div className="form-error" role="alert">{problem}</div>}
