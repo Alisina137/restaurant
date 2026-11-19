@@ -238,3 +238,11 @@ Ensure `apps/api/.env`, `apps/web/.env.local`, `apps/mobile/.env` exist and cont
 - Set bounded HTTP reception timeouts and added partial index `order_outbox_pending_order_idx` for `delivered_at IS NULL` ordered reconciliation and oldest backlog. **Additive migration 0017; run `pnpm db:migrate`**.
 - Phase 36 unit, static contract and disposable protected HTTP/SQL-index checks; CI executes them via existing `pnpm test`, `pnpm phase35:verify` and Phase 35 API integration.
 - **Not complete:** real staging profiling, p95/p99 under actual phone/tablet load, incident and SLA attestation, physical printer, bank reconciliation, restore, customer experience or human pilot GO. See `docs/PHASE-36-ACCEPTANCE.md`. Next Phase 37: targeted bottleneck remediation using measured traces.
+
+## Phase 37 — Kitchen Queue & Multi-Line Checkout Efficiency
+- Waiter and approved guest carts (up to 40 priced lines) now commit all immutable order-line snapshots in one bounded multi-row INSERT inside the existing table/visit-locked, idempotent accepted-order transaction. Prices, modifier validations, audit, outbox and financial invariants are unchanged.
+- Kitchen card reads reuse a single authorized tenant/location scope, project ticket version/pickup acknowledgement from the paginated ticket row and only fetch bounded line snapshots. The redundant second session lookup and ticket query are gone.
+- Kitchen and management list/count queries no longer join `dining_visits` without need; waiter `/api/orders/my` **retains** the join and waiter-assignment predicate. Exact server-side tenant-scoped filtering and pagination remain.
+- P29 real seeded integration now exercises five line quantities/notes, per-line snapshots, total/idempotent replay, private role and cross-tenant boundaries, transitions and the pickup-ack card. Source checks: `pnpm phase37:verify`; full typecheck/tests/CI and P31 rush simulation still apply.
+- **No new migration/dependency.** Phase 36's database migration still required on instances not yet updated. No live staging performance claim, physical KDS/phone/receipt proof, cash sign-off or production release approval. See `docs/PHASE-37-ACCEPTANCE.md`.
+- Next Phase 38 should prioritize bottlenecks measured on staging, not invent service-level improvements.
