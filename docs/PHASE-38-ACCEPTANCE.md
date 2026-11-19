@@ -27,9 +27,9 @@ Menu changes remain within one transaction with an optimistic group version chec
 ### Automated acceptance
 
 - `pnpm phase38:verify`: verifies transaction-scoped locked cache construction; both waiter and guest flows use the same pricing path; per-line validation remains; modifier creations/edits are batched without dropping optimistic version/audit protection.
-- `pnpm --filter @dineflow/api exec tsx src/phase5-ci.ts`: extended actual seeded PostgreSQL integration now submits **40 lines sharing a meal and modifier group**, alternating selected options and quantities and preserving unique notes, validates every line's total, checks one accepted ticket/outbox record and idempotent replay, and confirms that a stale version on the last line rejects the entire transaction.
+- `pnpm --filter @dineflow/api exec tsx src/phase38-ci.ts`: **separate disposable CI-only PostgreSQL integration** (executed after fixture-dependent P05/P06 tests via `pnpm menu:stability:verify`) creates its own restaurant table and visit, submits **40 repeated-item lines** through the actual waiter HTTP API, alternates selected modifiers/quantities/notes, validates totals and kitchen cards, checks one accepted ticket/outbox event, retries idempotently, and rejects an invalid final line without a partial commit.
 - `pnpm --filter @dineflow/api exec tsx src/phase3-ci.ts`: extended actual seeded integration creates **30 modifier options at once** and edits the group retaining ten, adding two and deactivating 20 while preserving all 32 historical database records; stale group version rejected.
-- Existing CI runs both integrations, every earlier phase regression, TypeScript, production Next build, Phase 34 operational smoke and disposable Phase 31 simulated 20-table/200-order load rehearsal.
+- CI runs the standalone P38 checkout **after** P05/P06 to preserve their two-round fixture, in addition to P03, every earlier regression, TypeScript, production Next build, Phase 34 smoke and disposable Phase 31 simulated 20-table/200-order rehearsal.
 
 **Database migration:** None for Phase 38. Existing Phase 36 migration `0017` must have been applied already. **Dependencies:** None. Re-pull then restart the API and web servers to use the new code.
 
