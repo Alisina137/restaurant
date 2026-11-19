@@ -15,6 +15,9 @@ Server enforcement blocks creating new visits when a subscription is suspended o
 ## Phase 11 — Reporting and operational audit
 Restaurant owners and managers can open `/app/reports` to view real Sales, Items, Service and Audit data. The restaurant Overview displays live operational KPIs. Reports enforce a 90-day restaurant-business-date window, use settled check totals for sales, posted tenders/refunds for net cash collected, and support audited CSV downloads. Cashier and waiter roles do not have permission to export these management reports. See `docs/PHASE-11-ACCEPTANCE.md`.
 
+## Development Interface Launcher (local-only)
+Run `pnpm dev:api` and `pnpm dev:web` in separate PowerShell terminals, then open **http://localhost:3000/dev/interfaces**. A premium six-card developer page links to management, kitchen, cashier and platform web roles, gives the waiter Expo Go launch command, and safely opens a real customer QR entry when an issued table link is pasted. It checks the public API readiness endpoint, explains independent staff sign-ins and the guest PIN requirement, and is localized in English, Dari and Pashto. It has **no authentication bypass**, no synthetic orders and no demo passwords. Production builds return **404** at the launcher route. For instructions see `docs/DEV-INTERFACE-LAUNCHER.md`.
+
 ## Workspace
 - `apps/api` — Express 4, Drizzle/PostgreSQL, Better Auth, roles, menu, floor and kitchen/notification APIs (port **4000**).
 - `apps/web` — Next.js 16, owner/manager, kitchen, cashier and platform workspaces (port **3000**).
