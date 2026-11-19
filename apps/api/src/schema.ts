@@ -1,4 +1,5 @@
 import { bigint, bigserial, boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {isNull} from "drizzle-orm";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(), name: text("name").notNull(), email: text("email").notNull().unique(),
@@ -317,7 +318,11 @@ export const orderOutbox=pgTable("order_outbox",{
  payload:jsonb("payload").$type<Record<string,unknown>>().notNull(),
  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
  deliveredAt:timestamp("delivered_at",{withTimezone:true})
-},t=>[index("order_outbox_tenant_idx").on(t.tenantId,t.locationId,t.createdAt)]);
+},t=>[
+ index("order_outbox_tenant_idx").on(t.tenantId,t.locationId,t.createdAt),
+ // Matches the reconciler's oldest-pending selection and operations MIN(created_at).
+ index("order_outbox_pending_order_idx").on(t.createdAt,t.id).where(isNull(t.deliveredAt))
+]);
 export const orderRevision=pgTable("order_revisions",{
  locationId:text("location_id").primaryKey().references(()=>location.id),
  tenantId:text("tenant_id").notNull().references(()=>tenant.id),
