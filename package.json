@@ -41,7 +41,8 @@
     "ops:preflight": "node scripts/release34-preflight.mjs",
     "ops:preflight:verify": "node --test scripts/release34-preflight.test.mjs",
     "dev:mobile:lan": "node scripts/dev-mobile-with-ngrok.mjs --lan",
-    "mobile:tunnel:verify": "node --test scripts/dev-mobile-with-ngrok.test.mjs"
+    "mobile:tunnel:verify": "node --test scripts/dev-mobile-with-ngrok.test.mjs",
+    "phase35:verify": "node scripts/verify-phase35.mjs"
   },
   "devDependencies": {
     "cross-env": "^7.0.3"
