@@ -128,6 +128,47 @@
   .workspace-layout[data-collapsed="true"] .workspace-sidebar-footer .workspace-nav-link {
     width:46px; min-width:46px;
   }
+  /* Keep the desktop workspace in one viewport: the content pane scrolls
+     independently, while the brand, navigation rail, and account actions remain
+     in place. The navigation list itself may scroll if it exceeds the viewport. */
+  .workspace-layout {
+    height:100vh; /* fallback for browsers without dynamic viewport units */
+    height:100dvh;
+    min-height:0;
+    overflow:hidden;
+  }
+  .workspace-layout .sidebar {
+    position:relative;
+    top:auto;
+    height:100%;
+    min-height:0;
+    flex-shrink:0;
+  }
+  .workspace-layout .sidebar-nav.workspace-sidebar-nav {
+    min-height:0;
+  }
+  .workspace-layout .workspace-column {
+    height:100%;
+    min-height:0;
+    min-width:0;
+    overflow:hidden;
+  }
+  .workspace-layout .workspace-header,
+  .workspace-layout .workspace-offline {
+    flex-shrink:0;
+  }
+  .workspace-layout .workspace-header {
+    position:relative;
+    top:auto;
+  }
+  .workspace-layout .workspace-main {
+    min-height:0;
+    min-width:0;
+    flex:1 1 auto;
+    overflow-y:auto;
+    overscroll-behavior-y:contain;
+    scrollbar-gutter:stable;
+  }
 }
 @media(max-width:768px){
   .workspace-layout,.workspace-layout[dir="rtl"] {display:block;}
@@ -222,4 +263,13 @@
 @media print{
   .workspace-layout .sidebar,.workspace-header,.workspace-drawer-scrim {display:none!important;}
   .workspace-layout .workspace-column,.workspace-layout .workspace-main {padding:0!important;display:block!important;}
+  /* Print receipts, invoices and reports in full instead of clipping them
+     to the viewport-height desktop content scroll container. */
+  .workspace-layout,
+  .workspace-layout .workspace-column,
+  .workspace-layout .workspace-main {
+    height:auto!important;
+    min-height:0!important;
+    overflow:visible!important;
+  }
 }
