@@ -37,8 +37,12 @@ export async function acceptGuest(tx:Tx,scope:Scope,order:Submission,approvedBy:
    idempotencyKey:order.idempotencyKey,requestHash:order.requestHash,source:"guest_qr",status:"accepted",
    currency:"AFN",subtotalMinor:priced.subtotal,taxMinor:0,serviceMinor:0,totalMinor:priced.subtotal,
    orderNote:order.orderNote});
- for(let i=0;i<priced.lines.length;i++)await tx.insert(orderLine).values({id:randomUUID(),
-   tenantId:scope.tenantId,locationId:scope.locationId,roundId,lineIndex:i,...priced.lines[i]!});
+ // Bounded 1–40 priced lines are committed in one atomic SQL statement.
+ // Retain original pricing snapshots and line indices on approval/replay.
+ await tx.insert(orderLine).values(priced.lines.map((line,i)=>({
+   id:randomUUID(),tenantId:scope.tenantId,locationId:scope.locationId,
+   roundId,lineIndex:i,...line
+ })));
  const [table]=await tx.select({label:diningTable.label}).from(diningTable).where(and(
    eq(diningTable.id,visit.tableId),eq(diningTable.tenantId,scope.tenantId))).limit(1);
  if(!table)fail(409,"TABLE_UNAVAILABLE","Table is unavailable.");
