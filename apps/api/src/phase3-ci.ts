@@ -68,6 +68,56 @@ async function main(){
   const group=await expect<{id:string}>(await call("/api/menu/groups",{cookie:owner,method:"POST",body:grp()}),201);
   const options=await expect<{groups:{id:string;options:{id:string}[]}[]}>(await call("/api/menu/editor",{cookie:owner}),200);
   assert.equal(options.groups.find(g=>g.id===group.id)?.options.length,2);
+  // P38: stress the bounded group editor with the full 30-option input.
+  // Both creation and updating new options must be transactional, while
+  // omitted existing options remain inactive for historical order snapshots.
+  const thirty={
+    nameFa:"گزینه‌های فاز ۳۸",namePs:"د ۳۸ پړاو غوراوي",nameEn:"P38 Bulk Choices",
+    selectionMode:"multiple",minSelections:0,maxSelections:3,
+    options:Array.from({length:30},(_,i)=>({
+      nameFa:"انتخاب "+i,namePs:"غوراوی "+i,nameEn:"P38 Option "+i,
+      deltaMinor:i*100,active:true,sortOrder:i
+    }))
+  };
+  const largeGroup=await expect<{id:string}>(await call("/api/menu/groups",{
+    cookie:owner,method:"POST",body:thirty
+  }),201);
+  const editorBefore=await expect<{groups:{id:string;version:number;options:{
+    id:string;nameFa:string;namePs:string;nameEn:string;deltaMinor:number;
+    active:boolean;sortOrder:number}[]}[]}>(await call("/api/menu/editor",{
+      cookie:owner
+    }),200);
+  const beforeOptions=editorBefore.groups.find(x=>x.id===largeGroup.id);
+  assert.ok(beforeOptions&&beforeOptions.options.length===30,
+    "One batched insert must commit all 30 independent options");
+  assert.equal(new Set(beforeOptions.options.map(x=>x.id)).size,30);
+  const keep=beforeOptions.options.slice(0,10);
+  const extraOptions=Array.from({length:2},(_,i)=>({
+    nameFa:"تازه "+i,namePs:"نوی "+i,nameEn:"P38 New "+i,
+    deltaMinor:3200+i*100,active:true,sortOrder:30+i
+  }));
+  const patch={...thirty,version:1,options:[
+    ...keep.map(({id,nameFa,namePs,nameEn,deltaMinor,active,sortOrder})=>
+      ({id,nameFa,namePs,nameEn,deltaMinor,active,sortOrder})),
+    ...extraOptions
+  ]};
+  assert.equal((await call("/api/menu/groups/"+largeGroup.id,{
+    cookie:owner,method:"PATCH",body:patch})).status,200);
+  assert.equal((await call("/api/menu/groups/"+largeGroup.id,{
+    cookie:owner,method:"PATCH",body:patch})).status,409,
+    "Version-stale modifier updates remain rejected after batching");
+  const editorAfter=await expect<{groups:{id:string;version:number;options:{
+    id:string;active:boolean;nameEn:string}[]}[]}>(await call("/api/menu/editor",{
+      cookie:owner
+    }),200);
+  const afterOptions=editorAfter.groups.find(x=>x.id===largeGroup.id);
+  assert.ok(afterOptions&&afterOptions.version===2);
+  assert.equal(afterOptions.options.length,32,
+    "Removed options retained as inactive and two additions inserted");
+  assert.equal(afterOptions.options.filter(x=>x.active).length,12);
+  assert.equal(afterOptions.options.filter(x=>!x.active).length,20);
+  assert.ok(extraOptions.every(x=>afterOptions.options.some(y=>y.nameEn===x.nameEn&&y.active)));
+
   const premature=await call("/api/menu/items",{method:"POST",cookie:owner,body:meal(c1.id,[group.id])});
   assert.equal(premature.status,409,"cannot publish under draft category");
   assert.equal((await call("/api/menu/categories/"+c1.id,{cookie:owner,method:"PATCH",body:{...cat("غذاهای گرم",true),version:1}})).status,200);
