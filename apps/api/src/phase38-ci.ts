@@ -143,7 +143,7 @@ async function main(){
   [{...lines[39]!,selections:[{
     ...lines[39]!.selections[0]!,optionIds:[randomUUID()]}]},"INVALID_MODIFIERS"]
  ] as const){
-  const faulty={...payload,idempotencyKey:"p38_"+randomUUID().replaceAll("-"),
+  const faulty={...payload,idempotencyKey:"p38_"+randomUUID().replaceAll("-",""),
    lines:[...lines.slice(0,39),change]};
   const invalid=await request("/api/orders/visits/"+opened.visit.id+"/rounds",
    "POST",faulty,waiter);
