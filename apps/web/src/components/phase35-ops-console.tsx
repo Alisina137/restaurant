@@ -132,7 +132,7 @@ export function PlatformOperationsPulse(){
      role={severity==="urgent"?"alert":"status"}>
     {severity==="ok"?<ShieldCheck size={20} aria-hidden="true"/>:
      <ShieldAlert size={20} aria-hidden="true"/>}
-    <strong>{copy["status_"+severity]}</strong>
+    <strong>{copy[severity==="ok"?"status_ok":severity==="urgent"?"status_urgent":"status_investigate"]}</strong>
     <span>{dateTime(data.checkedAt,locale)}</span>
    </div>
    <div className="p35-ops-grid">
