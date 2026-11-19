@@ -68,6 +68,7 @@ jobs:
       - run: pnpm pilot32:verify
       - run: pnpm pilot33:verify
       - run: pnpm dev:interfaces:verify
+      - run: pnpm ops:preflight:verify
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build:web
@@ -109,6 +110,21 @@ jobs:
           done
           cat /tmp/dineflow-api.log
           exit 1
+      - name: Phase 34 built-web and disposable-API release smoke (CI simulation)
+        shell: bash
+        env:
+          CI: "true"
+        run: |
+          NODE_ENV=production pnpm --filter @dineflow/web start > /tmp/dineflow-web-phase34.log 2>&1 &
+          web_pid=$!
+          trap 'kill "$web_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 35); do
+            code=$(curl -s --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/login || true)
+            if [ "$code" = "200" ]; then break; fi
+            if [ "$attempt" = "35" ]; then cat /tmp/dineflow-web-phase34.log; exit 1; fi
+            sleep 1
+          done
+          pnpm ops:preflight --ci-local --api-origin http://127.0.0.1:4000 --web-origin http://127.0.0.1:3000
       - run: pnpm --filter @dineflow/api test:integration
       - run: pnpm --filter @dineflow/api exec tsx src/phase2-ci.ts
       - run: pnpm --filter @dineflow/api exec tsx src/phase3-ci.ts
