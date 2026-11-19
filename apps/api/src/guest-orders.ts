@@ -75,7 +75,7 @@ guestOrdersRouter.post("/orders",route(async(req,res)=>{
  const created=await db.transaction(async tx=>{
    // The same fail-closed lock budget also covers direct-to-kitchen guest
    // submissions; guest recovery still uses its existing /orders/by-key/:key.
-   await tx.execute(sql`SET LOCAL lock_timeout = '${CHECKOUT_LOCK_TIMEOUT_MS}ms'`);
+   await tx.execute(sql`SELECT set_config('lock_timeout', ${String(CHECKOUT_LOCK_TIMEOUT_MS)+"ms"}, true)`);
    await lockedGuest(tx,scope);
    await orderGuard(tx,scope,scope.visitId);
    const [existing]=await tx.select().from(guestSubmission).where(and(
