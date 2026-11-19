@@ -131,10 +131,61 @@ async function main(){
     {...payload,idempotencyKey:"p05-second-"+crypto.randomUUID(),
       lines:[{...lines[0],itemVersion:2}]},waiter),201);
  assert.equal(second.round.roundNumber,2);assert.equal(second.round.totalMinor,87000);
+ // P38: 40 repeated meal lines must retain distinct quantities, notes and
+ // modifier selections while sharing a single transaction-local locked price
+ // snapshot. Cached option rows must NOT leak the first line's choices.
+ const small=groupData.options.find(option=>option.deltaMinor===0);
+ assert.ok(small,"Original modifier list must have its zero-price choice");
+ const repeatedLines=Array.from({length:40},(_,index)=>({
+  itemId:meal.id,itemVersion:2,quantity:index%3+1,
+  note:"P38 unique line "+(index+1),
+  selections:[{groupId:mod.id,version:groupData.version,
+   optionIds:[index%2===0?small.id:selected.id]}]
+ }));
+ const repeatedSubtotal=repeatedLines.reduce((sum,line,index)=>
+  sum+(41000+(index%2===0?0:2500))*line.quantity,0);
+ const repeatPayload={idempotencyKey:"p38-repeat-"+crypto.randomUUID(),
+  note:"Forty line checkout",lines:repeatedLines};
+ const repeated=await expect<{created:boolean;
+   round:{id:string;roundNumber:number;totalMinor:number};
+   lines:{quantity:number;note:string;lineTotalMinor:number;
+    modifierSnapshot:{options:{deltaMinor:number}[]}[]}[]}>(
+  await call("/api/orders/visits/"+table.visitId+"/rounds","POST",
+    repeatPayload,waiter),201);
+ assert.equal(repeated.created,true);assert.equal(repeated.round.roundNumber,3);
+ assert.equal(repeated.round.totalMinor,repeatedSubtotal);
+ assert.equal(repeated.lines.length,40,"All 40 distinct cart lines committed");
+ repeated.lines.forEach((line,index)=>{
+  assert.equal(line.quantity,repeatedLines[index]!.quantity);
+  assert.equal(line.note,repeatedLines[index]!.note);
+  assert.equal(line.modifierSnapshot[0]?.options[0]?.deltaMinor,index%2===0?0:2500,
+   "Each line's modifier price must be independent of reused locked option rows");
+  assert.equal(line.lineTotalMinor,(41000+(index%2===0?0:2500))*line.quantity);
+ });
+ const replay=await expect<{created:boolean;round:{id:string}}>(
+  await call("/api/orders/visits/"+table.visitId+"/rounds","POST",
+   repeatPayload,waiter),200);
+ assert.equal(replay.created,false);
+ assert.equal(replay.round.id,repeated.round.id);
+ const [repeatOutbox]=await db.select({n:count()}).from(orderOutbox)
+  .where(eq(orderOutbox.roundId,repeated.round.id));
+ const [repeatTickets]=await db.select({n:count()}).from(kitchenTicket)
+  .where(eq(kitchenTicket.roundId,repeated.round.id));
+ assert.equal(repeatOutbox?.n,1,"One durable event for repeated-line checkout");
+ assert.equal(repeatTickets?.n,1,"One kitchen ticket for repeated-line checkout");
+ assert.equal((await call("/api/orders/visits/"+table.visitId+"/rounds","POST",
+  {...repeatPayload,idempotencyKey:"p38-invalid-"+crypto.randomUUID(),
+   lines:repeatedLines.map((line,index)=>index===39?{...line,itemVersion:1}:line)},waiter)).status,409,
+  "Stale price/version anywhere in a repeated cart must reject the whole cart");
+ assert.equal((await call("/api/orders/visits/"+table.visitId+"/rounds","POST",
+  {...repeatPayload,idempotencyKey:"p38-invalid-"+crypto.randomUUID(),
+   lines:repeatedLines.map((line,index)=>index===39?
+    {...line,selections:[{...line.selections[0]!,version:999}]}:line)},waiter)).status,409,
+  "Stale modifier version on the last repeated line must fail the whole cart");
  const visitOrders=await expect<{rounds:{id:string}[];estimateMinor:number}>(
   await call("/api/orders/visits/"+table.visitId+"/rounds","GET",undefined,waiter),200);
  assert.ok(visitOrders.rounds.some(r=>r.id===first.round.id));
- assert.equal(visitOrders.estimateMinor,81000+87000);
+ assert.equal(visitOrders.estimateMinor,81000+87000+repeatedSubtotal);
  const revision=await expect<{version:number}>(await call("/api/orders/revision","GET",undefined,kitchen),200);
  assert.ok(revision.version>=4,"events version increments for accepted and preparation");
  const activity=await db.select().from(orderActivity).where(eq(orderActivity.roundId,first.round.id));
