@@ -142,19 +142,29 @@ async function list(req:import("express").Request,mode:"mine"|"management"|"kitc
    inArray(kitchenTicket.status,statuses),
    table?ilike(kitchenTicket.tableLabel,"%"+safeTable+"%"):undefined,
    mode==="mine"?eq(diningVisit.waiterId,scope.actorId):undefined);
- const [items,totals]=await Promise.all([
-  db.select({id:orderRound.id,roundNumber:orderRound.roundNumber,visitId:orderRound.visitId,
-    tableId:orderRound.tableId,tableLabel:kitchenTicket.tableLabel,
+ // There is no waiter assignment predicate on kitchen or manager pages;
+ // their rounds already have FK-backed visits. Avoid joining dining_visits on
+ // every polling page and exact count, but retain the waiter assignment join
+ // for /my so scope cannot broaden for a waiter.
+ const baseRows=db.select({id:orderRound.id,roundNumber:orderRound.roundNumber,
+    visitId:orderRound.visitId,tableId:orderRound.tableId,tableLabel:kitchenTicket.tableLabel,
     totalMinor:orderRound.totalMinor,orderNote:orderRound.orderNote,
     createdAt:orderRound.createdAt,status:kitchenTicket.status,ticketId:kitchenTicket.id,
     ticketVersion:kitchenTicket.version,pickupAcknowledgedAt:kitchenTicket.pickupAcknowledgedAt,
     startedAt:kitchenTicket.startedAt,readyAt:kitchenTicket.readyAt,
-    submittedBy:orderRound.submittedBy}).from(orderRound)
-    .innerJoin(kitchenTicket,eq(kitchenTicket.roundId,orderRound.id))
-    .innerJoin(diningVisit,eq(diningVisit.id,orderRound.visitId))
-    .where(where).orderBy(asc(orderRound.createdAt)).limit(10).offset((page-1)*10),
-  db.select({n:count()}).from(orderRound).innerJoin(kitchenTicket,eq(kitchenTicket.roundId,orderRound.id))
-    .innerJoin(diningVisit,eq(diningVisit.id,orderRound.visitId)).where(where)
+    submittedBy:orderRound.submittedBy})
+   .from(orderRound)
+   .innerJoin(kitchenTicket,eq(kitchenTicket.roundId,orderRound.id)).$dynamic();
+ const baseCount=db.select({n:count()}).from(orderRound)
+   .innerJoin(kitchenTicket,eq(kitchenTicket.roundId,orderRound.id)).$dynamic();
+ const rowsQuery=mode==="mine"?
+   baseRows.innerJoin(diningVisit,eq(diningVisit.id,orderRound.visitId)):baseRows;
+ const countQuery=mode==="mine"?
+   baseCount.innerJoin(diningVisit,eq(diningVisit.id,orderRound.visitId)):baseCount;
+ const [items,totals]=await Promise.all([
+  rowsQuery.where(where).orderBy(asc(orderRound.createdAt))
+   .limit(10).offset((page-1)*10),
+  countQuery.where(where)
  ]);
  return {items,total:totals[0]?.n??0,page,perPage:10};
 }
