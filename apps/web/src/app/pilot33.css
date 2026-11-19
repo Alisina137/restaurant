@@ -1,0 +1,91 @@
+/* P33: premium operational incident register; no automated safety clearance. */
+.p33-panel{display:grid;gap:15px;min-width:0;padding:clamp(16px,2vw,24px);
+ background:linear-gradient(153deg,#fff,#f7fafb);border:1px solid #d5e2e8;
+ border-radius:18px;box-shadow:0 9px 32px rgba(22,58,85,.05)}
+.p33-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:13px}
+.p33-header-title{display:flex;gap:13px;align-items:flex-start;min-width:0}
+.p33-icon{width:47px;height:47px;display:grid;place-items:center;background:#e3eff3;
+ color:#336a81;border-radius:14px;flex:none}
+.p33-header .eyebrow{letter-spacing:.1em;color:#618c9e;font-size:10px;font-weight:900}
+.p33-header h2{margin:3px 0 6px;color:#193b50;font-size:clamp(19px,2.3vw,25px);font-weight:900}
+.p33-header p{margin:0;line-height:1.7;color:#587582;font-size:12px;max-width:770px}
+.p33-button{font:inherit;border:1px solid #c5d8de;background:white;color:#255971;
+ border-radius:10px;padding:9px 13px;min-height:46px;display:inline-flex;gap:8px;
+ align-items:center;justify-content:center;font-size:12px;font-weight:800;cursor:pointer}
+.p33-button:hover:not(:disabled){border-color:#8aaeba;background:#f4fafc}
+.p33-button:focus-visible,.p33-form input:focus-visible,.p33-form select:focus-visible,
+.p33-form textarea:focus-visible,.p33-action-form textarea:focus-visible,
+.p33-subpanel select:focus-visible{outline:3px solid #76a9c2;outline-offset:3px}
+.p33-button:disabled{opacity:.55;cursor:not-allowed}
+.p33-primary{background:#246c85;color:white;border-color:#246c85}
+.p33-primary:hover:not(:disabled){background:#1d5971;color:white}
+.p33-policy{display:flex;align-items:flex-start;gap:9px;border:1px solid #e5cdac;
+ background:#fff9ef;color:#77552e;border-radius:11px;padding:12px;
+ line-height:1.7;font-size:12px}
+.p33-policy svg{flex:none;margin-top:1px}
+.p33-error{border:1px solid #e0a998;background:#fff2ee;color:#8d3a25;
+ border-radius:11px;padding:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.p33-error button{background:#fff;border:1px solid #e0a998;border-radius:9px;padding:9px 14px}
+.p33-success{border:1px solid #b5dbc2;background:#f0faf2;color:#286342;
+ border-radius:11px;padding:12px}
+.p33-dual{display:grid;grid-template-columns:1.25fr 1fr;gap:12px;align-items:stretch}
+.p33-subpanel{background:white;border:1px solid #dce7eb;border-radius:13px;
+ padding:15px;display:grid;align-content:start;gap:12px;min-width:0}
+.p33-subheading{display:flex;gap:8px;align-items:center;color:#315a71}
+.p33-subheading h3{margin:0;font-size:15px;color:#23465a}
+.p33-form{display:grid;gap:11px}
+.p33-form-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.p33-form label,.p33-subpanel label,.p33-action-form label{display:grid;gap:6px;
+ font-size:12px;font-weight:800;color:#446676}
+.p33-form input,.p33-form select,.p33-form textarea,.p33-subpanel select,
+.p33-action-form textarea{width:100%;min-width:0;min-height:45px;
+ border:1px solid #c4dbe2;background:#fff;color:#234c5d;border-radius:9px;
+ padding:10px 11px;font:inherit;font-size:13px}
+.p33-form textarea,.p33-action-form textarea{resize:vertical;line-height:1.6}
+.p33-verified{display:grid;gap:9px;padding:13px;border-radius:10px;
+ background:#f3f8fa;color:#496b78;font-size:12px}
+.p33-verified>span{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.p33-verified strong{font-size:23px;color:#25516b}
+.p33-operator-note{font-size:12px;line-height:1.7;color:#597888}
+.p33-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.p33-incident{display:grid;gap:12px;min-width:0;padding:16px;border-radius:14px;
+ border:1px solid #d9e5e9;background:white}
+.p33-incident.p33-blocking{border-color:#e8c6ad;background:#fffdf9}
+.p33-incident-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.p33-tag{font-size:10px;padding:5px 9px;border-radius:100px;
+ background:#edf3f6;color:#42677b;font-weight:900;line-height:1.35}
+.p33-tag.p33-p0{background:#ffebe8;color:#a83b2b}
+.p33-tag.p33-p1{background:#fff1e1;color:#9c561d}
+.p33-tag.p33-p2{background:#ecf4fc;color:#356a9a}
+.p33-tag.p33-open{background:#fff1d9;color:#8d621b}
+.p33-tag.p33-resolved{background:#eaf8ee;color:#26734a}
+.p33-incident h3{margin:0;color:#264a5f;font-size:16px;overflow-wrap:anywhere}
+.p33-description{margin:0;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;
+ color:#546c78;font-size:13px}
+.p33-footline{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;
+ font-size:11px;color:#7a8e98}
+.p33-actions{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
+.p33-action-form{display:grid;gap:10px;background:#f3f7f9;border-radius:10px;
+ padding:12px;align-content:start}
+.p33-action-form p{margin:0;font-size:11px;color:#5b7280;line-height:1.65}
+.p33-history{border-top:1px solid #dce6eb;padding-top:12px;min-width:0}
+.p33-history h4{margin:0 0 9px;color:#31576c;font-size:14px}
+.p33-history ol{display:grid;gap:9px;padding-inline-start:22px;margin:0}
+.p33-history li{font-size:12px;color:#657b88}
+.p33-history li strong{color:#30586b;margin-inline-end:8px}
+.p33-history li p{margin:4px 0 0;line-height:1.7;white-space:pre-wrap;
+ overflow-wrap:anywhere}
+.p33-empty,.p33-loading{border:1px dashed #cbdfe5;padding:22px;text-align:center;
+ color:#607a87;border-radius:12px;background:white;font-size:13px}
+.p33-pagination{display:flex;justify-content:center;align-items:center;
+ flex-wrap:wrap;gap:12px;color:#607b87;font-size:13px}
+.p33-blocking-strip{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+ border-radius:12px;padding:12px 15px;border:1px solid #dfab96;background:#fff2ee;
+ color:#8c3b28;font-size:13px;font-weight:800;line-height:1.6}
+.p33-blocking-strip svg{flex:none}
+.p33-blocking-strip strong{font-size:20px}
+@media(max-width:980px){.p33-dual,.p33-list{grid-template-columns:1fr}}
+@media(max-width:540px){.p33-form-row{grid-template-columns:1fr}.p33-header>.p33-button{width:100%}
+ .p33-incident{padding:12px}.p33-actions>.p33-button{flex:1}}
+@media(prefers-reduced-motion:reduce){.p33-panel *{scroll-behavior:auto}}
+@media print{.p33-form,.p33-actions,.p33-pagination{display:none!important}}
