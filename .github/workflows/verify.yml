@@ -67,11 +67,36 @@ jobs:
       - run: pnpm kitchen31:verify
       - run: pnpm pilot32:verify
       - run: pnpm pilot33:verify
+      - run: pnpm dev:interfaces:verify
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build:web
         env:
           NEXT_PUBLIC_API_URL: http://localhost:4000
+      - name: Assert development interface launcher is absent in production
+        env:
+          NODE_ENV: production
+        shell: bash
+        run: |
+          pnpm --filter @dineflow/web start > /tmp/dineflow-web-launcher.log 2>&1 &
+          web_pid=$!
+          trap 'kill "$web_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 35); do
+            code=$(curl -s --output /tmp/dineflow-dev-launcher-check --write-out '%{http_code}' http://127.0.0.1:3000/dev/interfaces || true)
+            if [ "$code" = "404" ]; then
+              echo "PASS: /dev/interfaces returns HTTP 404 in production"
+              exit 0
+            fi
+            if [ "$code" != "000" ]; then
+              echo "Expected production dev route HTTP 404, got $code"
+              cat /tmp/dineflow-web-launcher.log
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "Production Next.js did not start"
+          cat /tmp/dineflow-web-launcher.log
+          exit 1
       - run: pnpm db:migrate
       - run: pnpm seed:dev
       - name: Boot API and wait for readiness
