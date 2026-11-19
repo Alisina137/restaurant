@@ -694,3 +694,32 @@ export const pilotSignoffEvent=pgTable("pilot_signoff_events",{
  note:text("note").notNull(),actorId:text("actor_id").notNull().references(()=>user.id),
  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
 },t=>[index("pilot_signoff_tenant_order_idx").on(t.tenantId,t.id)]);
+
+/** P33 observed pilot incident register: business state plus immutable event trail. */
+export const pilotIncident=pgTable("pilot_incidents",{
+ id:text("id").primaryKey(),
+ tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ gateKey:text("gate_key").notNull(),severity:text("severity").notNull(),
+ title:text("title").notNull(),details:text("details").notNull(),
+ status:text("status").notNull().default("open"),
+ version:integer("version").notNull().default(1),
+ openedBy:text("opened_by").notNull().references(()=>user.id),
+ resolvedAt:timestamp("resolved_at",{withTimezone:true}),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+ updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[index("pilot_incidents_tenant_status_idx").on(t.tenantId,t.status,t.severity,t.createdAt,t.id)]);
+export const pilotIncidentEvent=pgTable("pilot_incident_events",{
+ id:bigserial("id",{mode:"number"}).primaryKey(),
+ tenantId:text("tenant_id").notNull().references(()=>tenant.id),
+ incidentId:text("incident_id").notNull().references(()=>pilotIncident.id),
+ action:text("action").notNull(),
+ severity:text("severity").notNull(),
+ gateKey:text("gate_key").notNull(),
+ note:text("note").notNull(),
+ actorId:text("actor_id").notNull().references(()=>user.id),
+ version:integer("version").notNull(),
+ createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow()
+},t=>[
+ uniqueIndex("pilot_incident_events_version_unique").on(t.incidentId,t.version),
+ index("pilot_incident_events_tenant_order_idx").on(t.tenantId,t.id)
+]);

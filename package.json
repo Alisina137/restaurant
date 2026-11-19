@@ -30,6 +30,7 @@
     "kitchen30:verify": "node scripts/verify-kitchen30.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/kitchen30-ci.ts",
     "kitchen31:verify": "node scripts/verify-kitchen31.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/kitchen31-ci.ts",
     "pilot32:verify": "node scripts/verify-pilot32.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/pilot32-ci.ts",
+    "pilot33:verify": "node scripts/verify-pilot33.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/pilot33-ci.ts",
     "pilot31:rehearse": "pnpm --filter @dineflow/api exec tsx src/phase31-load.ts",
     "typecheck": "pnpm --filter @dineflow/shared typecheck && pnpm --filter @dineflow/api typecheck && pnpm --filter @dineflow/web typecheck && pnpm --filter @dineflow/mobile typecheck",
     "test": "pnpm --filter @dineflow/shared test && pnpm --filter @dineflow/api test",
