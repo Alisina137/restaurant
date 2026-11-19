@@ -60,7 +60,7 @@ export function expoArguments(argv=[]){
 export function expoRunnerCommand(expoArgs,env=process.env,platform=process.platform,nodePath=process.execPath){
  const pnpmArgs=["--filter","@dineflow/mobile","exec","expo",...expoArgs];
  const entry=env.npm_execpath;
- if(entry&&/\\.(?:c|m)?js$/i.test(entry)&&existsSync(entry)){
+ if(entry&&/\.(?:c|m)?js$/i.test(entry)&&existsSync(entry)){
   return {command:nodePath,args:[entry,...pnpmArgs]};
  }
  if(platform==="win32"){
