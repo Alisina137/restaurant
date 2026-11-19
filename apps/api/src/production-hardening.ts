@@ -1,6 +1,7 @@
 import type {Request,RequestHandler} from "express";
 import {randomUUID} from "node:crypto";
 import {performance} from "node:perf_hooks";
+import {httpPerformanceMonitor} from "./phase36-performance";
 
 /** Fail closed on unsafe deployment configuration, without affecting local Expo/Next development. */
 export function validateProductionEnvironment(env:NodeJS.ProcessEnv=process.env):void{
@@ -81,9 +82,15 @@ export const hardenedHeadersAndLogs:RequestHandler=(req,res,next)=>{
  if(process.env.NODE_ENV==="production")res.setHeader("Strict-Transport-Security","max-age=31536000");
  const started=performance.now();
  res.on("finish",()=>{
+  const durationMs=Math.round(performance.now()-started);
+  // Never include raw URLs, opaque QR/PIN paths or payloads in measurements.
+  // Ignore health probes to prevent liveness checks skewing real API percentiles.
   if(req.path.startsWith("/api/health")&&res.statusCode<400)return;
-  console.info(JSON.stringify({kind:"http",requestId:id,route:safeRouteCategory(req),
-   method:req.method,status:res.statusCode,durationMs:Math.round(performance.now()-started)}));
+  const category=safeRouteCategory(req);
+  if(req.path.startsWith("/api/")&&!req.path.startsWith("/api/health"))
+   httpPerformanceMonitor.record(category,res.statusCode,durationMs);
+  console.info(JSON.stringify({kind:"http",requestId:id,route:category,
+   method:req.method,status:res.statusCode,durationMs}));
  });
  next();
 };
