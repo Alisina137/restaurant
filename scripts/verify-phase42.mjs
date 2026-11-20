@@ -42,7 +42,8 @@ assert.ok(cashier.includes('<FinanceShiftReconciliation key={current.shift.id}')
 assert.ok(manager.includes('<FinanceShiftReconciliation key={row.shift.id}')&&
  manager.includes('reviewShiftId&&history?.items.some'),
  "Owner/manager must inspect open staff and closed shifts");
-assert.ok(ci.includes('original.receipt')||ci.includes('current.data.receipts.receiptCount>0'));
+assert.ok(ci.includes("current.data.receipts.receiptCount+supervised.receipts.receiptCount>0"),
+ "Settled receipt may be linked to either winner of P09 concurrent cashier/owner tender");
 assert.ok(ci.includes("One")||ci.includes("auditBefore"));
 assert.ok(workflow.includes("src/phase42-ci.ts"),"Real seeded finance integration must be in CI");
 assert.ok(layout.includes('import "./finance42.css"'));
