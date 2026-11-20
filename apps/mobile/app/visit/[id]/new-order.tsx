@@ -13,6 +13,7 @@ import {m25,type Mobile25Key} from "../../../src/mobile25-copy";
 import {type MenuData,type MenuItem,type CartLine,type OrderDraft,price,nameOf,cartPrice} from "../../../src/order-types";
 import {freshDraft,readDraft,saveDraft,clearDraft,readSubmissionPending,markSubmissionPending,clearSubmissionPending} from "../../../src/order-drafts";
 import {addCartLine,reviewCart,issueForLine,setLineQuantity,removeLine,setOrderNote} from "../../../src/mobile25-cart";
+import {reconcilePendingOrder} from "../../../src/mobile40-recovery";
 import {MenuCard,ItemOptionsModal,useMenuCookie} from "../../../src/order-ui";
 import {LiveNotice,LoadingPanel,EmptyPanel,Pill} from "../../../src/mobile23-ui";
 
@@ -181,13 +182,25 @@ export default function NewOrder(){
     await markSubmissionPending(userId,tenantId,id,snapshot.idempotencyKey);
     prepared=true;
    }else prepared=true;
-   // An uncertain prior POST is replayed unchanged. Server checks idempotency before
-   // checking whether its visit subsequently closed.
-   postAttempted=true;
-   const response=await floorRequest<{created:boolean;round:{id:string}}>(
-    "/api/orders/visits/"+encodeURIComponent(id)+"/rounds",
-    {method:"POST",body:{idempotencyKey:snapshot.idempotencyKey,
-      note:snapshot.note,lines:snapshot.lines}});
+   const originalPath="/api/orders/visits/"+encodeURIComponent(id);
+   const postOriginal=()=>{
+    // The original cart, exact key and notes are the ONLY permissible retry.
+    postAttempted=true;
+    return floorRequest<{created:boolean;round:{id:string}}>(
+     originalPath+"/rounds",{method:"POST",body:{
+      idempotencyKey:snapshot.idempotencyKey,note:snapshot.note,lines:snapshot.lines}});
+   };
+   // When a reply was lost, check the server for the original receipt FIRST.
+   // A confirmed order is opened directly, with no second POST. Only a real
+   // 404/NOT_FOUND from this scoped endpoint allows manual same-key replay.
+   // Network failure/401/403/503 on lookup retains the protected draft.
+   const response=uncertainRef.current?
+    await reconcilePendingOrder(
+     ()=>floorRequest<{status:"accepted";roundId:string}>(
+      originalPath+"/submissions/"+encodeURIComponent(snapshot.idempotencyKey)),
+     postOriginal,
+     error=>error instanceof FloorRequestError&&error.status===404&&error.code==="NOT_FOUND"
+    ):await postOriginal();
    sent.current=true;uncertainRef.current=false;setUncertain(false);
    try{await clearDraft(userId,tenantId,id);}catch{/* Reusing the same key can only replay the accepted ticket. */}
    if(mounted.current){
@@ -196,10 +209,12 @@ export default function NewOrder(){
    }
   }catch(e){
    const definite=e instanceof FloorRequestError&&e.status>=400&&e.status<500;
-   if(prepared&&definite){
+   // A read-only receipt lookup may fail due to connectivity or role changes,
+   // without disproving the first POST. Never clear its pending marker then.
+   if(prepared&&postAttempted&&definite){
     try{await clearSubmissionPending(userId,tenantId,id);}catch{}
     uncertainRef.current=false;if(mounted.current)setUncertain(false);
-   }else if(prepared&&postAttempted){
+   }else if(prepared&&(postAttempted||uncertainRef.current)){
     uncertainRef.current=true;if(mounted.current)setUncertain(true);
    }
    if(!mounted.current)return;
@@ -219,7 +234,7 @@ export default function NewOrder(){
    else if(code==="ORDER_STATUS_UNCERTAIN")setError(m25(locale,"ambiguous"));
    else if(!prepared&&!postAttempted&&!(e instanceof FloorRequestError)){
     setError(m25(locale,"markerFailed"));
-   }else if(prepared&&postAttempted&&!definite)setError(m25(locale,"ambiguous"));
+   }else if(prepared&&(postAttempted||uncertainRef.current)&&!definite)setError(m25(locale,"ambiguous"));
    else if(e instanceof FloorRequestError)setError(e.message||m25(locale,"sendFailed"));
    else setError(m25(locale,"sendFailed"));
   }finally{sendingRef.current=false;if(mounted.current)setSending(false);}
@@ -429,7 +444,7 @@ export default function NewOrder(){
        (sending||(!uncertain&&(!review?.valid||blocked)))&&styles.disabled]}>
       {sending?<ActivityIndicator color="#fff"/>:
        <Ionicons name="send-outline" size={19} color="#fff"/>}
-      <Text style={styles.mainButtonText}>{sending?m25(locale,"sending"):uncertain?m25(locale,"retrySame"):m25(locale,"send")}</Text>
+      <Text style={styles.mainButtonText}>{sending?m25(locale,uncertain?"checkingOrder":"sending"):uncertain?m25(locale,"retrySame"):m25(locale,"send")}</Text>
      </Pressable>
     </View>}
   </View>
