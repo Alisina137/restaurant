@@ -75,6 +75,7 @@ jobs:
       - run: pnpm phase41:verify
       - run: pnpm phase42:verify
       - run: pnpm phase43:verify
+      - run: pnpm phase44:verify
       - run: pnpm dev:interfaces:verify
       - run: pnpm ops:preflight:verify
       - run: pnpm typecheck
@@ -184,6 +185,19 @@ jobs:
         env:
           ALLOW_DISPOSABLE_LOAD_REHEARSAL: "true"
         run: pnpm pilot31:rehearse
+      - name: P44 build SHA-pinned operator release packet (CI evidence; HOLD by default)
+        env:
+          CI: "true"
+        run: pnpm release44:packet
+      - name: P44 archive CI-only release packet and unverified human gate checklist
+        uses: actions/upload-artifact@v4
+        with:
+          name: dineflow-phase44-operator-packet-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/dineflow-phase44-packet.json
+            ${{ runner.temp }}/dineflow-phase44-operator-checklist.md
+          if-no-files-found: error
+          retention-days: 14
       - name: API logs after failure
         if: failure()
         run: cat /tmp/dineflow-api.log || true
