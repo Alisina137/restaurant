@@ -110,6 +110,8 @@ export function PilotActionQueue({state,locale,isPlatform,canEdit,labelForGate,o
       {item.count!==undefined&&<span>{item.count.toLocaleString(locale)} {w.count}</span>}
      </div>
      {actionControl(item)}
+     {!canEdit&&(item.kind==="failed_gate"||item.kind==="untested_gate")&&
+      <span className="p41-readonly">{w.askOwner}</span>}
     </li>;
    })}
   </ol>
