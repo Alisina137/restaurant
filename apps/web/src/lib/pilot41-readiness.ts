@@ -40,9 +40,9 @@ export function pilotReadinessPlan(
  const complete=gatePassed===input.gates.length;
  const ownerCurrent=!!input.ownerSignoff&&input.ownerSignoff.fingerprint===input.fingerprint&&
   complete&&input.incidents.blocking===0;
- const platformCurrent=ownerCurrent&&input.platformDecision?.decision==="approved"&&
+ const platformCurrent=!!(ownerCurrent&&input.platformDecision?.decision==="approved"&&
   input.platformDecision.fingerprint===input.fingerprint&&
-  input.platformDecision.ownerSignoffId===input.ownerSignoff?.id;
+  input.platformDecision.ownerSignoffId===input.ownerSignoff?.id);
  if(complete&&input.incidents.blocking===0&&!ownerCurrent)
   steps.push({kind:"owner_signature",stale:!!input.ownerSignoff});
  else if(ownerCurrent&&!platformCurrent)
