@@ -11,6 +11,7 @@ import {lockTable,currentOrders,calculate,currentPolicy,ensureCheck,financeScope
  getCheckForVisit,fullCheck,lockedCheck,orderGuard,pendingGuard,pendingCorrectionGuard,splitValues,writeAudit,
  amountMax,type Tx,type FinanceScope} from "./finance-core";
 import {guestAccess} from "./guest-security";
+import {reconcileShiftLedger} from "./phase42-reconciliation";
 export const financeRouter=Router();
 function id(req:import("express").Request){return field(req.params.id,100,"Identifier",1);}
 const validPage=(v:unknown)=>typeof v==="string"&&/^\d+$/.test(v)?Math.min(Math.max(Number(v),1),10000):1;
@@ -340,6 +341,51 @@ financeRouter.post("/shifts/:id/close",route(async(req,res)=>{
    return closed!;
  });
  res.json({shift:response});
+}));
+/**
+ * P42: independently inspect a cashier shift against persisted tender/refund
+ * rows and immutable settled receipts, with repeatable-read semantics.
+ * Never change a shift, payment, receipt or pilot signoff in this endpoint.
+ */
+financeRouter.get("/shifts/:id/reconciliation",route(async(req,res)=>{
+ const scope=await financeScope(req),shiftId=id(req);
+ const evidence=await db.transaction(async tx=>{
+  const [shift]=await tx.select().from(cashierShift).where(and(
+   eq(cashierShift.id,shiftId),eq(cashierShift.tenantId,scope.tenantId),
+   eq(cashierShift.locationId,scope.locationId))).limit(1);
+  if(!shift||(scope.role==="cashier"&&shift.cashierId!==scope.actorId))
+   fail(404,"NOT_FOUND","Shift unavailable.");
+  const [payments,refunds,setting]=await Promise.all([
+   tx.select({checkId:checkPayment.checkId,method:checkPayment.method,
+    status:checkPayment.status,amountMinor:checkPayment.amountMinor,
+    receivedMinor:checkPayment.receivedMinor,changeMinor:checkPayment.changeMinor})
+    .from(checkPayment).where(and(eq(checkPayment.shiftId,shiftId),
+     eq(checkPayment.tenantId,scope.tenantId),
+     eq(checkPayment.locationId,scope.locationId))),
+   tx.select({checkId:financeRefund.checkId,method:financeRefund.method,
+    amountMinor:financeRefund.amountMinor}).from(financeRefund)
+    .where(and(eq(financeRefund.shiftId,shiftId),
+     eq(financeRefund.tenantId,scope.tenantId),
+     eq(financeRefund.locationId,scope.locationId))),
+   tx.select({limit:financeSetting.shiftVarianceLimitMinor})
+    .from(financeSetting).where(eq(financeSetting.tenantId,scope.tenantId)).limit(1)
+  ]);
+  const checkIds=[...new Set([...payments,...refunds].map(row=>row.checkId))];
+  const checks=checkIds.length?await tx.select({id:diningCheck.id,status:diningCheck.status,
+   receiptId:diningCheck.receiptId,totalMinor:diningCheck.totalMinor,
+   paidMinor:diningCheck.paidMinor})
+   .from(diningCheck).where(and(eq(diningCheck.tenantId,scope.tenantId),
+    eq(diningCheck.locationId,scope.locationId),inArray(diningCheck.id,checkIds))):[];
+  const receipts=checkIds.length?await tx.select({id:checkReceipt.id,
+   checkId:checkReceipt.checkId,snapshot:checkReceipt.snapshot})
+   .from(checkReceipt).where(and(eq(checkReceipt.tenantId,scope.tenantId),
+    eq(checkReceipt.locationId,scope.locationId),
+    inArray(checkReceipt.checkId,checkIds))):[];
+  return reconcileShiftLedger(shift,payments,refunds,checks,receipts,
+   setting[0]?.limit??5000);
+ },{isolationLevel:"repeatable read",readOnly:true});
+ res.setHeader("Cache-Control","no-store");
+ res.json(evidence);
 }));
 financeRouter.get("/shifts/history",route(async(req,res)=>{
  const scope=await financeScope(req),page=validPage(req.query.page);
