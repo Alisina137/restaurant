@@ -72,6 +72,7 @@ jobs:
       - run: pnpm pilot33:verify
       - run: pnpm phase35:verify
       - run: pnpm phase40:verify
+      - run: pnpm pilot41:verify
       - run: pnpm dev:interfaces:verify
       - run: pnpm ops:preflight:verify
       - run: pnpm typecheck
