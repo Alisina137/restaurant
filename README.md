@@ -2,7 +2,7 @@
 
 A Dari-first, tenant-scoped restaurant SaaS for Afghanistan. Product source of truth: [Product Specification v1.0](docs/PRODUCT-SPECIFICATION-v1.md) and [Development Workflow V5](docs/SOFTWARE-DEVELOPMENT-WORKFLOW-v5.md).
 
-**Release status:** Phases 1–14 source code is merged into `main` (Phase 14 via PR #15). The Phase 14 acceptance suite passed in a disposable CI database. **The real restaurant pilot, device and cash testing, and final commercial release approval have NOT been performed.**
+**Roadmap status:** All 44 planned engineering phases have been implemented in the repository and gated through GitHub CI. **Production release status: HOLD.** A passing automated test suite or CI release-candidate packet is not a physical restaurant pilot, an actual cash/bank reconciliation, a tested external backup/restore, or an independently authorized GO. Those real-world validations remain required before deployment.
 
 ## Phase 12 — Restaurant subscriptions, manual payment verification and platform operations
 
@@ -23,6 +23,10 @@ Run `pnpm dev:api` and `pnpm dev:web` in separate PowerShell terminals, then ope
 Menu → **Categories** saves through `POST /api/menu/categories`. The API now registers the Node PostgreSQL pool's idle-connection `error` event so transient Neon/PgBouncer disconnects cannot surface as an uncaught EventEmitter exception that terminates the Express server. Category duplicate-name conflicts return an actionable 409; missing menu tables/columns return a safe 503 with a **development-only** migration hint; transient DB failures remain retryable errors. The category editor keeps the form open and reports these errors in the selected UI language.
 
 After pulling this fix, use your existing `apps/api/.env` and run `pnpm db:migrate` (safe with current migrations), then restart `pnpm dev:api` and `pnpm dev:web`. If the API still exits, **capture the last 30 lines of the API terminal** (remove any private connection string) to identify the exact remaining cause. No new database migration is added by this patch. GitHub CI runs `pnpm menu:stability:verify` against disposable PostgreSQL: concurrent category creation, duplicate conflict, role isolation, publish, modifiers and API readiness.
+
+## Phase 44 — Final SHA-pinned release candidate packet and operator HOLD checklist
+
+The final planned engineering phase adds a **CI-only, SHA-pinned release candidate evidence packet** and a separate **16-gate operator checklist**. The packet consumes the Phase 43 production-built 58-route/role smoke record and is generated **only after** all CI gates, including the disposable 200-ticket rehearsal. Wrong/missing evidence, SHA mismatches or any failed probe block packet creation. GitHub Actions uploads a 14-day secret-free artifact with a JSON check record and an unchecked Markdown human checklist; **it never grants GO**, changes real restaurant data or certifies real physical money/printers/Android. Open **Actions → Verify DineFlow → successful Phase 44 workflow → Artifacts** to inspect the packet, then complete Phase 34 and 44's independent on-site validations. Verify source and policy with `pnpm phase44:verify`. No new dependencies or migrations. See `docs/PHASE-44-ACCEPTANCE.md`.
 
 ## Phase 43 — Production-built release candidate and role/deep-link verification
 
