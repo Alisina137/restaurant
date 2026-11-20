@@ -6,6 +6,7 @@ import {ArrowLeft,ArrowRight,ClipboardCheck,ShieldCheck,RefreshCw,CheckCircle2,
 import {useWorkspace} from "./workspace-provider";
 import {PilotOperationsSnapshot} from "./pilot-operations-snapshot";
 import {PilotIncidentRegister} from "./pilot-incident-register";
+import {PilotActionQueue} from "./pilot41-action-queue";
 import {p33} from "@/lib/pilot33-copy";
 import {postSaas,useSaasData} from "@/lib/phase12-api";
 import type {Locale} from "@dineflow/shared";
@@ -154,12 +155,20 @@ export function PilotReview({tenantId}:{tenantId?:string}){
     <div className="settings-card p14-summary-card"><span>{t(locale,"platform")}</span>
      <strong>{data.status==="signed_off"?"✓":"—"}</strong></div>
    </div>
-   <section className="settings-card p14-panel">
+   <PilotActionQueue state={data} locale={locale} isPlatform={isPlatform} canEdit={canEdit}
+    labelForGate={(key,title)=>locale==="en"?title:
+     gateLabels[key]?.[locale==="ps-AF"?1:0]??title}
+    onChooseGate={key=>{
+     if(canEdit){setSelected(key);setProblem("");}
+     document.getElementById(canEdit?"p14-gate-form":"p14-gate-"+key)
+      ?.scrollIntoView({behavior:"smooth",block:"center"});
+    }}/>
+   <section id="p14-gates" className="settings-card p14-panel">
     <div className="section-heading"><div><h2>{t(locale,"label")}</h2>
      <p>{t(locale,"warning")}</p></div><ClipboardCheck size={24}/></div>
     <div className="p14-gate-grid">{data.gates.map((g,i)=>{
      const label=locale==="en"?g.title:gateLabels[g.key]?.[locale==="ps-AF"?1:0]??g.title;
-     return <article key={g.key} className={"p14-gate"+(g.review?.result==="failed"?" p14-failed":"")}>
+     return <article key={g.key} id={"p14-gate-"+g.key} className={"p14-gate"+(g.review?.result==="failed"?" p14-failed":"")}>
       <div className="p14-gate-top"><span className="p14-gate-num">{String(i+1).padStart(2,"0")}</span>
        <strong>{label}</strong><span className={"p14-badge "+(g.review?.result??"pending")}>
         {g.review?.result==="passed"?t(locale,"passed"):g.review?.result==="failed"?t(locale,"failed"):t(locale,"pending")}</span></div>
@@ -182,7 +191,7 @@ export function PilotReview({tenantId}:{tenantId?:string}){
       placeholder={t(locale,"addEvidence")} value={evidence} onChange={e=>setEvidence(e.target.value)}/></label>
      <button className="button button-primary" type="submit" disabled={!selected||evidence.trim().length<25||busy}>{t(locale,"save")}</button>
     </form></section>}
-   {(isPlatform||canEdit)&&<section className="settings-card p14-panel"><h2>{isPlatform?t(locale,"platform"):t(locale,"owner")}</h2>
+   {(isPlatform||canEdit)&&<section id="p14-signoff" className="settings-card p14-panel"><h2>{isPlatform?t(locale,"platform"):t(locale,"owner")}</h2>
     <p>{isPlatform?t(locale,"platformHint"):t(locale,"ownerHint")}</p>
     {data.ownerSignoff&&<p className="p14-signoff"><CheckCircle2 size={17}/>{t(locale,"owner")}: <Dt when={data.ownerSignoff.createdAt} locale={locale}/> — {data.ownerSignoff.note}</p>}
     {data.platformDecision&&<p className="p14-signoff"><Clock3 size={17}/>{t(locale,"platform")}: {data.platformDecision.decision} — {data.platformDecision.note}</p>}
