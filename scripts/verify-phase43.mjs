@@ -2,11 +2,24 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 const file=p=>readFileSync(p,"utf8");
 const route=file("apps/web/src/app/[area]/reports/page.tsx");
+const proxy=file("apps/web/src/proxy.ts");
+const gates=file("apps/web/src/lib/phase43-route-gates.ts");
+const areaTests=file("apps/web/src/lib/phase43-route-gates.ci.ts");
 const smoke=file("scripts/phase43-release-smoke.mjs");
 const tests=file("scripts/phase43-release-smoke.test.mjs");
 const workflow=file(".github/workflows/verify.yml");
 const pkg=JSON.parse(file("package.json"));
 const docs=file("docs/PHASE-43-ACCEPTANCE.md");
+assert.ok(proxy.includes("isWrongRoleRoute(request.nextUrl.pathname)")&&
+ proxy.includes("status:404")&&proxy.includes('matcher:["/:area/:section/:path*"]'),
+ "Next proxy must reply 404 before any HTML streaming begins");
+assert.ok(gates.includes('"reports","pilot","billing"')&&
+ gates.includes('"ready","preparing","history"')&&
+ gates.includes('"checks","shifts","transactions"'),
+ "Reject only known wrong-area routes before streaming");
+assert.ok(areaTests.includes('"/g/guest-visit/menu"')&&
+ areaTests.includes('"/platform/reports"'),
+ "Keep guest and correct role pages available while denying wrong area");
 assert.ok(route.includes('if(area!=="app")notFound()'),
  "Direct /cashier/reports and /platform/reports must return server 404");
 assert.ok(route.includes('const [{area},{tab}]=await Promise.all([params,searchParams])'),
