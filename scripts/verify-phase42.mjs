@@ -22,7 +22,7 @@ for(const pattern of [
  'eq(diningCheck.tenantId,scope.tenantId)',
  'eq(checkReceipt.tenantId,scope.tenantId)',
  'reconcileShiftLedger(shift,payments,refunds,checks,receipts',
- 'readOnly:true','isolationLevel:"repeatable read"',
+ "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY",
  'res.setHeader("Cache-Control","no-store")'
 ])assert.ok(api.includes(pattern),"Read-only tenant-scoped reconciliation missing "+pattern);
 assert.ok(!api.includes("await tx.insert(")&&!api.includes("await tx.update(")&&
