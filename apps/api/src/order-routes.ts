@@ -3,7 +3,7 @@ import {and,asc,count,desc,eq,ilike,inArray,isNull,sql} from "drizzle-orm";
 import {randomUUID} from "node:crypto";
 import {db} from "./db";
 import {diningTable,diningVisit,kitchenTicket,orderLine,orderRound,orderRevision,orderActivity} from "./schema";
-import {bodyObject,fail,int,route} from "./menu-helpers";
+import {bodyObject,fail,field,int,route} from "./menu-helpers";
 import {orderScope,writeScope,kitchenScope,orderId,parseOrder,priceLines,orderChanged,readOrder,type OrderScope} from "./order-core";
 import {orderGuard} from "./finance-core";
 import {CHECKOUT_LOCK_TIMEOUT_MS} from "./phase39-order-recovery";
@@ -44,6 +44,31 @@ orderRouter.get("/events",route(async(req,res)=>{
  res.on("close",()=>{closed=true;clearInterval(timer);});
  await tick();
 }));
+/**
+ * P40: read-only waiter/manager receipt reconciliation after a dropped POST
+ * response or device relaunch. This deliberately does not lock a visit, create
+ * a ticket or assume that 404 proves a concurrent checkout cannot still commit.
+ * Identity is scoped to the ORIGINAL submitter + tenant + location + visit.
+ * Do not require the old visit to remain open or assigned to its former waiter:
+ * a committed ticket must still be discoverable after a table handoff.
+ */
+orderRouter.get("/visits/:id/submissions/:key",route(async(req,res)=>{
+ const scope=await orderScope(req,false);writeScope(scope);
+ const visitId=orderId(req);
+ const key=field(req.params.key,100,"Submission key",12);
+ if(!/^[A-Za-z0-9_-]{12,100}$/.test(key))
+  fail(400,"INVALID_KEY","Invalid submission key.");
+ const [submitted]=await db.select({roundId:orderRound.id}).from(orderRound)
+  .where(and(eq(orderRound.tenantId,scope.tenantId),
+   eq(orderRound.locationId,scope.locationId),
+   eq(orderRound.visitId,visitId),
+   eq(orderRound.submittedBy,scope.actorId),
+   eq(orderRound.idempotencyKey,key))).limit(1);
+ res.setHeader("Cache-Control","no-store");
+ if(!submitted)fail(404,"NOT_FOUND","No confirmed order with this submission key.");
+ res.json({status:"accepted",roundId:submitted.roundId});
+}));
+
 orderRouter.post("/visits/:id/rounds",route(async(req,res)=>{
  const scope=await orderScope(req,false);writeScope(scope);
  const visitId=orderId(req),input=parseOrder(bodyObject(req));
