@@ -47,7 +47,7 @@ assert.ok(rc.includes('dineflow-phase43-rc.json'),
 assert.ok(rc.includes('physicalPilotCertified:false')&&rc.includes('financiallyCertified:false'),
  "P43 input must never claim real device or cash proof");
 for(const keyword of [
- 'candidate.passed-=1','c.commit="b".repeat(40)',
+ 'c.passed-=1','c.commit="b".repeat(40)',
  'c.humanGoAuthorized=true','c.physicalPilotCertified=true',
  'c.checks[0].status=503','c.checks.reverse()',
  'MUST_NOT_APPEAR', 'release44Cli('
