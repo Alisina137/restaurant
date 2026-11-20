@@ -6,6 +6,7 @@ import {ArrowLeft,ArrowRight,ClipboardCheck,ShieldCheck,RefreshCw,CheckCircle2,
 import {useWorkspace} from "./workspace-provider";
 import {PilotOperationsSnapshot} from "./pilot-operations-snapshot";
 import {PilotIncidentRegister} from "./pilot-incident-register";
+import {PilotReadinessBoard} from "./pilot41-readiness-board";
 import {p33} from "@/lib/pilot33-copy";
 import {postSaas,useSaasData} from "@/lib/phase12-api";
 import type {Locale} from "@dineflow/shared";
@@ -145,6 +146,12 @@ export function PilotReview({tenantId}:{tenantId?:string}){
   {problem&&<div className="form-error" role="alert">{problem}</div>}
   {notice&&<div className="success-banner" role="status">{notice}</div>}
   {loading&&!data?<div className="list-skeleton"><span/><span/><span/></div>:data&&<>
+   <PilotReadinessBoard snapshot={data} locale={locale} isPlatform={isPlatform}
+    onChooseGate={canEdit?key=>{
+     setSelected(key);
+     setProblem("");
+     document.getElementById("p14-gate-form")?.scrollIntoView({behavior:"smooth",block:"center"});
+    }:undefined}/>
    <div className="p14-summary">
     <div className="settings-card p14-summary-card"><span>{t(locale,"gates")}</span>
      <strong>{data.completed}/{data.total}</strong><div className="p14-meter"><div style={{width:(100*data.completed/data.total)+"%"}}/></div></div>
