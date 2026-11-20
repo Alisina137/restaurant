@@ -64,7 +64,24 @@ async function main(){
  assert.equal(latest.ownerSignoff?.id,id);
  assert.equal(latest.status,"held");
  assert.equal((await req("/api/platform/pilots/"+state.tenantId,platform)).status,200);
- console.info("PASS P41 deep evidence: 520 retests, 58 holds; original latest reviews and owner signature retained.");
+ // A fresh incident still invalidates every previously recorded signature,
+ // even after the deep-history performance fix.
+ const opened=await req("/api/pilot/incidents",owner,{
+  gateKey:"reliability",severity:"p0",
+  title:"P41 isolated critical regression",
+  details:"Disposable CI incident event, not a real restaurant or customer problem."
+ });
+ assert.equal(opened.status,201);
+ const reopened=await req("/api/pilot",owner);
+ const blocked=await reopened.json() as Pilot & {
+  incidents:{blocking:number}};
+ assert.equal(blocked.incidents.blocking,1);
+ assert.equal(blocked.status,"blocked");
+ assert.notEqual(blocked.fingerprint,latest.fingerprint);
+ const platformHeld=await req("/api/platform/pilots/"+state.tenantId,platform);
+ assert.equal(platformHeld.status,200);
+ assert.equal((await platformHeld.json() as Pilot).status,"blocked");
+ console.info("PASS P41 deep evidence: 520 retests, 58 holds, P0 fingerprint invalidation and platform HOLD.");
 }
 main().then(async()=>{await pool.end()}).catch(async e=>{
  console.error(e);await pool.end();process.exitCode=1;
