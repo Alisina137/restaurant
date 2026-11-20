@@ -34,7 +34,7 @@ async function main(){
   {status:503,code:"ORDER_STATUS_UNCERTAIN"},
   new TypeError("Network request failed")
  ]){
-  const before=postCalls;
+  const before:number=postCalls;
   await assert.rejects(()=>reconcilePendingOrder(
    async()=>{throw err;},
    async()=>{postCalls++;return {created:true,round:{id:other}};},
