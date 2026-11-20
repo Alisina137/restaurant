@@ -51,7 +51,9 @@
     "phase41:verify": "node scripts/verify-phase41.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/pilot41-ci.ts",
     "phase42:verify": "node scripts/verify-phase42.mjs",
     "phase43:verify": "node --test scripts/phase43-release-smoke.test.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/phase43-route-gates.ci.ts && node scripts/verify-phase43.mjs",
-    "phase43:smoke": "node scripts/phase43-release-smoke.mjs"
+    "phase43:smoke": "node scripts/phase43-release-smoke.mjs",
+    "phase44:verify": "node --test scripts/phase44-release-packet.test.mjs && node scripts/verify-phase44.mjs",
+    "release44:packet": "node scripts/phase44-release-packet.mjs"
   },
   "devDependencies": {
     "cross-env": "^7.0.3"
