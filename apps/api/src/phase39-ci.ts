@@ -81,6 +81,21 @@ async function main(){
  };
  assert.equal((await request(path,"POST",payload,other)).status,404,
   "Another restaurant cannot inject an order");
+ const receiptPath="/api/orders/visits/"+visit.visit.id+"/submissions/"+
+  encodeURIComponent(payload.idempotencyKey);
+ // P40: the lookup is a private, read-only proof of THIS actor's submission,
+ // not a global tenant order search, and does not need a currently open table.
+ assert.equal((await request(receiptPath)).status,401);
+ assert.equal((await request(receiptPath,"GET",undefined,kitchen)).status,403);
+ assert.equal((await request(receiptPath,"GET",undefined,other)).status,404);
+ assert.equal((await request(receiptPath,"GET",undefined,owner)).status,404,
+  "Even another authorized employee cannot enumerate another submitter's receipt");
+ const notYet=await request(receiptPath,"GET",undefined,waiter);
+ assert.equal(notYet.status,404);
+ assert.equal((await notYet.json() as {code:string}).code,"NOT_FOUND");
+ assert.match(notYet.headers.get("cache-control")??"",/no-store/);
+ assert.equal((await request("/api/orders/visits/"+visit.visit.id+
+  "/submissions/invalid!", "GET",undefined,waiter)).status,400);
  const connection=await pool.connect();
  let held=false;
  try{
@@ -114,6 +129,14 @@ async function main(){
   ticket:{id:string}}>(await request(path,"POST",payload,waiter),201);
  assert.equal(accepted.created,true);
  assert.equal(accepted.round.totalMinor,11000);
+ const confirmed=await request(receiptPath,"GET",undefined,waiter);
+ assert.equal(confirmed.status,200);
+ assert.match(confirmed.headers.get("cache-control")??"",/no-store/);
+ const receipt=await confirmed.json() as {status:string;roundId:string};
+ assert.deepEqual(receipt,{status:"accepted",roundId:accepted.round.id});
+ assert.equal(JSON.stringify(receipt).includes(payload.idempotencyKey),false);
+ assert.equal(JSON.stringify(receipt).includes("totalMinor"),false);
+
  const replay=await expect<{created:boolean;round:{id:string}}>(
   await request(path,"POST",payload,waiter),200);
  assert.equal(replay.created,false);
