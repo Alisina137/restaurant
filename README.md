@@ -26,7 +26,7 @@ After pulling this fix, use your existing `apps/api/.env` and run `pnpm db:migra
 
 ## Phase 43 — Production-built release candidate and role/deep-link verification
 
-The shared reports page now rejects wrong role URL prefixes (`/cashier/reports`, `/platform/reports`, `/kitchen/reports`) with an actual server 404 while the manager's `/app/reports` still works. A **CI-only release candidate smoke** boots production-built Next and the seeded Express API to verify manager, cashier, kitchen, platform and guest route shells, anonymous privacy and real cross-role API permissions. `pnpm phase43:verify` provides safe deterministic tests; GitHub CI additionally runs `pnpm phase43:smoke` and records checked SHA/HTTP results without secrets. Green CI is **not** physical Android/restaurant, real-money or human pilot GO; see `docs/PHASE-43-ACCEPTANCE.md`. No migration or new dependencies.
+The Next.js 16 pre-stream route Proxy and manager reports page now reject wrong role URL prefixes (`/cashier/reports`, `/platform/reports`, `/kitchen/reports`) with an actual server 404 while the manager's `/app/reports` still works. A **CI-only release candidate smoke** boots production-built Next and the seeded Express API to verify manager, cashier, kitchen, platform and guest route shells, anonymous privacy and real cross-role API permissions. `pnpm phase43:verify` provides safe deterministic tests; GitHub CI additionally runs `pnpm phase43:smoke` and records checked SHA/HTTP results without secrets. Green CI is **not** physical Android/restaurant, real-money or human pilot GO; see `docs/PHASE-43-ACCEPTANCE.md`. No migration or new dependencies.
 
 ## Phase 42 — Cashier settlement reconciliation and immutable receipt integrity
 
