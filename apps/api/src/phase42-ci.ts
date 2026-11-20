@@ -71,7 +71,13 @@ async function main(){
  const current=await see(path,cashier);
  assert.match(current.response.headers.get("cache-control")??"",/no-store/);
  const same=await see(path,owner);
- assert.deepEqual(current.data,same.data,"Owner and owning cashier see the same immutable evidence");
+ // Independent read-only requests correctly have different checkedAt values.
+ // Compare all persisted ledger/receipt evidence without the observation clock.
+ const {checkedAt:cashierObservedAt,...cashierEvidence}=current.data;
+ const {checkedAt:ownerObservedAt,...ownerEvidence}=same.data;
+ assert.ok(Date.parse(cashierObservedAt)<=Date.parse(ownerObservedAt));
+ assert.deepEqual(cashierEvidence,ownerEvidence,
+  "Owner and owning cashier must see the same persisted financial evidence");
  assert.equal(current.data.shiftId,original.id);
  assert.equal(current.data.shiftStatus,"closed");
  assert.equal(current.data.pilotCertified,false);
