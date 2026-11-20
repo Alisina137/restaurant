@@ -350,6 +350,9 @@ financeRouter.post("/shifts/:id/close",route(async(req,res)=>{
 financeRouter.get("/shifts/:id/reconciliation",route(async(req,res)=>{
  const scope=await financeScope(req),shiftId=id(req);
  const evidence=await db.transaction(async tx=>{
+  // PostgreSQL read-only, stable snapshot; Drizzle PG transaction config does
+  // not expose readOnly, so set it before the first SELECT in this transaction.
+  await tx.execute(sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`);
   const [shift]=await tx.select().from(cashierShift).where(and(
    eq(cashierShift.id,shiftId),eq(cashierShift.tenantId,scope.tenantId),
    eq(cashierShift.locationId,scope.locationId))).limit(1);
@@ -383,7 +386,7 @@ financeRouter.get("/shifts/:id/reconciliation",route(async(req,res)=>{
     inArray(checkReceipt.checkId,checkIds))):[];
   return reconcileShiftLedger(shift,payments,refunds,checks,receipts,
    setting[0]?.limit??5000);
- },{isolationLevel:"repeatable read",readOnly:true});
+ });
  res.setHeader("Cache-Control","no-store");
  res.json(evidence);
 }));
