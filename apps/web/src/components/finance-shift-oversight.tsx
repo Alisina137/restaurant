@@ -7,6 +7,7 @@ import {jsonRequest} from "@/lib/phase2-api";
 import {f9} from "@/lib/finance-copy";
 import {p10} from "@/lib/phase10-copy";
 import {isoTime,money,parseAFN,type Shift} from "@/lib/finance-types";
+import {FinanceShiftReconciliation} from "./finance42-reconciliation";
 type StaffShift={shift:Shift;cashierName:string;cashMinor:number;transferMinor:number;
  transactions:number;expectedMinor:number;refundedCashMinor:number};
 type Overview={varianceThresholdMinor:number;items:StaffShift[]};
@@ -17,6 +18,7 @@ export function FinanceShiftOversight(){
   [page,setPage]=useState(1),[busy,setBusy]=useState(""),[loading,setLoading]=useState(true),
   [error,setError]=useState(""),[notice,setNotice]=useState("");
  const [counts,setCounts]=useState<Record<string,string>>({}),[ack,setAck]=useState<Record<string,boolean>>({});
+ const [reviewShiftId,setReviewShiftId]=useState<string|null>(null);
  const load=useCallback(async(silent=false)=>{
    if(!silent)setLoading(true);
    try{
@@ -84,6 +86,7 @@ export function FinanceShiftOversight(){
                <div className="finance-manager-expected"><span>{f9(locale,"expectedDrawer")}</span>
                  <strong>{money(row.expectedMinor,locale)}</strong></div>
              </div>
+             <FinanceShiftReconciliation key={row.shift.id} shiftId={row.shift.id} locale={locale}/>
              <label className="finance-field"><span>{f9(locale,"counted")} (AFN)</span>
                <input inputMode="decimal" required value={v}
                 onChange={e=>setCounts(s=>({...s,[row.shift.id]:e.target.value}))}
@@ -109,12 +112,17 @@ export function FinanceShiftOversight(){
          <th>{f9(locale,"cashierName")}</th><th>{f9(locale,"shiftStart")}</th>
          <th>{f9(locale,"shiftEnd")}</th><th>{f9(locale,"expected")}</th>
          <th>{f9(locale,"counted")}</th><th>{f9(locale,"variance")}</th>
+         <th>{f9(locale,"reconcile")}</th>
        </tr></thead><tbody>
        {history.items.map(x=><tr key={x.id}>
           <td>{x.cashierName}</td><td>{isoTime(x.openedAt,locale)}</td>
           <td>{isoTime(x.closedAt,locale)}</td><td>{money(x.expectedMinor??0,locale)}</td>
           <td>{money(x.closingCountMinor??0,locale)}</td><td>{money(x.varianceMinor??0,locale)}</td>
+          <td><button type="button" className="button button-small" onClick={()=>setReviewShiftId(x.id)}>
+           {f9(locale,"reconcile")}</button></td>
        </tr>)}</tbody></table></div>:<p className="finance-muted">{f9(locale,"emptyShift")}</p>}
+       {reviewShiftId&&history?.items.some(x=>x.id===reviewShiftId)&&
+        <FinanceShiftReconciliation key={reviewShiftId} shiftId={reviewShiftId} locale={locale}/>} 
        {!!history&&history.total>history.perPage&&<div className="pager">
         <button className="button button-small" disabled={page===1} onClick={()=>setPage(x=>x-1)}>‹</button>
         <span>{page} / {Math.ceil(history.total/history.perPage)}</span>

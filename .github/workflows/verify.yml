@@ -73,6 +73,7 @@ jobs:
       - run: pnpm phase35:verify
       - run: pnpm phase40:verify
       - run: pnpm phase41:verify
+      - run: pnpm phase42:verify
       - run: pnpm dev:interfaces:verify
       - run: pnpm ops:preflight:verify
       - run: pnpm typecheck
@@ -140,6 +141,7 @@ jobs:
       - run: pnpm --filter @dineflow/api exec tsx src/phase9-ci.ts
       - run: pnpm --filter @dineflow/api exec tsx src/phase8-ci.ts
       - run: pnpm --filter @dineflow/api exec tsx src/phase10-ci.ts
+      - run: pnpm --filter @dineflow/api exec tsx src/phase42-ci.ts
       - run: pnpm --filter @dineflow/api exec tsx src/phase11-ci.ts
       - run: pnpm --filter @dineflow/api exec tsx src/phase12-ci.ts
       - run: pnpm --filter @dineflow/api exec tsx src/phase13-ci.ts
