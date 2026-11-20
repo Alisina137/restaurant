@@ -4,7 +4,9 @@
 
 ## Fixed defect
 
-The shared `/[area]/reports` Next page previously did not validate the `area` route segment, unlike the other scoped role pages. A directly typed URL such as `/cashier/reports`, `/kitchen/reports` or `/platform/reports` could render a manager's reports component shell. **Phase 43 returns a true server-rendered 404** unless the area is `app`, while preserving `/app/reports?tab=sales|items|service|audit` and the existing server-enforced reporting API authorization. This is defense in depth; Next route status alone is not an access control mechanism.
+The shared `/[area]/reports` Next page previously did not validate the `area` route segment, unlike the other scoped role pages. A directly typed URL such as `/cashier/reports`, `/kitchen/reports` or `/platform/reports` could render a manager's reports component shell. **Phase 43 now enforces an actual HTTP 404 at the Next.js 16 Proxy layer before response streaming** for invalid role prefixes, while preserving `/app/reports?tab=sales|items|service|audit` and the existing server-enforced reporting API authorization. This is defense in depth; Next route status alone is not an access control mechanism.
+
+The first live production-build smoke discovered that an App Router `notFound()` boundary can still return **HTTP 200** once the page layout begins streaming. To address this real release-candidate defect, Phase 43 also adds `apps/web/src/proxy.ts` and a tested, narrow `isWrongRoleRoute` gate. The Proxy responds with a minimal no-store **404 before streaming** on known incompatible role prefixes, while still allowing the legitimate manager/cashier/kitchen/platform/guest routes. The underlying Express authorization remains essential and separate; a successful web route shell is not an authorization grant.
 
 ## CI release candidate smoke
 
