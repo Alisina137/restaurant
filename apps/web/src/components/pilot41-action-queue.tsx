@@ -16,7 +16,7 @@ const words={
   p2_followup:"Noncritical incidents still need follow-up",
   external_verification:"Internal signatures recorded — external tests and launch authorization remain separate",
   gateAction:"Open this gate",incidentAction:"Review incident register",signAction:"Review signatures",
-  platformAction:"Review platform decision",askOwner:"Ask restaurant owner to review",
+  platformAction:"Review platform decision",askOwner:"Ask restaurant owner to review",askPlatform:"Ask the independent platform operator to review",
   blocked:"Hold: unresolved physical or operator evidence",
   done:"Recorded reviews are complete, but this is not production certification.",
   note:"This is a task list, NOT an automatic pilot pass, financial reconciliation, device test or GO decision.",
@@ -35,7 +35,7 @@ const words={
   external_verification:"امضاهای داخلی ثبت شده؛ بررسی بیرونی و اجازهٔ راه‌اندازی جداگانه لازم است",
   gateAction:"بازکردن این مورد",incidentAction:"بررسی فهرست حوادث",
   signAction:"بررسی امضاها",platformAction:"بررسی تصمیم پلتفرم",
-  askOwner:"از مالک رستورانت بخواهید بررسی کند",
+  askOwner:"از مالک رستورانت بخواهید بررسی کند",askPlatform:"از مسئول مستقل پلتفرم بخواهید بررسی کند",
   blocked:"توقف: شواهد عملی یا مسئولانه هنوز ناقص است",
   done:"بررسی‌های ثبت‌شده تکمیل است، اما تأیید نشر در محیط واقعی نیست.",
   note:"این فهرست کارهاست، نه تأیید خودکار، تطبیق صندوق، آزمایش دستگاه یا مجوز نشر.",
@@ -54,7 +54,7 @@ const words={
   external_verification:"داخلي لاسلیکونه شته؛ بهرني ازموینې او د خپرېدو اجازه جلا دي",
   gateAction:"دا مورد پرانیزئ",incidentAction:"د پېښو لېست وګورئ",
   signAction:"لاسلیکونه وګورئ",platformAction:"د پلاتفورم پرېکړه وګورئ",
-  askOwner:"د رستورانت خاوند دې وګوري",
+  askOwner:"د رستورانت خاوند دې وګوري",askPlatform:"د پلاتفورم خپلواک مسئول دې وګوري",
   blocked:"تم: عملي یا مسؤل شواهد لا نیمګړي دي",
   done:"ثبت شوې کتنې بشپړې دي، خو دا د واقعي خپرېدو تصدیق نه دی.",
   note:"دا د کارونو لېست دی، نه اتومات تایید، د پیسو برابرول، د وسیلو ازموینه یا د خپرېدو اجازه.",
@@ -82,6 +82,10 @@ export function PilotActionQueue({state,locale,isPlatform,canEdit,labelForGate,o
     {w.incidentAction}<ArrowUpRight size={15} aria-hidden="true"/></a>;
   }
   if(item.kind==="external_verification")return null;
+  if(item.kind==="owner_signoff"&&!canEdit)
+   return <span className="p41-readonly">{w.askOwner}</span>;
+  if((item.kind==="platform_review"||item.kind==="platform_hold")&&!isPlatform)
+   return <span className="p41-readonly">{w.askPlatform}</span>;
   return <a className="p41-action-button" href="#p14-signoff">
    {item.kind==="owner_signoff"?w.signAction:w.platformAction}
    <ArrowUpRight size={15} aria-hidden="true"/></a>;
