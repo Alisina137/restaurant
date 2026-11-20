@@ -7,10 +7,12 @@ import {jsonRequest} from "@/lib/phase2-api";
 import {f9} from "@/lib/finance-copy";
 import {p10} from "@/lib/phase10-copy";
 import {parseAFN,isoTime,money,type Shift,type ShiftCurrent} from "@/lib/finance-types";
+import {FinanceShiftReconciliation} from "./finance42-reconciliation";
 type History={items:Shift[];total:number;page:number;perPage:number};
 export function FinanceShifts(){
  const {workspace}=useWorkspace(),locale=workspace.locale;
  const [tab,setTab]=useState<"current"|"previous">("current"),[page,setPage]=useState(1);
+ const [reviewShiftId,setReviewShiftId]=useState<string|null>(null);
  const [current,setCurrent]=useState<ShiftCurrent|null>(null),[history,setHistory]=useState<History|null>(null);
  const [counted,setCounted]=useState(""),[float,setFloat]=useState("0"),
    [busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(""),[notice,setNotice]=useState("");
@@ -88,6 +90,7 @@ export function FinanceShifts(){
          <strong>{current.transactions}</strong></div>
       </div>
       <p className="finance-muted"><Clock3 size={15}/>{f9(locale,"shiftStart")}: {isoTime(current.shift.openedAt,locale)}</p>
+      <FinanceShiftReconciliation key={current.shift.id} shiftId={current.shift.id} locale={locale}/>
      </section>
      <form onSubmit={e=>void close(e)} className="settings-card finance-shift-close">
        <div className="section-heading"><h2>{f9(locale,"closeShift")}</h2><ShieldCheck size={22}/></div>
@@ -114,12 +117,17 @@ export function FinanceShifts(){
        {history?.items.length?<div className="table-scroll"><table className="data-table"><thead><tr>
          <th>{f9(locale,"shiftStart")}</th><th>{f9(locale,"shiftEnd")}</th><th>{f9(locale,"expectedDrawer")}</th>
          <th>{f9(locale,"counted")}</th><th>{f9(locale,"variance")}</th>
+         <th>{f9(locale,"reconcile")}</th>
        </tr></thead><tbody>{history.items.map(x=><tr key={x.id}>
           <td>{isoTime(x.openedAt,locale)}</td><td>{isoTime(x.closedAt,locale)}</td>
           <td>{money(x.expectedMinor??0,locale)}</td><td>{money(x.closingCountMinor??0,locale)}</td>
           <td>{money(x.varianceMinor??0,locale)}</td>
+          <td><button type="button" className="button button-small" onClick={()=>setReviewShiftId(x.id)}>
+           {f9(locale,"reconcile")}</button></td>
         </tr>)}</tbody></table></div>:<div className="empty-panel">
          <CalendarDays size={31}/>{f9(locale,"emptyShift")}</div>}
+       {reviewShiftId&&history?.items.some(x=>x.id===reviewShiftId)&&
+        <FinanceShiftReconciliation key={reviewShiftId} shiftId={reviewShiftId} locale={locale}/>} 
        {!!history&&history.total>10&&<div className="pager">
          <button className="button button-small" disabled={page<=1} onClick={()=>setPage(x=>x-1)}>‹</button>
          <span>{page} / {Math.ceil(history.total/10)}</span>
