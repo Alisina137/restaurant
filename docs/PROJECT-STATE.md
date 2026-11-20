@@ -268,3 +268,10 @@ Ensure `apps/api/.env`, `apps/web/.env.local`, `apps/mobile/.env` exist and cont
 - Verification: `pnpm phase40:verify`, pure mobile receipt-first tests, and expanded disposable PostgreSQL P39 real HTTP lock test covering read-only receipt before/after commit, RBAC/tenant protection and exactly one ticket/outbox; full GitHub CI as usual.
 - **No new dependency or migration.** Physical Wi-Fi-loss/relaunch, multiple Android tablets, kitchen acknowledgement, cash/receipt audit, backup restore and human P33/P34 GO/HOLD are still pending. See `docs/PHASE-40-ACCEPTANCE.md`.
 - Next proposed: Phase 41 pilot workflow evidence and targeted repairs (never claim physical pilot proof from CI).
+
+## Phase 41 — Read-only Manual Pilot Decision Board
+- Both tenant `/app/pilot` and independent platform pilot-review pages display a three-locale responsive action plan derived **only** from current authenticated pilot gate, incident and signoff snapshots. No new API writes or role grants.
+- Prioritizes unresolved P0/P1 incidents, failed gates, missing gates, stale owner signature, pending/held platform decision and an **unconditional external manual verification** reminder. Owner can jump to the actual evidence form; manager/platform review remains read-only.
+- Pure readiness derivation enforces current gate/incident fingerprint and current owner signoff ID; an incident revision invalidates historical signatures. Software-signed evidence is explicitly never external production certification.
+- Verification `pnpm phase41:verify` (source/UI contracts + scenarios) added to CI, supplementing earlier real P14/P32/P33 auth, signoff and append-only incident tests. No new migration or dependency.
+- Hands-on Android, printer, kitchen, cashier, backup/restore and supervised shift, P0/P1 incident resolution and independent GO/HOLD remain mandatory. See `docs/PHASE-41-ACCEPTANCE.md`. Next proposed: Phase 42 cashier settlement/receipt integrity review.

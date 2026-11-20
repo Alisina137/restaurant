@@ -47,7 +47,8 @@
     "phase37:verify": "node scripts/verify-phase37.mjs && pnpm phase38:verify",
     "phase38:verify": "node scripts/verify-phase38.mjs && pnpm phase39:verify",
     "phase39:verify": "node scripts/verify-phase39.mjs",
-    "phase40:verify": "node scripts/verify-phase40.mjs && pnpm --filter @dineflow/api exec tsx ../mobile/src/mobile40-ci.ts"
+    "phase40:verify": "node scripts/verify-phase40.mjs && pnpm --filter @dineflow/api exec tsx ../mobile/src/mobile40-ci.ts",
+    "phase41:verify": "node scripts/verify-phase41.mjs && pnpm --filter @dineflow/api exec tsx ../web/src/lib/pilot41-ci.ts"
   },
   "devDependencies": {
     "cross-env": "^7.0.3"
