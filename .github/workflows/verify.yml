@@ -74,6 +74,7 @@ jobs:
       - run: pnpm phase40:verify
       - run: pnpm phase41:verify
       - run: pnpm phase42:verify
+      - run: pnpm phase43:verify
       - run: pnpm dev:interfaces:verify
       - run: pnpm ops:preflight:verify
       - run: pnpm typecheck
@@ -162,6 +163,23 @@ jobs:
       - run: pnpm --filter @dineflow/api exec tsx src/phase33-ci.ts
       - run: pnpm --filter @dineflow/api exec tsx src/phase35-ci.ts
       - run: pnpm menu:stability:verify
+      - name: P43 built-web end-to-end route and real API role gate (CI simulation)
+        env:
+          CI: "true"
+        shell: bash
+        run: |
+          NODE_ENV=production pnpm --filter @dineflow/web start > /tmp/dineflow-web-phase43.log 2>&1 &
+          web_pid=$!
+          trap 'kill "$web_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 40); do
+            code=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/login || true)
+            if [ "$code" = "200" ]; then break; fi
+            if [ "$attempt" = "40" ]; then
+              echo "HOLD: built Next web did not start"; cat /tmp/dineflow-web-phase43.log; exit 1
+            fi
+            sleep 1
+          done
+          pnpm phase43:smoke
       - name: P31 disposable 20-table 10-worker 200-ticket API rehearsal
         env:
           ALLOW_DISPOSABLE_LOAD_REHEARSAL: "true"
