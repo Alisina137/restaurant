@@ -1,7 +1,7 @@
 import {Router,type Request} from "express";
 import {fromNodeHeaders} from "better-auth/node";
 import {createHash,randomUUID} from "node:crypto";
-import {and,count,eq,desc,inArray,isNull,min,sql} from "drizzle-orm";
+import {and,count,eq,desc,inArray,isNull,min,max,sql} from "drizzle-orm";
 import {auth} from "./auth";
 import {db} from "./db";
 import {contextFor} from "./context";
@@ -42,11 +42,22 @@ async function actor(req:Request,platform=false):Promise<Actor>{
  return {id:session.user.id,tenantId:ctx.tenantId,role:ctx.role};
 }
 async function snapshot(q:Pick<typeof db,"select">,tenantId:string){
+ // A full restaurant pilot may re-test the same gate hundreds of times.
+ // Limiting the latest 500 *global* rows loses evidence for other gates, and
+ // limiting the latest 50 signatures can hide an older still-current owner
+ // sign-off beneath platform holds. Select ONE latest row per gate/stage using
+ // tenant-scoped indexed max IDs instead. This is safe in db + locked tx.
+ const latestGateIds=q.select({id:max(pilotGateEvent.id)}).from(pilotGateEvent)
+  .where(eq(pilotGateEvent.tenantId,tenantId)).groupBy(pilotGateEvent.gateKey);
+ const latestSignoffIds=q.select({id:max(pilotSignoffEvent.id)}).from(pilotSignoffEvent)
+  .where(eq(pilotSignoffEvent.tenantId,tenantId)).groupBy(pilotSignoffEvent.stage);
  const [rows,signoffs,incidentCounts,incidentCursor]=await Promise.all([
-  q.select().from(pilotGateEvent).where(eq(pilotGateEvent.tenantId,tenantId))
-   .orderBy(desc(pilotGateEvent.id)).limit(500),
-  q.select().from(pilotSignoffEvent).where(eq(pilotSignoffEvent.tenantId,tenantId))
-   .orderBy(desc(pilotSignoffEvent.id)).limit(50),
+  q.select().from(pilotGateEvent).where(and(
+   eq(pilotGateEvent.tenantId,tenantId),inArray(pilotGateEvent.id,latestGateIds)))
+   .orderBy(desc(pilotGateEvent.id)),
+  q.select().from(pilotSignoffEvent).where(and(
+   eq(pilotSignoffEvent.tenantId,tenantId),inArray(pilotSignoffEvent.id,latestSignoffIds)))
+   .orderBy(desc(pilotSignoffEvent.id)),
   q.select({total:count(),
    open:sql<number>`count(*) filter (where ${pilotIncident.status}='open')::integer`,
    blocking:sql<number>`count(*) filter (where ${pilotIncident.status}='open'

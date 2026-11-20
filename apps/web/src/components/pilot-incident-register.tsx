@@ -93,7 +93,7 @@ export function PilotIncidentRegister({locale,scopeKey,isOwner,onChanged}:{
  }
  function updateStatus(next:IncidentStatus|"all"){setStatus(next);setPage(1);setEditing(null);setHistoryId(null);}
  function updateSeverity(next:IncidentSeverity|"all"){setSeverityFilter(next);setPage(1);setEditing(null);setHistoryId(null);}
- return <section className="p33-panel" aria-label={p33(locale,"title")}>
+ return <section id="p33-incident-register" className="p33-panel" aria-label={p33(locale,"title")}>
   <div className="p33-header">
    <div className="p33-header-title">
     <div className="p33-icon"><ShieldAlert size={24} aria-hidden="true"/></div>

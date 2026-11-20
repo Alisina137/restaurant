@@ -72,6 +72,7 @@ jobs:
       - run: pnpm pilot33:verify
       - run: pnpm phase35:verify
       - run: pnpm phase40:verify
+      - run: pnpm pilot41:verify
       - run: pnpm dev:interfaces:verify
       - run: pnpm ops:preflight:verify
       - run: pnpm typecheck
@@ -159,6 +160,7 @@ jobs:
       - run: pnpm --filter @dineflow/api exec tsx src/phase33-ci.ts
       - run: pnpm --filter @dineflow/api exec tsx src/phase35-ci.ts
       - run: pnpm menu:stability:verify
+      - run: pnpm --filter @dineflow/api exec tsx src/phase41-ci.ts
       - name: P31 disposable 20-table 10-worker 200-ticket API rehearsal
         env:
           ALLOW_DISPOSABLE_LOAD_REHEARSAL: "true"
