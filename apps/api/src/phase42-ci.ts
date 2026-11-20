@@ -89,7 +89,8 @@ async function main(){
  assert.equal(current.data.totals.varianceMinor,original.varianceMinor);
  assert.equal(current.data.receipts.missingReceipts,0);
  assert.equal(current.data.receipts.receiptMismatches,0);
- assert.ok(current.data.receipts.receiptCount>0,"Settled original check has immutable receipt");
+ // P09 races a cashier and owner tender: either shift can own the accepted payment.
+ // Neither individual shift is guaranteed to contain that check's receipt.
  const payments=await db.select({method:checkPayment.method,status:checkPayment.status,
   amountMinor:checkPayment.amountMinor})
   .from(checkPayment).where(eq(checkPayment.shiftId,original.id));
@@ -105,6 +106,8 @@ async function main(){
   current.data.totals.cashMinor+current.data.totals.transferMinor-
    current.data.totals.refundedCashMinor-current.data.totals.refundedTransferMinor);
  const supervised=(await see(ownerPath,owner)).data;
+ assert.ok(current.data.receipts.receiptCount+supervised.receipts.receiptCount>0,
+  "The P09 settled check's immutable receipt must be linked to at least one winning tender shift");
  assert.equal(supervised.totals.varianceMinor,supervisor.varianceMinor);
  assert.equal(supervised.externalCashVerified,false);
  assert.ok(supervised.signals.includes("VARIANCE_ABOVE_LIMIT"));
