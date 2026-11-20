@@ -1,0 +1,39 @@
+/* P41 — accountable pilot next-action board. All UI is read-only; no auto-signing. */
+.p41-panel{display:grid;gap:17px;min-width:0;border:1px solid #dae8e0}
+.p41-heading{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.p41-heading>div{min-width:0;flex:1}
+.p41-heading h2{display:flex;align-items:center;gap:9px;font-size:clamp(19px,2vw,23px);
+ color:#183e30;margin:7px 0 4px}
+.p41-heading p{margin:0;color:#627b70;font-size:12px;line-height:1.7}
+.p41-pill{display:flex;align-items:center;gap:8px;max-width:100%;border-radius:999px;
+ border:1px solid #cce8d8;color:#226747;background:#eaf8ef;padding:9px 13px;
+ font-size:12px;font-weight:750;line-height:1.6}
+.p41-pill-warn{border-color:#ecd5ab;background:#fff7e8;color:#86590b}
+.p41-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.p41-stat{display:grid;gap:5px;min-width:0;padding:13px 15px;border-radius:13px;
+ background:#f7fbf8;border:1px solid #e0ece4}
+.p41-stat span{font-size:12px;color:#657f70;font-weight:750}
+.p41-stat strong{font-size:clamp(19px,2.2vw,26px);color:#1a4a36}
+.p41-signatures{display:flex;gap:10px;flex-wrap:wrap}
+.p41-signatures span{border:1px solid #deebe3;border-radius:11px;padding:9px 12px;
+ color:#526b5d;font-size:12px;background:#fff}
+.p41-signatures strong{font-weight:800;color:#285a42}
+.p41-steps{padding-inline-start:0;list-style:none;display:grid;gap:9px;margin:0}
+.p41-action{display:flex;align-items:flex-start;gap:10px;padding:13px 14px;
+ border:1px solid #ebd9bd;border-radius:12px;background:#fffaf2;
+ font-size:13px;line-height:1.7;color:#73542d}
+.p41-action>svg{flex:none;margin-top:2px;color:#a97620}
+.p41-action>div{flex:1;min-width:0;overflow-wrap:anywhere}
+.p41-action-external{background:#f7f9fc;border-color:#dee4ea;color:#53677b}
+.p41-action-external>svg{color:#637b96}
+.p41-open{display:inline-flex;margin-inline-start:8px;border:1px solid #bddec9;
+ border-radius:8px;padding:6px 10px;min-height:38px;background:#fff;
+ font:inherit;color:#1d6544;cursor:pointer;align-items:center}
+.p41-open:focus-visible{outline:3px solid #187753;outline-offset:2px}
+.p41-disclaimer{border-top:1px solid #e5eee8;padding-top:12px;margin:0;
+ font-size:12px;line-height:1.8;color:#765a2e;font-weight:700}
+@media(max-width:950px){.p41-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:510px){.p41-heading{gap:10px}.p41-pill{border-radius:12px}
+ .p41-action{padding:10px 12px}.p41-stat{padding:11px}.p41-open{margin-inline-start:0;display:flex;margin-top:7px}}
+@media(prefers-reduced-motion:reduce){.p41-panel *{transition:none!important}}
+@media print{.p41-open{display:none}.p41-panel{break-inside:avoid}}
