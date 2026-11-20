@@ -1,0 +1,44 @@
+/* Phase 41 — actionable, read-only pilot follow-up matrix; never implies GO. */
+.p41-panel{display:grid;gap:16px;min-width:0;border:1px solid #d2e2da;border-radius:18px;
+ background:linear-gradient(130deg,#fff,#f8fcf9);padding:clamp(15px,2vw,24px)}
+.p41-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.p41-heading>div{flex:1;min-width:0}
+.p41-heading h2{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:clamp(18px,2vw,23px);
+ font-weight:900;color:#194d36;line-height:1.4}
+.p41-heading h2 svg{flex:none;color:#2a8662}
+.p41-heading p{margin:0;font-size:13px;line-height:1.7;color:#5b7468;max-width:670px}
+.p41-pill{display:inline-flex;align-items:center;gap:7px;max-width:100%;padding:9px 12px;
+ background:#eef8f2;color:#266644;border-radius:12px;font-size:11px;font-weight:850;border:1px solid #cce7d7}
+.p41-pill svg{flex:none}
+.p41-pill-blocked{border-color:#f1d5a7;background:#fff5e8;color:#915b19}
+.p41-action-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.p41-action{display:flex;align-items:center;gap:12px;min-width:0;border:1px solid #dfece3;
+ border-radius:13px;background:#fff;padding:12px 14px}
+.p41-action-critical{background:#fffaf6;border-color:#efd6b3}
+.p41-number{display:grid;place-items:center;min-width:32px;height:32px;
+ border-radius:10px;background:#eef7f1;color:#236547;font-size:12px;font-weight:900}
+.p41-action-critical .p41-number{color:#966024;background:#ffefd8}
+.p41-item-copy{display:grid;gap:3px;flex:1;min-width:0}
+.p41-item-copy strong{color:#204d38;font-size:13px;line-height:1.5}
+.p41-item-copy span{color:#61786b;font-size:12px;overflow-wrap:anywhere;line-height:1.5}
+.p41-action-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;
+ min-height:44px;padding:8px 12px;border:1px solid #a3cbb2;border-radius:10px;color:#1c6946;
+ font-size:12px;font-weight:850;background:#eff8f2;cursor:pointer;text-decoration:none;flex-shrink:0}
+.p41-action-button:hover{background:#e2f2e8}
+.p41-action-button:focus-visible{outline:3px solid #3289ad;outline-offset:3px}
+.p41-readonly{font-size:11px;color:#846c49;line-height:1.5;max-width:135px}
+.p41-limits{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;
+ background:#f6f8f7;border:1px solid #e1e7e3;border-radius:11px;color:#5d7567}
+.p41-limits svg{flex:none;color:#986a2b;margin-top:2px}
+.p41-limits p{margin:0;line-height:1.65;font-size:12px}
+#p33-incident-register,#p14-gates,#p14-gate-form,#p14-signoff,.p14-gate[id]{scroll-margin-top:28px}
+@media(max-width:680px){
+ .p41-action{flex-wrap:wrap;align-items:flex-start}
+ .p41-item-copy{flex-basis:calc(100% - 50px)}
+ .p41-action-button{margin-inline-start:44px;flex:1}
+ .p41-readonly{max-width:none}
+}
+@media print{
+ .p41-action-button{display:none!important}
+ .p41-panel,.p41-action{break-inside:avoid;box-shadow:none!important}
+}
