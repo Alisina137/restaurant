@@ -15,11 +15,19 @@ async function req(path:string,cookie?:string,body?:unknown){
  body:body?JSON.stringify(body):undefined});
 }
 async function login(email:string){
- const r=await fetch(api+"/api/auth/sign-in/email",{method:"POST",
- headers:{"Content-Type":"application/json",Origin:"http://localhost:3000"},
- body:JSON.stringify({email,password:process.env.DEMO_PASSWORD})});
- assert.equal(r.status,200);
- return r.headers.getSetCookie().map(x=>x.split(";")[0]).join("; ");
+ for(let attempt=0;attempt<7;attempt++){
+  const r=await fetch(api+"/api/auth/sign-in/email",{method:"POST",
+   headers:{"Content-Type":"application/json",Origin:"http://localhost:3000"},
+   body:JSON.stringify({email,password:process.env.DEMO_PASSWORD})});
+  if(r.status===429){
+   // Previous disposable phase suites use the same fixture credentials.
+   await new Promise(resolve=>setTimeout(resolve,11000));
+   continue;
+  }
+  assert.equal(r.status,200,"P41 fixture login "+email);
+  return r.headers.getSetCookie().map(x=>x.split(";")[0]).join("; ");
+ }
+ throw Error("P41 fixture sign-in remains rate limited.");
 }
 type Pilot={tenantId:string;complete:boolean;completed:number;status:string;fingerprint:string;
  gates:{key:string;review:{id:number}|null}[];
